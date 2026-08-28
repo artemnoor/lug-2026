@@ -1,0 +1,68 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ЛУГ 2026 API",
+    "version": "1.0.0",
+    "description": "Контракт REST API конкурса «Лучшая учебная группа». Административные и пользовательские мутации требуют сессионную авторизацию и CSRF-токен."
+  },
+  "servers": [{ "url": "/" }],
+  "tags": [
+    { "name": "Public", "description": "Публичная конфигурация, приглашения и результаты" },
+    { "name": "Auth", "description": "Вход, выход и регистрация" },
+    { "name": "Participant", "description": "Личный кабинет участника" },
+    { "name": "Admin", "description": "Панель оргкомитета" },
+    { "name": "Operations", "description": "Health/readiness и метрики" }
+  ],
+  "paths": {
+    "/api/config": { "get": { "tags": ["Public"], "summary": "Получить настройки конкурса", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/results": { "get": { "tags": ["Public"], "summary": "Получить опубликованные результаты", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/session": { "get": { "tags": ["Auth"], "summary": "Получить текущую сессию", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/auth/login": { "post": { "tags": ["Auth"], "summary": "Войти по электронной почте и паролю", "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" }, "401": { "$ref": "#/components/responses/Error" }, "429": { "$ref": "#/components/responses/Error" } } } },
+    "/api/auth/logout": { "post": { "tags": ["Auth"], "summary": "Завершить сессию", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/auth/register-team": { "post": { "tags": ["Auth"], "summary": "Создать заявку команды и отправить код на почту", "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "202": { "$ref": "#/components/responses/Json" }, "422": { "$ref": "#/components/responses/Error" } } } },
+    "/api/auth/join-team": { "post": { "tags": ["Auth"], "summary": "Создать заявку участника и отправить код на почту", "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "202": { "$ref": "#/components/responses/Json" }, "422": { "$ref": "#/components/responses/Error" } } } },
+    "/api/auth/verify-email": { "post": { "tags": ["Auth"], "summary": "Подтвердить адрес электронной почты кодом", "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "201": { "$ref": "#/components/responses/Json" }, "422": { "$ref": "#/components/responses/Error" } } } },
+    "/api/auth/resend-email-code": { "post": { "tags": ["Auth"], "summary": "Повторно отправить код подтверждения", "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" }, "429": { "$ref": "#/components/responses/Error" } } } },
+    "/api/invites/{code}": { "get": { "tags": ["Public"], "summary": "Проверить приглашение", "parameters": [{ "$ref": "#/components/parameters/Code" }], "responses": { "200": { "$ref": "#/components/responses/Json" }, "404": { "$ref": "#/components/responses/Error" } } } },
+    "/api/dashboard": { "get": { "tags": ["Participant"], "summary": "Получить данные личного кабинета", "security": [{ "sessionCookie": [] }], "responses": { "200": { "$ref": "#/components/responses/Json" }, "401": { "$ref": "#/components/responses/Error" } } } },
+    "/api/me": { "patch": { "tags": ["Participant"], "summary": "Обновить профиль", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" }, "422": { "$ref": "#/components/responses/Error" } } } },
+    "/api/uploads": { "post": { "tags": ["Participant"], "summary": "Загрузить подтверждающий файл", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "201": { "$ref": "#/components/responses/Json" } } } },
+    "/api/achievements": { "post": { "tags": ["Participant"], "summary": "Добавить достижение", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "201": { "$ref": "#/components/responses/Json" } } } },
+    "/api/achievements/{id}": { "delete": { "tags": ["Participant"], "summary": "Удалить достижение", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/Id" }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/team": { "patch": { "tags": ["Participant"], "summary": "Обновить карточку команды", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/team/invite": { "post": { "tags": ["Participant"], "summary": "Перевыпустить приглашение", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/team/video": { "patch": { "tags": ["Participant"], "summary": "Отправить видео-визитку", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/notifications": { "get": { "tags": ["Participant"], "summary": "Получить уведомления", "security": [{ "sessionCookie": [] }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/notifications/{id}/read": { "patch": { "tags": ["Participant"], "summary": "Отметить уведомление прочитанным", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/Id" }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/overview": { "get": { "tags": ["Admin"], "summary": "Получить обзор оргкомитета", "security": [{ "sessionCookie": [] }], "responses": { "200": { "$ref": "#/components/responses/Json" }, "403": { "$ref": "#/components/responses/Error" } } } },
+    "/api/admin/audit": { "get": { "tags": ["Admin"], "summary": "Получить журнал аудита", "security": [{ "sessionCookie": [] }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/teams/{teamId}/quota": { "patch": { "tags": ["Admin"], "summary": "Подтвердить квоту команды", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/TeamId" }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/teams/{teamId}/review": { "patch": { "tags": ["Admin"], "summary": "Проверить поле команды", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/TeamId" }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/teams/{teamId}/members/{userId}": { "delete": { "tags": ["Admin"], "summary": "Удалить участника", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/TeamId" }, { "$ref": "#/components/parameters/UserId" }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/users/{userId}/identity": { "patch": { "tags": ["Admin"], "summary": "Проверить личность участника", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/UserId" }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/achievements/{id}/review": { "patch": { "tags": ["Admin"], "summary": "Проверить достижение", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/Id" }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/videos/{teamId}/review": { "patch": { "tags": ["Admin"], "summary": "Проверить видео-визитку", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "parameters": [{ "$ref": "#/components/parameters/TeamId" }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/settings": { "patch": { "tags": ["Admin"], "summary": "Обновить настройки конкурса", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/api/admin/notifications/broadcast": { "post": { "tags": ["Admin"], "summary": "Отправить уведомление", "security": [{ "sessionCookie": [], "csrfHeader": [] }], "requestBody": { "$ref": "#/components/requestBodies/Json" }, "responses": { "201": { "$ref": "#/components/responses/Json" } } } },
+    "/healthz": { "get": { "tags": ["Operations"], "summary": "Проверка процесса web/API", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/readyz": { "get": { "tags": ["Operations"], "summary": "Проверка готовности API", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
+    "/metrics": { "get": { "tags": ["Operations"], "summary": "Метрики Prometheus", "responses": { "200": { "content": { "text/plain": { "schema": { "type": "string" } } } } } } }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": { "type": "apiKey", "in": "cookie", "name": "lug_session" },
+      "csrfHeader": { "type": "apiKey", "in": "header", "name": "X-CSRF-Token" }
+    },
+    "parameters": {
+      "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+      "Code": { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+      "TeamId": { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } },
+      "UserId": { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+    },
+    "requestBodies": { "Json": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } },
+    "responses": {
+      "Json": { "description": "JSON response", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+      "Error": { "description": "Error response", "content": { "application/json": { "schema": { "type": "object", "required": ["error"], "properties": { "error": { "type": "string" } } } } } }
+    }
+  }
+}

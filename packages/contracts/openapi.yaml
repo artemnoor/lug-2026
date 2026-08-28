@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: ЛУГ 2026 API
+  version: 1.0.0
+  description: REST API конкурса «Лучшая учебная группа».
+servers:
+  - url: /
+paths:
+  /api/config:
+    get:
+      summary: Получить настройки конкурса
+  /api/results:
+    get:
+      summary: Получить опубликованные результаты
+  /api/session:
+    get:
+      summary: Получить текущую сессию
+  /api/auth/login:
+    post:
+      summary: Войти по электронной почте и паролю
+  /api/auth/logout:
+    post:
+      summary: Завершить сессию
+  /api/auth/register-team:
+    post:
+      summary: Создать заявку команды и отправить код на почту
+  /api/auth/join-team:
+    post:
+      summary: Создать заявку участника и отправить код на почту
+  /api/auth/verify-email:
+    post:
+      summary: Подтвердить адрес электронной почты кодом
+  /api/auth/resend-email-code:
+    post:
+      summary: Повторно отправить код подтверждения
+  /api/dashboard:
+    get:
+      summary: Получить данные личного кабинета
+  /api/admin/overview:
+    get:
+      summary: Получить обзор оргкомитета
+  /api/admin/audit:
+    get:
+      summary: Получить журнал аудита
+  /healthz:
+    get:
+      summary: Проверка процесса
+  /readyz:
+    get:
+      summary: Проверка готовности API
+  /metrics:
+    get:
+      summary: Метрики Prometheus

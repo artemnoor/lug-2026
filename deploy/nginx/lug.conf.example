@@ -1,0 +1,84 @@
+# Place this file in /etc/nginx/conf.d/lug.conf after replacing the domain,
+# certificate paths and monitoring CIDR. The Node gateway remains the only
+# application-facing upstream so it can issue the CSRF cookie and enforce its
+# static/proxy allowlists.
+
+upstream lug_web {
+    server 127.0.0.1:4173;
+    keepalive 32;
+}
+
+limit_req_zone $binary_remote_addr zone=lug_auth:10m rate=10r/m;
+limit_conn_zone $binary_remote_addr zone=lug_connections:10m;
+
+server {
+    listen 80;
+    server_name lug.example.ru;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name lug.example.ru;
+
+    ssl_certificate /etc/letsencrypt/live/lug.example.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/lug.example.ru/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 76m;
+    client_header_timeout 10s;
+    client_body_timeout 60s;
+    send_timeout 60s;
+    keepalive_timeout 15s;
+    limit_conn lug_connections 30;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 75s;
+    proxy_send_timeout 75s;
+    proxy_request_buffering on;
+    proxy_buffering on;
+
+    # Keep liveness public if the load balancer needs it.
+    location = /healthz {
+        proxy_pass http://lug_web;
+    }
+
+    # Replace 10.20.0.0/16 with the actual monitoring network. Do not expose
+    # metrics or readiness publicly: the gateway injects its internal token.
+    location = /metrics {
+        allow 127.0.0.1;
+        allow 10.20.0.0/16;
+        deny all;
+        proxy_pass http://lug_web;
+    }
+
+    location = /readyz {
+        allow 127.0.0.1;
+        allow 10.20.0.0/16;
+        deny all;
+        proxy_pass http://lug_web;
+    }
+
+    # Defense-in-depth for login, registration and join flows. The API keeps
+    # its own limits as the authoritative control.
+    location ^~ /api/auth/ {
+        limit_req zone=lug_auth burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://lug_web;
+    }
+
+    # Includes /api/*, /uploads/* and all static pages. Do not point this at
+    # FastAPI directly: that would bypass the Node gateway's CSRF cookie and
+    # request handling.
+    location / {
+        proxy_pass http://lug_web;
+    }
+}

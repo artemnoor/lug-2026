@@ -1,0 +1,75 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      LUG_ROOT: /app
+      LUG_DATA_DIR: /var/lib/lug/data
+      LUG_UPLOAD_DIR: /var/lib/lug/uploads
+      LUG_UPLOAD_TMP_DIR: /var/lib/lug/upload-tmp
+      LUG_DATABASE_URL: ${LUG_DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "80:4173"
+    volumes:
+      - app_data:/var/lib/lug/data
+      - app_upload_tmp:/var/lib/lug/upload-tmp
+      - app_uploads:/var/lib/lug/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clamav:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4173/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lug
+      POSTGRES_USER: lug
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lug -d lug"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+
+volumes:
+  app_data:
+  app_upload_tmp:
+  app_uploads:
+  postgres_data:
+  redis_data:
+  clamav_data:

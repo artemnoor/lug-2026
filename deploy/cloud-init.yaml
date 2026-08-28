@@ -1,0 +1,10 @@
+#cloud-config
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+
+runcmd:
+  - [bash, -lc, "curl -fsSL https://get.docker.com | sh"]
+  - [bash, -lc, "systemctl enable --now docker"]
+  - [bash, -lc, "usermod -aG docker yc-user || true"]

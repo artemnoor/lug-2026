@@ -1,0 +1,22 @@
+{
+  "name": "bmstu-lug-2026",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Конкурс «Лучшая учебная группа» — локальный сервер и веб-клиент",
+  "scripts": {
+    "start": "node server.js",
+    "start:local-mailpit": "powershell -ExecutionPolicy Bypass -File scripts/start-local-mailpit.ps1",
+    "api": "python -B -m uvicorn app.main:app --app-dir apps/api --host 127.0.0.1 --port 4174",
+    "web": "node apps/web/server.js",
+    "test:smoke": "node tests/smoke.mjs",
+    "test:smtp-local": "node tests/smtp-local.mjs",
+    "backup": "python scripts/backup-json.py backup",
+    "restore:json": "python scripts/backup-json.py restore",
+    "check": "node --check server.js && node --check apps/web/src/config.js && node --check apps/web/src/http.js && node --check apps/web/src/observability.js && node --check apps/web/src/server.js && node --check apps/web/src/static.js && node --check apps/web/public/js/store.js && node --check apps/web/public/js/auth.js && node --check apps/web/public/js/cabinet.js && node --check apps/web/public/js/onboarding.js && node --check apps/web/public/js/site-shell.js && node --check apps/web/public/js/admin.js && node --check apps/web/public/js/about-orbit.js && node --check apps/web/public/js/timer.js && node --check apps/web/public/js/scroll-reset.js && node --check apps/web/public/js/demo-login.js && python -B -c \"import ast,pathlib; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('apps/api/app').rglob('*.py')]; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('scripts').glob('*.py')]\" && npm run quality",
+    "quality": "node scripts/check-quality.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,12 @@
+.env
+.env.*
+data/
+uploads/
+node_modules/
+output/
+graphify-out/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.zip
+.git/
