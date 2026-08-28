@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 
 import asyncpg
-
 from app.config import default_settings
-from app.infrastructure.postgres import PostgresStore, SCHEMA
+from app.infrastructure.postgres import SCHEMA, PostgresStore
 from app.infrastructure.store import normalize_db
 
 
