@@ -214,7 +214,7 @@
       const [stageTitle, stageDescription, stagePosition] = reviewStage(item);
       const comment = item.reviewComment || item.rejectionReason || item.comment || item.review?.comment || '';
       if (approved) return `<p class="cabinet-materials__message cabinet-materials__message--approved"><strong>Материал согласован.</strong>${item.points !== null && item.points !== undefined ? ` Начислено: ${esc(item.points)} б.` : ''}</p>${renderProgress('', '', 4, true, 'is-approved')}`;
-      if (rejected) return `<p class="cabinet-materials__message cabinet-materials__message--attention"><span>Комментарий оргкомитета</span>${esc(comment || 'Причина пока не добавлена. Напишите организаторам, чтобы уточнить решение.')}${comment ? '' : ' <a href="https://t.me/studsovet_bmstu" target="_blank" rel="noopener">Написать организаторам</a>'}</p><p class="cabinet-materials__rejection-stage"><strong>Отклонено на этапе:</strong> ${stageTitle}</p>${renderProgress(stageTitle, stageDescription, stagePosition, false, 'is-rejected')}`;
+      if (rejected) return `<p class="cabinet-materials__message cabinet-materials__message--attention"><span>Комментарий оргкомитета</span>${esc(comment || 'Причина пока не добавлена. Напишите организаторам, чтобы уточнить решение.')}</p><p class="cabinet-materials__rejection-stage"><strong>Отклонено на этапе:</strong> ${stageTitle}</p>${renderProgress(stageTitle, stageDescription, stagePosition, false, 'is-rejected')}`;
       return renderProgress(stageTitle, stageDescription, stagePosition, false, 'is-pending');
     };
     const statusMeta = (item) => item.status === 'approved' ? ['Принято', 'is-approved'] : item.status === 'rejected' ? ['Отклонено', 'is-rejected'] : ['На проверке', 'is-pending'];

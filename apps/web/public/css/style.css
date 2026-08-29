@@ -4505,6 +4505,14 @@ body.public-page .stage-hero.home-reveal:not(.is-revealed) {
   letter-spacing: -.025em;
 }
 
+.stage-reg .footer-socials-note {
+  max-width: 28ch;
+  margin: 0;
+  color: rgba(255, 255, 255, .62);
+  font-size: clamp(13px, 1vw, 16px);
+  line-height: 1.45;
+}
+
 .stage-reg .footer-socials-list {
   display: flex;
   align-items: center;
