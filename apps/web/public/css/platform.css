@@ -1190,25 +1190,36 @@ body.is-auth-dialog-open { inset: 0; position: fixed; width: 100%; }
 
 /* Keep the auth overlay a real viewport layer even while mobile browsers
  * recalculate their visual viewport or finish loading the public shell. */
+.site-auth-dialog:not([open]) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 .site-auth-dialog {
   background: rgba(7, 18, 62, .58) !important;
   border: 0 !important;
   box-sizing: border-box;
+  contain: paint;
   height: 100vh;
   height: 100dvh;
   inset: 0;
+  isolation: isolate;
   margin: 0;
   max-height: none;
   max-width: none;
   overflow: hidden;
   padding: 20px;
   position: fixed;
+  transform: translateZ(0);
   width: 100vw;
+  z-index: 2147483647;
 }
 
 .site-auth-dialog[open] {
   display: grid !important;
   place-items: center;
+  visibility: visible !important;
 }
 
 .site-auth-dialog::backdrop {
@@ -1218,11 +1229,35 @@ body.is-auth-dialog-open { inset: 0; position: fixed; width: 100%; }
 }
 
 .site-auth-dialog__card {
+  background-color: #dceeff !important;
   box-sizing: border-box;
   max-height: calc(100vh - 40px);
   max-height: calc(100dvh - 40px);
   overflow: auto;
+  position: relative;
+  z-index: 1;
   width: min(100%, 680px);
+}
+
+/* Do not rely on the native dialog backdrop alone: some Android browsers
+ * paint transformed hero layers above it and keep the document scrollable. */
+html.is-auth-dialog-open,
+body.is-auth-dialog-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+body.is-auth-dialog-open {
+  inset: auto !important;
+  position: static !important;
+  top: auto !important;
+  touch-action: none;
+  width: auto !important;
+}
+
+body.is-auth-dialog-open > :not(.site-auth-dialog) {
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 @media (max-width: 560px) {

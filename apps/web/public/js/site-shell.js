@@ -498,7 +498,7 @@
     let lastFocusedElement = null;
     const lockPage = () => {
       pageScrollY = window.scrollY;
-      document.body.style.top = `-${pageScrollY}px`;
+      document.body.style.top = '';
       document.documentElement.classList.add('is-auth-dialog-open');
       document.body.classList.add('is-auth-dialog-open');
     };
@@ -827,6 +827,7 @@
 
     const closeAuth = () => { if (authDialog.open) authDialog.close(); };
     authDialog.querySelector('.site-auth-dialog__close').addEventListener('click', closeAuth);
+    authDialog.addEventListener('cancel', event => { event.preventDefault(); closeAuth(); });
     authDialog.addEventListener('click', event => { if (event.target === authDialog) closeAuth(); });
     authDialog.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => openAuth(button.dataset.authMode)));
     authDialog.querySelectorAll('[data-register-mode]').forEach(button => button.addEventListener('click', () => setRegistrationMode(button.dataset.registerMode)));
@@ -844,6 +845,14 @@
       setAuthMode('choice'); authDialog.classList.remove('is-intro-login', 'is-intro-complete'); authDialog.querySelector('.site-auth-dialog__intro')?.style.removeProperty('--auth-intro-travel'); unlockPage();
       if (lastFocusedElement && document.contains(lastFocusedElement)) lastFocusedElement.focus();
       lastFocusedElement = null;
+    });
+
+    window.addEventListener('pagehide', () => { if (authDialog.open) authDialog.close(); });
+    window.addEventListener('pageshow', event => {
+      if (!event.persisted) return;
+      if (authDialog.open) authDialog.close();
+      else { stopIntroGeometryTracking(); unlockPage(); }
+      document.documentElement.classList.remove('auth-entry-pending');
     });
 
     accountLink.addEventListener('click', event => {

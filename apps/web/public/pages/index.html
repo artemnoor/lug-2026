@@ -14,10 +14,11 @@
 <meta property="og:description" content="Конкурс лучших учебных групп МГТУ им. Н. Э. Баумана." />
 <meta property="og:url" content="http://51.250.102.106/" />
 <meta property="og:image" content="http://51.250.102.106/favicon.svg?v=20260829-lug-03" />
+<link rel="preload" as="image" href="assets/public-illustration.webp?v=20260829-public-03" fetchpriority="low" />
 <script src="js/scroll-reset.js?v=20260829-auth-01"></script>
 <title>Лучшая учебная группа | МГТУ им. Н.Э. Баумана</title>
-<link rel="stylesheet" href="css/style.css?v=20260829-public-shift-03">
-    <link rel="stylesheet" href="css/platform.css?v=20260829-auth-11">
+<link rel="stylesheet" href="css/style.css?v=20260829-assets-01">
+    <link rel="stylesheet" href="css/platform.css?v=20260829-auth-13">
     <link rel="icon" href="/favicon.svg?v=20260829-lug-03" type="image/svg+xml" sizes="any">
     <link rel="shortcut icon" href="/favicon.svg?v=20260829-lug-03" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/favicon.svg?v=20260829-lug-03">
@@ -35,19 +36,29 @@
         background: rgba(7, 18, 62, .58);
         border: 0;
         box-sizing: border-box;
+        contain: paint;
         height: 100vh;
         inset: 0;
+        isolation: isolate;
         margin: 0;
         max-height: none;
         max-width: none;
         padding: 14px;
         position: fixed;
+        transform: translateZ(0);
         width: 100vw;
+        z-index: 2147483647;
       }
 
       dialog.site-auth-dialog[open] {
         display: grid;
         place-items: center;
+      }
+
+      dialog.site-auth-dialog:not([open]) {
+        display: none;
+        pointer-events: none;
+        visibility: hidden;
       }
 
       dialog.site-auth-dialog::backdrop {
@@ -61,6 +72,11 @@
         max-height: calc(100vh - 28px);
         overflow: auto;
         width: min(100%, 680px);
+      }
+
+      body.is-auth-dialog-open > :not(.site-auth-dialog) {
+        pointer-events: none;
+        visibility: hidden;
       }
 
       @media (max-width: 560px) {
@@ -104,20 +120,20 @@
   <section class="stage stage-hero" id="main-content" aria-label="Лучшая учебная группа">
     <div class="hero-sky-light" aria-hidden="true"></div>
     <div class="hero-clouds" aria-hidden="true">
-      <img class="hero-cloud hero-cloud--one" src="assets/hero/cloud-real-01.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--two" src="assets/hero/cloud-real-02.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--three" src="assets/hero/cloud-real-03.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--four" src="assets/hero/cloud-real-04.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--five" src="assets/hero/cloud-real-05.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--six" src="assets/hero/cloud-real-06.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--seven" src="assets/hero/cloud-real-01.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--eight" src="assets/hero/cloud-real-02.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--nine" src="assets/hero/cloud-real-03.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--ten" src="assets/hero/cloud-real-04.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--eleven" src="assets/hero/cloud-real-05.webp" alt="" decoding="async">
-      <img class="hero-cloud hero-cloud--twelve" src="assets/hero/cloud-real-06.webp" alt="" decoding="async">
-      <img class="hero-cloud-static hero-cloud-static--right" src="assets/hero/cloud-real-07.webp" alt="" decoding="async">
-      <img class="hero-cloud-streaks" src="assets/hero/cloud-real-08.webp" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--one" src="assets/hero/cloud-real-01.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--two" src="assets/hero/cloud-real-02.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--three" src="assets/hero/cloud-real-03.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--four" src="assets/hero/cloud-real-04.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--five" src="assets/hero/cloud-real-05.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--six" src="assets/hero/cloud-real-06.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--seven" src="assets/hero/cloud-real-01.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--eight" src="assets/hero/cloud-real-02.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--nine" src="assets/hero/cloud-real-03.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--ten" src="assets/hero/cloud-real-04.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--eleven" src="assets/hero/cloud-real-05.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud hero-cloud--twelve" src="assets/hero/cloud-real-06.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud-static hero-cloud-static--right" src="assets/hero/cloud-real-07.webp?v=20260829-assets-01" alt="" decoding="async">
+      <img class="hero-cloud-streaks" src="assets/hero/cloud-real-08.webp?v=20260829-assets-01" alt="" decoding="async">
     </div>
     <div class="hero-building" aria-hidden="true"></div>
     <div class="hero-image-shade" aria-hidden="true"></div>
@@ -478,7 +494,7 @@
             <circle cx="286" cy="268" r="36" fill="#fff" stroke="#111" stroke-width="2.4" filter="url(#softShadow)"/>
             <circle cx="286" cy="268" r="21" fill="#111"/>
           </svg>
-          <img class="orbit-illustration public-illustration" data-illustration="public" src="assets/public-illustration.webp?v=20260829-public-02" width="1254" height="1254" alt="Иллюстрация общественной деятельности" decoding="async" loading="lazy" style="display:none">
+          <img class="orbit-illustration public-illustration" data-illustration="public" src="assets/public-illustration.webp?v=20260829-public-03" width="1000" height="1000" alt="Иллюстрация общественной деятельности" decoding="async" loading="lazy" style="display:none">
           <svg class="orbit-illustration" id="publicActivityIllustrationSvg" data-illustration="public-legacy" viewBox="60 305 1005 735" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" aria-hidden="true" style="display:none">
             <defs>
               <pattern id="eduGrid" width="21.35" height="24" patternUnits="userSpaceOnUse" patternTransform="translate(96 340)">
@@ -1197,7 +1213,7 @@
   <script src="js/timeline.js?v=20260826-01" defer></script>
   <script src="js/main.js?v=20260826-02" defer></script>
   <script src="js/store.js?v=20260828-01"></script>
-  <script src="js/site-shell.js?v=20260829-auth-09"></script>
+  <script src="js/site-shell.js?v=20260829-auth-10"></script>
   <script src="js/demo-login.js?v=20260828-01"></script>
 </body>
 </html>
