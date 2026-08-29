@@ -51,62 +51,6 @@ async def dashboard(request: Request):
     return json_response(domain.dashboard(state, user), request=request)
 
 
-@router.patch("/me")
-async def update_profile(request: Request):
-    context, state, user = await _auth_state(request)
-    payload = await read_json(request, context.config.max_json_body)
-    next_user = deepcopy(user)
-    field_limits = {
-        "fio": 200,
-        "phone": 32,
-        "messenger": 32,
-        "messengerContact": 128,
-        "telegramAccount": 128,
-    }
-    if "email" in payload and domain.normalize_email(payload.get("email")) != domain.normalize_email(user.get("email")):
-        raise ApiError(422, "Почту нельзя изменить без повторного подтверждения.")
-    for key in (
-        "fio",
-        "phone",
-        "messenger",
-        "messengerContact",
-        "telegramAccount",
-    ):
-        if isinstance(payload.get(key), str):
-            if len(payload[key]) > field_limits[key]:
-                raise ApiError(422, "Одно из полей профиля слишком длинное.")
-            next_user[key] = payload[key].strip()
-    contacts = domain.normalize_messenger_contacts({**user, **payload})
-    if (
-        not next_user.get("fio")
-        or (next_user.get("phone") and not domain.valid_phone(next_user.get("phone")))
-        or not domain.validate_messenger_contacts(contacts)
-    ):
-        raise ApiError(422, "Укажите имя и хотя бы один корректный контакт.")
-    if next_user.get("phone"):
-        next_user["phone"] = domain.normal_phone(next_user["phone"])
-    if any(
-        entry.get("id") != user.get("id")
-        and next_user.get("phone")
-        and domain.normal_phone(entry.get("phone")) == next_user["phone"]
-        for entry in state["users"]
-    ):
-        raise ApiError(409, "Этот телефон уже используется.")
-    next_user["messengerContacts"] = contacts
-    first_key, first_value = next(iter(contacts.items()))
-    next_user.update(
-        {
-            "messenger": first_key,
-            "messengerContact": first_value,
-            "telegramAccount": contacts.get("telegram", ""),
-        }
-    )
-    user.update(next_user)
-    domain.audit(state, user["id"], "profile.updated", "user", user["id"])
-    await context.store.save(state)
-    return json_response({"user": domain.public_user(user)}, request=request)
-
-
 @router.post("/uploads")
 async def upload(request: Request):
     context, state, user = await _auth_state(request)

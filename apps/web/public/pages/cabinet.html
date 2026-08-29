@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/platform.css?v=20260824-21">
-<link rel="stylesheet" href="css/cabinet.css?v=20260829-27">
+  <link rel="stylesheet" href="css/cabinet.css?v=20260829-31">
   <link rel="stylesheet" href="css/onboarding.css?v=20260821-05">
 </head>
 <body class="cabinet-page">
@@ -86,6 +86,10 @@
           </svg>
           <span id="bellBadge" class="cabinet-bell__badge" hidden>0</span>
         </button>
+
+        <button class="cabinet-mobile-nav-toggle cabinet-mobile-nav-toggle--header" type="button" id="cabinetMobileNavToggle" aria-expanded="false" aria-controls="cabinetMobileNavPanel" aria-label="Открыть разделы кабинета">
+          <span class="cabinet-mobile-nav-toggle__icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
       </nav>
     </div>
   </header>
@@ -94,43 +98,53 @@
 
     <div class="cabinet-workspace">
       <aside class="cabinet-sidebar" aria-label="Навигация личного кабинета">
-        <div class="cabinet-nav-tabs" role="tablist" aria-label="Разделы кабинета">
-          <section class="cabinet-nav-section" aria-labelledby="nav-participation-label">
-            <p class="cabinet-nav-section__label" id="nav-participation-label">Заявка</p>
-            <div class="cabinet-nav-group" role="group" aria-label="Разделы заявки">
-              <button class="cabinet-nav is-active" type="button" role="tab" aria-selected="true" aria-controls="overview-panel" id="overview-tab" data-view="overview">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Обзор</span></span>
-              </button>
-              <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="portfolio-panel" id="portfolio-tab" data-view="portfolio">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h6l2 3h10v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Z"></path><path d="M3 10h18"></path></svg><span>Портфолио</span></span>
-              </button>
-              <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="team-panel" id="teamNavigation" data-view="team">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"></path><path d="M16 5.5a3 3 0 0 1 0 5"></path><path d="M18 13a4.5 4.5 0 0 1 3 4.25V20"></path></svg><span>Команда</span></span>
-              </button>
-              <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="video-panel" id="video-tab" data-view="video">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="m10 9 5 3-5 3V9Z"></path></svg><span>Видео-визитка</span></span>
-              </button>
-            </div>
-          </section>
+        <button class="cabinet-mobile-nav-toggle cabinet-mobile-nav-toggle--sidebar" type="button" id="cabinetTabletNavToggle" aria-expanded="false" aria-controls="cabinetMobileNavPanel">
+          <span class="cabinet-mobile-nav-toggle__label"><span class="cabinet-mobile-nav-toggle__kicker">Раздел кабинета</span><strong id="cabinetMobileNavCurrent">Обзор</strong></span>
+          <span class="cabinet-mobile-nav-toggle__icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <div class="cabinet-mobile-nav-panel" id="cabinetMobileNavPanel">
+          <div class="cabinet-nav-tabs" role="tablist" aria-label="Разделы кабинета">
+            <section class="cabinet-nav-section" aria-labelledby="nav-participation-label">
+              <p class="cabinet-nav-section__label" id="nav-participation-label">Заявка</p>
+              <div class="cabinet-nav-group" role="group" aria-label="Разделы заявки">
+                <button class="cabinet-nav is-active" type="button" role="tab" aria-selected="true" aria-controls="overview-panel" id="overview-tab" data-view="overview">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Обзор</span></span>
+                </button>
+                <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="portfolio-panel" id="portfolio-tab" data-view="portfolio">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h6l2 3h10v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Z"></path><path d="M3 10h18"></path></svg><span>Портфолио</span></span>
+                </button>
+                <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="team-panel" id="teamNavigation" data-view="team">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"></path><path d="M16 5.5a3 3 0 0 1 0 5"></path><path d="M18 13a4.5 4.5 0 0 1 3 4.25V20"></path></svg><span>Команда</span></span>
+                </button>
+                <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="video-panel" id="video-tab" data-view="video">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="m10 9 5 3-5 3V9Z"></path></svg><span>Видео-визитка</span></span>
+                </button>
+              </div>
+            </section>
 
-          <section class="cabinet-nav-section" aria-labelledby="nav-profile-label">
-            <p class="cabinet-nav-section__label" id="nav-profile-label">Личные данные</p>
-            <div class="cabinet-nav-group" role="group" aria-label="Личные данные">
-              <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="profile-panel" id="profile-tab" data-view="profile">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path></svg><span>Профиль</span></span>
-              </button>
-            </div>
-          </section>
+            <section class="cabinet-nav-section" aria-labelledby="nav-profile-label">
+              <p class="cabinet-nav-section__label" id="nav-profile-label">Личные данные</p>
+              <div class="cabinet-nav-group" role="group" aria-label="Личные данные">
+                <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="profile-panel" id="profile-tab" data-view="profile">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path></svg><span>Профиль</span></span>
+                </button>
+              </div>
+            </section>
 
-          <section class="cabinet-nav-section" aria-labelledby="nav-messages-label">
-            <p class="cabinet-nav-section__label" id="nav-messages-label">Связь с оргкомитетом</p>
-            <div class="cabinet-nav-group" role="group" aria-label="Уведомления оргкомитета">
-              <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="notifications-panel" id="notifications-tab" data-view="notifications">
-                <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg><span>Уведомления</span></span>
-                <span id="sidebarNotificationBadge" class="cabinet-nav__badge" hidden>0</span>
-              </button>
-            </div>
-          </section>
+            <section class="cabinet-nav-section" aria-labelledby="nav-messages-label">
+              <p class="cabinet-nav-section__label" id="nav-messages-label">Связь с оргкомитетом</p>
+              <div class="cabinet-nav-group" role="group" aria-label="Уведомления оргкомитета">
+                <button class="cabinet-nav" type="button" role="tab" aria-selected="false" aria-controls="notifications-panel" id="notifications-tab" data-view="notifications">
+                  <span class="cabinet-nav__lead"><svg class="cabinet-nav__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg><span>Уведомления</span></span>
+                  <span id="sidebarNotificationBadge" class="cabinet-nav__badge" hidden>0</span>
+                </button>
+              </div>
+            </section>
+          </div>
+          <button class="cabinet-guide-menu" type="button" id="overviewWelcomeOpen">
+            <span class="cabinet-guide-menu__icon" aria-hidden="true">✦</span>
+            <span><strong>Инструкция по кабинету</strong><small>Кратко о разделах и следующих шагах</small></span>
+          </button>
         </div>
 
       </aside>
@@ -184,7 +198,6 @@
               <p class="cabinet-eyebrow">Что делать сейчас</p>
               <h3 id="next-title">Проверяем данные</h3>
               <p id="next-description">Подождите немного: мы готовим для вас следующий шаг.</p>
-              <button class="cabinet-next__help" type="button" id="overviewAssistantOpen">Не знаете, с чего начать? Открыть помощника</button>
             </div>
              <button class="cabinet-action" type="button" id="nextAction" data-open-view="portfolio">Открыть портфолио <span aria-hidden="true">→</span></button>
             <svg class="cabinet-brand-star cabinet-brand-star--next" viewBox="0 0 1448 1086" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
@@ -232,7 +245,7 @@
             </div>
           </div>
           <div id="teamCaptainEdit" class="team-captain-edit" hidden>
-            <section class="team-edit-grid" aria-label="Описание и флаг команды"><div class="team-description-field"><div class="team-field-heading"><p class="cabinet-eyebrow">Описание команды</p><span>Коротко о вашей группе</span></div><p class="team-field-help">Расскажите, чем живёт ваша группа и что объединяет участников.</p><label for="teamDescription">Текст описания</label><textarea id="teamDescription" rows="5" placeholder="Например: вместе делаем проекты, участвуем в олимпиадах и поддерживаем друг друга."></textarea><button class="cabinet-action" type="button" id="saveTeam">Сохранить описание</button></div><div class="team-flag-field"><div class="team-field-heading"><p class="cabinet-eyebrow">Символ команды</p><span>PNG, JPG или WEBP</span></div><div class="team-flag-frame"><img id="teamFlagPreview" alt="Флаг команды" hidden><div id="teamFlagEmpty" class="team-flag-empty"><span aria-hidden="true">✦</span><strong>Флаг ещё не добавлен</strong><small>Загрузите изображение, которое представляет вашу группу.</small></div></div><label class="cabinet-upload" for="teamFlagInput">Загрузить флаг<input id="teamFlagInput" type="file" accept="image/png,image/jpeg,image/webp" hidden></label></div></section>
+            <section class="team-edit-grid" aria-label="Описание и флаг команды"><div class="team-description-field"><div class="team-field-heading"><p class="cabinet-eyebrow">Описание команды</p><span>Коротко о вашей группе</span></div><p class="team-field-help">Расскажите, чем живёт ваша группа и что объединяет участников.</p><label for="teamDescription">Текст описания</label><textarea id="teamDescription" rows="5" placeholder="Например: вместе делаем проекты, участвуем в олимпиадах и поддерживаем друг друга."></textarea><button class="cabinet-action" type="button" id="saveTeam">Сохранить описание</button></div><div class="team-flag-field"><div class="team-field-heading"><p class="cabinet-eyebrow">Символ команды</p><span>Любое изображение</span></div><div class="team-flag-frame"><img id="teamFlagPreview" alt="Флаг команды" hidden><div id="teamFlagEmpty" class="team-flag-empty"><span aria-hidden="true">✦</span><strong>Флаг ещё не добавлен</strong><small>Загрузите изображение, которое представляет вашу группу.</small></div></div><label class="cabinet-upload" for="teamFlagInput">Загрузить флаг<input id="teamFlagInput" type="file" accept="image/*" hidden></label></div></section>
           </div>
         </section>
 
@@ -273,7 +286,7 @@
           </div>
           <form id="profileForm" class="profile-layout">
             <aside class="profile-identity" aria-label="Карточка участника"><div class="profile-identity__top"><div class="cabinet-avatar" id="profileInitial" aria-hidden="true">—</div><div><p class="cabinet-eyebrow">Участник конкурса</p><span class="profile-identity__status" id="profileIdentityStatus">Проверяем данные</span></div></div><h3 id="profileCardName">—</h3><dl class="profile-identity__facts"><div><dt>Учебная группа</dt><dd id="profileIdentityGroup">—</dd></div><div><dt>Роль</dt><dd id="profileIdentityRole">—</dd></div></dl><p>Эти данные используются для связи с оргкомитетом и подтверждения участия.</p></aside>
-            <div class="profile-fields"><section class="profile-fieldset" aria-labelledby="profile-name-title"><div class="profile-fields__heading"><div><p class="cabinet-eyebrow">Персональные данные</p><h3 id="profile-name-title">Имя и фамилия</h3></div><span>Как в документах</span></div><div class="profile-name-grid"><label>Фамилия<input id="profileLastName" required autocomplete="family-name"></label><label>Имя<input id="profileFirstName" required autocomplete="given-name"></label><label>Отчество<input id="profilePatronymic" autocomplete="additional-name"></label></div></section><section class="profile-fieldset" aria-labelledby="profile-contacts-title"><div class="profile-fields__heading profile-fields__heading--contacts"><div><p class="cabinet-eyebrow">Контакты</p><h3 id="profile-contacts-title">Как с вами связаться</h3></div><span>Для оргкомитета</span></div><p class="profile-fields__helper">Почта подтверждена при регистрации. Телефон необязателен — добавьте его только если оргкомитету удобно связаться с вами так.</p><div class="cabinet-form-grid"><label class="profile-field--readonly">Учебная группа<input id="profileGroup" readonly></label><label class="profile-field--readonly">Электронная почта<input id="profileEmail" type="email" readonly autocomplete="email"></label><label>Телефон <small>(необязательно)</small><input id="profilePhone" type="tel" autocomplete="tel"></label><label>Telegram <small>(необязательно)</small><input id="profileTelegram" placeholder="@username" autocomplete="username"></label><label>Основной мессенджер<select id="profileMessenger"><option value="telegram">Telegram</option><option value="vk">VK</option><option value="max">MAX</option></select></label><label>Контакт в мессенджере<input id="profileContact" required autocomplete="off"></label></div></section><input id="profileFio" type="hidden"><div class="cabinet-form-actions profile-form-actions"><span id="profileResult" role="status" aria-live="polite"></span><button class="cabinet-action" type="submit">Сохранить изменения <span aria-hidden="true">↗</span></button></div></div>
+            <div class="profile-fields"><section class="profile-fieldset" aria-labelledby="profile-name-title"><div class="profile-fields__heading"><div><p class="cabinet-eyebrow">Персональные данные</p><h3 id="profile-name-title">Имя и фамилия</h3></div><span>Как в документах</span></div><div class="profile-name-grid"><label>Фамилия<input id="profileLastName" required autocomplete="family-name"></label><label>Имя<input id="profileFirstName" required autocomplete="given-name"></label><label>Отчество<input id="profilePatronymic" autocomplete="additional-name"></label></div></section><section class="profile-fieldset" aria-labelledby="profile-contacts-title"><div class="profile-fields__heading profile-fields__heading--contacts"><div><p class="cabinet-eyebrow">Контакты</p><h3 id="profile-contacts-title">Как с вами связаться</h3></div><span>Для оргкомитета</span></div><p class="profile-fields__helper">Почта подтверждена при регистрации. Телефон необязателен — добавьте его только если оргкомитету удобно связаться с вами так.</p><div class="cabinet-form-grid"><label class="profile-field--readonly">Учебная группа<input id="profileGroup" readonly></label><label class="profile-field--readonly">Электронная почта<input id="profileEmail" type="email" readonly autocomplete="email"></label><label>Телефон <small>(необязательно)</small><input id="profilePhone" type="tel" autocomplete="tel"></label><label>Telegram <small>(необязательно)</small><input id="profileTelegram" placeholder="@username" autocomplete="username"></label><label>Основной мессенджер<select id="profileMessenger"><option value="telegram">Telegram</option><option value="vk">VK</option><option value="max">MAX</option></select></label><label>Контакт в мессенджере<input id="profileContact" required autocomplete="off"></label></div></section><section class="profile-fieldset profile-document-fieldset" aria-labelledby="profile-document-title"><div class="profile-fields__heading"><div><p class="cabinet-eyebrow">Проверка личности</p><h3 id="profile-document-title">Фото личного кабинета</h3></div><span>До 5 МБ</span></div><p class="profile-fields__helper">Если нужно заменить фото, прикрепите новое. После загрузки организатор получит уведомление, а заявка снова попадёт на проверку.</p><label class="cabinet-file-input profile-document-input" for="profileStudentCardFile">Выбрать новое фото<input id="profileStudentCardFile" type="file" accept="image/*"><span id="profileStudentCardFileName">Выберите фотографию из личного кабинета</span></label><p class="profile-document-status" id="profileDocumentStatus" role="status" aria-live="polite"></p></section><input id="profileFio" type="hidden"><div class="cabinet-form-actions profile-form-actions"><span id="profileResult" role="status" aria-live="polite"></span><button class="cabinet-action" type="submit">Сохранить изменения <span aria-hidden="true">↗</span></button></div></div>
           </form>
         </section>
       </div>
@@ -283,7 +296,7 @@
   <dialog class="cabinet-dialog" id="achievementDialog" aria-labelledby="achievement-dialog-title"><form method="dialog" class="cabinet-dialog__inner" id="achievementForm"><div class="cabinet-dialog__header"><div><p class="cabinet-eyebrow">Новое достижение</p><h2 id="achievement-dialog-title">Добавить в портфолио</h2></div><button class="cabinet-icon-button" value="cancel" formnovalidate aria-label="Закрыть">×</button></div><label>Направление<select id="achievementDirection"><option value="science">Научная деятельность</option><option value="public">Общественная деятельность</option><option value="sport">Спортивная деятельность</option><option value="culture">Культура и творчество</option></select></label><label>Категория<input id="achievementCategory" required placeholder="Например: публикация, проект, соревнование"></label><label>Название достижения<input id="achievementTitle" required></label><label>Пояснение><textarea id="achievementDetails" rows="3" placeholder="Укажите мероприятие, роль, уровень или ссылку."></textarea></label><label class="cabinet-file-input">Подтверждающий документ<input id="achievementFile" type="file" accept="image/*,.pdf,.doc,.docx" required><span id="achievementFileName">Выберите файл, до 5 МБ</span></label><p id="achievementError" class="cabinet-form-error" role="alert"></p><div class="cabinet-dialog__actions"><button class="cabinet-action cabinet-action--quiet" value="cancel" formnovalidate>Отмена</button><button class="cabinet-action" id="saveAchievement" value="default">Отправить на проверку</button></div></form></dialog>
 
   <script src="js/store.js"></script>
-    <script src="js/cabinet.js?v=20260829-13"></script>
-  <script src="js/onboarding.js?v=20260821-06"></script>
+    <script src="js/cabinet.js?v=20260829-17"></script>
+  <script src="js/onboarding.js?v=20260829-08"></script>
 </body>
 </html>

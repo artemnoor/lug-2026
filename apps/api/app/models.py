@@ -14,6 +14,16 @@ class LoginPayload(FlexibleModel):
     password: str = Field("", max_length=256)
 
 
+class PasswordResetRequestPayload(FlexibleModel):
+    email: str = Field("", max_length=254)
+
+
+class PasswordResetPayload(FlexibleModel):
+    email: str = Field("", max_length=254)
+    code: str = Field("", min_length=6, max_length=6, pattern=r"\d{6}")
+    password: str = Field("", max_length=256)
+
+
 class RegisterTeamPayload(FlexibleModel):
     fio: str = Field("", max_length=200)
     group: str = Field("", max_length=100)

@@ -7,6 +7,8 @@
   let selectedTeamId = null;
   let selectedUserId = null;
   let selectedAchievementId = null;
+  let adminNotificationsInitialized = false;
+  let knownAdminNotificationIds = new Set();
   const filters = { teams: '', teamStatus: 'all', users: '', userStatus: 'all', achievements: '', achievementStatus: 'all', achievementDirection: 'all', achievementTeamId: '', achievementUserId: '' };
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
@@ -234,6 +236,18 @@
     if ($('adminQueueCount')) $('adminQueueCount').textContent = queue.length;
     const queueNode = $('adminReviewQueue');
     if (queueNode) queueNode.innerHTML = queue.length ? queue.map((item) => `<div class="admin-review-item admin-review-item--${item.tone}"><span class="admin-review-item__icon" aria-hidden="true">${item.icon}</span><div class="admin-review-item__body"><strong>${esc(item.title)}</strong><small>${esc(item.note)}</small></div><div class="admin-review-item__actions"><button type="button" data-admin-view-target="${item.view}"${item.team ? ` data-select-team="${esc(item.team.id)}"` : ''}>Открыть</button></div></div>`).join('') : '<p class="admin-empty">Сейчас нет задач, требующих решения. Отличная работа!</p>';
+
+    const adminNotifications = state?.adminNotifications || [];
+    if ($('adminNotificationsCount')) $('adminNotificationsCount').textContent = adminNotifications.length;
+    const notificationsNode = $('adminNotificationsList');
+    if (notificationsNode) {
+      notificationsNode.innerHTML = adminNotifications.length
+        ? adminNotifications.slice(0, 20).map((item) => {
+          const participant = state.users.find((user) => user.id === item.targetId);
+          return `<article class="admin-notification-item"><div class="admin-notification-item__main"><span class="admin-notification-item__icon" aria-hidden="true">↗</span><div><strong>${esc(item.title || 'Новое уведомление')}</strong><p>${esc(item.message || '')}</p><small>${participant ? `Участник: ${esc(participant.fio)}` : 'Участник не найден'} · ${esc(dateLabel(item.createdAt))}</small></div></div>${participant ? `<button class="admin-text-button" type="button" data-select-user="${esc(participant.id)}">Открыть участника →</button>` : ''}</article>`;
+        }).join('')
+        : '<p class="admin-empty">Уведомлений о новых фотографиях пока нет.</p>';
+    }
   }
 
   /* ---------- Список команд ---------- */
@@ -827,7 +841,14 @@
     const button = $('adminRefreshBtn');
     button?.classList.add('is-loading');
     try {
-      state = await window.lugStore.adminOverview();
+      const nextState = await window.lugStore.adminOverview();
+      const incomingAdminNotifications = (nextState.adminNotifications || []).filter((item) => !knownAdminNotificationIds.has(item.id));
+      if (adminNotificationsInitialized) {
+        incomingAdminNotifications.slice(0, 3).forEach((item) => showToast('Новое уведомление', item.message || item.title, 'info', 7000));
+      }
+      knownAdminNotificationIds = new Set((nextState.adminNotifications || []).map((item) => item.id));
+      adminNotificationsInitialized = true;
+      state = nextState;
       renderOverview();
       renderTeams();
       renderAchievements();
@@ -976,13 +997,18 @@
     const form = event.currentTarget;
     await busy(form.querySelector('[type="submit"]'), () => run(async () => {
       const type = document.querySelector('input[name="notifTargetType"]:checked')?.value || 'all';
-      await window.lugStore.adminBroadcast({ targetType: type, targetId: type === 'all' ? null : $('notifTargetId')?.value, title: $('notifTitleInput')?.value, message: $('notifMessageInput')?.value });
+      const result = await window.lugStore.adminBroadcast({ targetType: type, targetId: type === 'all' ? null : $('notifTargetId')?.value, title: $('notifTitleInput')?.value, message: $('notifMessageInput')?.value });
       form.reset();
       renderTargetSuboptions();
       updateCounters(form);
       if ($('broadcastSuccess')) $('broadcastSuccess').hidden = false;
       await refreshAdmin();
-      showToast('Отправлено', 'Рассылка доставлена получателям.', 'success');
+      const emailNotice = Number(result.emailRecipients || 0) > 0
+        ? result.emailMode === 'smtp'
+          ? ` Письма отправлены участникам: ${Number(result.emailSent || 0)} из ${Number(result.emailRecipients || 0)}.`
+          : ' В development письма записаны в лог.'
+        : '';
+      showToast('Отправлено', `Рассылка доставлена получателям.${emailNotice}`, 'success');
     }));
   }
 
@@ -1005,6 +1031,10 @@
       if ($('adminUserAvatar')) $('adminUserAvatar').textContent = (firstName[0] || 'О').toUpperCase();
       if ($('adminGreeting')) $('adminGreeting').textContent = `${greetingText()}, ${firstName}!`;
       await refreshAdmin();
+      setInterval(() => {
+        if (document.hidden) return;
+        refreshAdmin().catch(() => {});
+      }, 30000);
     } catch (error) {
       showError(error.message);
     }

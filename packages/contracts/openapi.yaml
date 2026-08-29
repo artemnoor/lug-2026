@@ -18,6 +18,12 @@ paths:
   /api/auth/login:
     post:
       summary: Войти по электронной почте и паролю
+  /api/auth/request-password-reset:
+    post:
+      summary: Отправить код восстановления пароля на почту
+  /api/auth/reset-password:
+    post:
+      summary: Изменить пароль по коду из письма
   /api/auth/logout:
     post:
       summary: Завершить сессию
@@ -42,6 +48,9 @@ paths:
   /api/admin/audit:
     get:
       summary: Получить журнал аудита
+  /api/admin/notifications/broadcast:
+    post:
+      summary: Отправить уведомление; капитану также отправить письмо
   /healthz:
     get:
       summary: Проверка процесса

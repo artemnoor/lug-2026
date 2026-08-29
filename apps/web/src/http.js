@@ -21,6 +21,6 @@ export function setSecurityHeaders(res, { secure = false, csp = false } = {}) {
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  if (csp) res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'");
+  if (csp) res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'");
   if (secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 }

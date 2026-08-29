@@ -4,42 +4,49 @@
 @font-face {
     font-family: 'MegaSans';
     src: url('../fonts/MegaSans-Light-014e5c46.bd0339.ttf') format('truetype');
+    font-display: swap;
     font-weight: 300;
     font-style: normal;
   }
   @font-face {
     font-family: 'MegaSans';
     src: url('../fonts/MegaSans-Regular-43815a4d.508b3b.ttf') format('truetype');
+    font-display: swap;
     font-weight: 400;
     font-style: normal;
   }
   @font-face {
     font-family: 'MegaSans';
     src: url('../fonts/MegaSans-Medium-f156c711.433765.ttf') format('truetype');
+    font-display: swap;
     font-weight: 500;
     font-style: normal;
   }
   @font-face {
     font-family: 'MegaSans';
     src: url('../fonts/MegaSans-Bold-4898fab3.7acea0.ttf') format('truetype');
+    font-display: swap;
     font-weight: 700;
     font-style: normal;
   }
   @font-face {
     font-family: 'Grechka SHA';
     src: url('../fonts/Grechka SHA_0.otf') format('opentype');
+    font-display: swap;
     font-weight: 700;
     font-style: normal;
   }
   @font-face {
     font-family: 'Grechka SHA Hollow';
     src: url('../fonts/Grechka SHA Hollow_0.otf') format('opentype');
+    font-display: swap;
     font-weight: 700;
     font-style: normal;
   }
   @font-face {
     font-family: 'KULAG SHA';
     src: url('../fonts/KULAG SHA.otf') format('opentype');
+    font-display: swap;
     font-weight: 700;
     font-style: normal;
   }
@@ -108,7 +115,7 @@
     height:135vh;
     overflow:visible;
     z-index:1;
-    background:linear-gradient(to bottom, rgba(220,238,255,.42) 0%, rgba(220,238,255,0) 18%), url('../assets/hero/bmstu-modern-sky.png') center center / cover no-repeat;
+    background:linear-gradient(to bottom, rgba(220,238,255,.42) 0%, rgba(220,238,255,0) 18%), url('../assets/hero/bmstu-modern-sky.webp') center center / cover no-repeat;
   }
   /* Дымчатое растворение изображения в фон следующего экрана. */
 .stage-hero::after{
@@ -324,7 +331,7 @@
     z-index:3;
     pointer-events:none;
     display:block;
-    background:url('../assets/hero/bmstu-modern-campus-cutout.png') center calc(100% - 9vh) / 100% auto no-repeat;
+    background:url('../assets/hero/bmstu-modern-campus-cutout.webp') center calc(100% - 9vh) / 100% auto no-repeat;
     filter:brightness(.92) saturate(.96);
     -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
     mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
@@ -1331,6 +1338,275 @@ a.is-disabled { cursor: not-allowed; opacity: .55; }
     max-width: 14ch;
     text-align: left;
   }
+
+  .stage-about .orbit-node-list {
+    grid-template-columns: repeat(4, max-content);
+    justify-content: center;
+    column-gap: clamp(8px, 2.5vw, 16px);
+  }
+
+  .stage-about .orbit-node {
+    width: auto;
+    padding-inline: 2px;
+  }
+
+  .stage-about .orbit-node-label {
+    white-space: nowrap;
+  }
+}
+
+/* Final registration footer: separate information and social areas so they
+   keep their own flow at every width and links stay quiet on the dark surface. */
+.stage-reg .footer {
+  height: auto !important;
+  min-height: 0;
+  padding: clamp(40px, 5vw, 72px) var(--reg-gutter) clamp(28px, 3vw, 44px);
+  background: #050505;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  color: #fff;
+}
+
+.stage-reg .footer-main {
+  display: grid;
+  grid-template-columns: minmax(220px, .62fr) minmax(0, 2.38fr);
+  align-items: start;
+  gap: clamp(36px, 5vw, 88px);
+}
+
+.stage-reg .footer-brand-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+  transform: none;
+}
+
+.stage-reg .footer-brand-logos {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  position: static;
+}
+
+.stage-reg .footer-university-logo,
+.stage-reg .footer-brand-logos .footer-brand-logo {
+  position: static;
+  inset: auto;
+  top: auto;
+  width: auto;
+  height: 72px;
+  margin: 0;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.stage-reg .footer-brand-logos .footer-brand-logo {
+  width: 112px;
+}
+
+.stage-reg .footer-university-logo {
+  width: 72px;
+}
+
+.stage-reg .footer-brand-caption {
+  position: static;
+  max-width: 22ch;
+  margin: 0;
+  color: rgba(255, 255, 255, .68);
+  font-size: clamp(12px, .95vw, 15px);
+  line-height: 1.4;
+}
+
+.stage-reg .footer-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stage-reg .footer-main .footer-grid {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 32px;
+  width: 100%;
+  margin: 0;
+}
+
+.stage-reg .footer .f-title {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, .56);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.2;
+}
+
+.stage-reg .footer .f-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stage-reg .footer .f-row {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 8px;
+  color: rgba(255, 255, 255, .82);
+  font-size: clamp(12px, .95vw, 15px);
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.stage-reg .footer .f-row svg {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  stroke: rgba(255, 255, 255, .58);
+}
+
+.stage-reg .footer .f-row > a {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: .24em;
+}
+
+.stage-reg .footer .f-row > a:hover,
+.stage-reg .footer .f-row > a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.stage-reg .footer-socials {
+  position: static;
+  display: flex;
+  align-items: flex-end;
+  align-self: flex-end;
+  flex-direction: column;
+  gap: 12px;
+  margin: 28px 0 0;
+  transform: none;
+}
+
+.stage-reg .footer-socials-title {
+  margin: 0;
+  color: rgba(255, 255, 255, .56);
+  font-size: clamp(12px, .95vw, 15px);
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.stage-reg .footer-socials-list {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stage-reg .footer-social,
+.stage-reg .footer-social img {
+  width: 38px;
+  height: 38px;
+}
+
+.stage-reg .footer-social {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.stage-reg .footer-social img {
+  display: block;
+  object-fit: contain;
+  filter: invert(1);
+}
+
+.stage-reg .footer-social:hover,
+.stage-reg .footer-social:focus-visible {
+  opacity: .72;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 900px) {
+  .stage-reg .footer-main {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+
+  .stage-reg .footer-socials {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .stage-reg .footer {
+    padding: 32px var(--reg-gutter) 30px;
+  }
+
+  .stage-reg .footer-main .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 22px;
+    row-gap: 30px;
+  }
+
+  .stage-reg .footer-brand-logos {
+    gap: 12px;
+  }
+
+  .stage-reg .footer-university-logo {
+    width: 58px;
+    height: 58px;
+  }
+
+  .stage-reg .footer-brand-logos .footer-brand-logo {
+    width: 86px;
+    height: 58px;
+  }
+
+  .stage-reg .footer-socials {
+    margin-top: 30px;
+  }
+
+  .stage-reg .footer-social,
+  .stage-reg .footer-social img {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 360px) {
+  .stage-reg .footer-main .footer-grid {
+    grid-template-columns: 1fr;
+    row-gap: 24px;
+  }
+}
+
+/* Direction artwork: keep the public illustration centered and undistorted. */
+.stage-about.stage-about.stage-about .orbit-stage[data-orbit-id="public"] .orbit-art .public-illustration {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  object-position: center;
+  transform: none !important;
+  filter: drop-shadow(0 18px 28px rgba(7, 18, 62, 0.12));
+}
+
+@media (min-width: 701px) {
+  /* The artwork is edge-to-edge inside its art column, but must stay inside
+     the desktop viewport so the people at the right edge remain visible. */
+  .stage-about .orbit-stage[data-orbit-id="public"] .orbit-art {
+    width: 56% !important;
+    max-width: 640px !important;
+    right: clamp(32px, 3.5vw, 56px) !important;
+    overflow: visible;
+  }
 }
 
 /* Mobile directions: show the active illustration above its description. */
@@ -1374,7 +1650,8 @@ a.is-disabled { cursor: not-allowed; opacity: .55; }
   }
 
   .stage-about.stage-about .orbit-stage[data-orbit-id="culture"] .orbit-art .orbit-illustration {
-    transform: translateX(10px) rotate(0deg) scale(1.2) !important;
+    transform: translateX(0) rotate(0deg) scale(1.08) !important;
+    transform-origin: center center;
   }
 
   .stage-about .orbit-stage[data-orbit-id="science"] .orbit-art {
@@ -8153,6 +8430,237 @@ body.public-page .stage-hero.home-reveal:not(.is-revealed) {
   }
 }
 
+/* Footer cascade: keep every group in normal flow and reserve a separate row
+   for social links instead of placing them on top of the policy column. */
+.stage-reg .footer {
+  height: auto !important;
+  min-height: 0;
+  padding: clamp(40px, 5vw, 72px) var(--reg-gutter) clamp(28px, 3vw, 44px) !important;
+  background: #050505 !important;
+  border-top: 1px solid rgba(255, 255, 255, .12) !important;
+  color: #fff !important;
+}
+
+.stage-reg .footer-main {
+  display: grid !important;
+  grid-template-columns: minmax(220px, .62fr) minmax(0, 2.38fr) !important;
+  align-items: start;
+  gap: clamp(36px, 5vw, 88px);
+}
+
+.stage-reg .footer-brand-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+  transform: none !important;
+}
+
+.stage-reg .footer-brand-logos {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 !important;
+  position: static;
+}
+
+.stage-reg .footer-university-logo,
+.stage-reg .footer-brand-logos .footer-brand-logo {
+  position: static;
+  inset: auto;
+  top: auto;
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.stage-reg .footer-brand-logos .footer-brand-logo {
+  width: 112px;
+}
+
+.stage-reg .footer-brand-caption {
+  position: static;
+  max-width: 22ch;
+  margin: 0;
+  color: rgba(255, 255, 255, .68) !important;
+  font-size: clamp(12px, .95vw, 15px);
+  line-height: 1.4;
+}
+
+.stage-reg .footer-right {
+  display: flex !important;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stage-reg .footer-main .footer-grid {
+  position: static !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 32px;
+  width: 100%;
+  margin: 0;
+}
+
+.stage-reg .footer .f-title {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, .56) !important;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.2;
+}
+
+.stage-reg .footer .f-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stage-reg .footer .f-row {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 8px;
+  color: rgba(255, 255, 255, .82) !important;
+  font-size: clamp(12px, .95vw, 15px);
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.stage-reg .footer .f-row svg {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  stroke: rgba(255, 255, 255, .58) !important;
+}
+
+.stage-reg .footer .f-row > a {
+  min-width: 0;
+  color: inherit !important;
+  text-decoration: none;
+  text-underline-offset: .24em;
+}
+
+.stage-reg .footer .f-row > a:hover,
+.stage-reg .footer .f-row > a:focus-visible {
+  color: #fff !important;
+  text-decoration: underline;
+}
+
+.stage-reg .footer-socials {
+  position: static !important;
+  display: flex !important;
+  align-items: flex-end;
+  align-self: flex-end;
+  flex-direction: column;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  top: auto !important;
+  gap: 12px;
+  margin: 28px 0 0 !important;
+  transform: none !important;
+}
+
+.stage-reg .footer-socials-title {
+  margin: 0;
+  color: rgba(255, 255, 255, .56) !important;
+  font-size: clamp(12px, .95vw, 15px);
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.2;
+}
+
+.stage-reg .footer-socials-list {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stage-reg .footer-social,
+.stage-reg .footer-social img {
+  width: 38px;
+  height: 38px;
+}
+
+.stage-reg .footer-social {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.stage-reg .footer-social img {
+  display: block;
+  object-fit: contain;
+  filter: invert(1);
+}
+
+@media (max-width: 900px) {
+  .stage-reg .footer-main {
+    grid-template-columns: 1fr !important;
+    gap: 34px;
+  }
+
+  .stage-reg .footer-main .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: 24px;
+    row-gap: 30px;
+  }
+
+  .stage-reg .footer-socials {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .stage-reg .footer {
+    padding: 32px var(--reg-gutter) 30px !important;
+  }
+
+  .stage-reg .footer-main .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: 22px;
+    row-gap: 30px;
+  }
+
+  .stage-reg .footer-brand-logos {
+    gap: 12px;
+  }
+
+  .stage-reg .footer-university-logo {
+    width: 58px;
+    height: 58px;
+  }
+
+  .stage-reg .footer-brand-logos .footer-brand-logo {
+    width: 86px;
+    height: 58px;
+  }
+
+  .stage-reg .footer-socials {
+    margin-top: 30px !important;
+  }
+
+  .stage-reg .footer-social,
+  .stage-reg .footer-social img {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 360px) {
+  .stage-reg .footer-main .footer-grid {
+    grid-template-columns: 1fr !important;
+    row-gap: 24px;
+  }
+}
+
 /* Mobile direction copy must remain complete; let the section grow instead
    of hiding the longer descriptions behind a line clamp. */
 @media (max-width: 700px) {
@@ -8200,5 +8708,20 @@ body.public-page .stage-hero.home-reveal:not(.is-revealed) {
     width: 100%;
     max-width: 14ch;
     text-align: left;
+  }
+
+  .stage-about .orbit-node-list {
+    grid-template-columns: repeat(4, max-content);
+    justify-content: center;
+    column-gap: clamp(8px, 2.5vw, 16px);
+  }
+
+  .stage-about .orbit-node {
+    width: auto;
+    padding-inline: 2px;
+  }
+
+  .stage-about .orbit-node-label {
+    white-space: nowrap;
   }
 }

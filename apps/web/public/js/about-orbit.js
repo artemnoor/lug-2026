@@ -2,23 +2,18 @@
 // АНИМАЦИЯ ХОЛСТА (НАПРАВЛЕНИЕ «КУЛЬТУРА И ТВОРЧЕСТВО»)
 // ==========================================================================
 (function() {
-  let hasPlayedOnce = false;
-
   window.startCultureCanvas = function() {
     const animSvg = document.getElementById('livelyArtworkAnimation');
     if (!animSvg) return;
-    if (!hasPlayedOnce) {
-      hasPlayedOnce = true;
-      try {
-        if (animSvg.setCurrentTime) {
-          animSvg.setCurrentTime(0);
-        }
-      } catch(e){}
-    }
+    try { animSvg.pauseAnimations?.(); } catch(e){}
+    try { animSvg.setCurrentTime?.(0); } catch(e){}
+    try { animSvg.unpauseAnimations?.(); } catch(e){}
   };
 
   window.stopCultureCanvas = function() {
-    // SVG SMIL animation finishes and freezes automatically
+    const animSvg = document.getElementById('livelyArtworkAnimation');
+    if (!animSvg) return;
+    try { animSvg.pauseAnimations?.(); } catch(e){}
   };
 })();
 
@@ -69,6 +64,10 @@
       cacheFullTexts();
       const stage = document.getElementById('orbitStage');
       if(!stage) return;
+
+      // The old public-activity SVG is kept in the source as a fallback, but
+      // it is too heavy to keep mounted next to the optimized raster artwork.
+      stage.querySelector('[data-illustration="public-legacy"]')?.remove();
 
       const copyBlock = document.getElementById('orbitCopyBlock');
       const copyKickerText = document.getElementById('orbitCopyKickerText') || document.getElementById('orbitCopyKicker');

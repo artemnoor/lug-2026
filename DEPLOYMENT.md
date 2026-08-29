@@ -43,7 +43,7 @@ FastAPI             auth, RBAC, domain, uploads, notifications
 | Redis | Общий rate limiter при нескольких API-инстансах | Адаптер есть, задаётся `REDIS_URL` |
 | Private object storage | Файлы вне локального диска и публичной статики | S3-compatible adapter, credentials и bucket policy |
 | AV scanner | Проверка пользовательских файлов | Hook ClamAV есть; production без scanner fail-closed |
-| SMTP provider | Доставка кодов подтверждения email | Требуется production-интеграция; локально доступен log mode |
+| SMTP provider | Коды подтверждения, восстановление пароля и уведомления | На текущем staging настроен Mail.ru SMTP по SSL/465; для финального production нужны secret manager и проверка доставляемости |
 | Process manager | Restart, logs, graceful stop | Выбрать systemd или Docker Compose |
 
 ## Что рекомендуется дополнительно
@@ -80,14 +80,28 @@ CSRF и ограничения web gateway.
 - `2 vCPU / 4 GiB RAM`, 40 GiB network SSD;
 - Docker Compose поднимает Node/FastAPI, PostgreSQL 16, Redis 7 и ClamAV;
 - приватный Yandex Object Storage bucket используется только для файлов;
+- ClamAV `1.5.4` работает с базой сигнатур, встроенной в официальный образ;
+- `NODE_ENV=staging`, PostgreSQL, Redis, S3 и обязательное сканирование загрузок включены;
+- SMTP Mail.ru настроен по SSL на порту `465` для кодов, восстановления пароля и уведомлений;
 - наружу открыт только HTTP `:80`, SSH ограничен текущим IP администратора;
 - приложение доступно на `http://51.250.102.106`.
 
 Это экономичный staging-профиль: PostgreSQL, Redis и ClamAV находятся на той же
-VM, поэтому они не являются отдельными managed-внешними сервисами. Внешним
-относительно VM остаётся только приватное объектное хранилище. SMTP пока не
-подключён, поэтому email-коды пишутся в staging-лог; перед реальным production
-нужно задать SMTP, домен и TLS/WAF.
+VM, поэтому они не являются отдельными managed-внешними сервисами и делят её
+лимиты CPU/RAM/диска. Внешними относительно VM остаются приватное объектное
+хранилище и почтовый SMTP-сервис Mail.ru. В staging письма отправляются через
+SMTP; финальному production всё равно нужны secret manager, домен, TLS и WAF/CDN.
+
+Под «внешним сервисом» здесь понимается сервис, который не запущен контейнером
+на этой VM: он доступен по сети и имеет отдельные учётные данные, лимиты и
+резервирование. PostgreSQL, Redis и ClamAV в текущем Compose — внутренние
+сервисы стенда; private S3 и Mail.ru SMTP — внешние зависимости.
+
+В сети текущего deployment CDN обновлений ClamAV отвечает `403`; поэтому
+`freshclam` не обновил базу автоматически, хотя сама проверка через `clamd`
+работает и использует свежую встроенную базу образа. Перед production нужно
+разрешить регулярный доступ к CDN или настроить проверенный внутренний mirror,
+а также добавить мониторинг возраста сигнатур.
 
 Запуск на VM:
 
@@ -97,16 +111,32 @@ docker compose --env-file .env.production up -d
 docker compose --env-file .env.production ps
 ```
 
+Обновление приложения после загрузки новой версии выполняется без удаления
+томов с данными:
+
+```bash
+cd /opt/lug
+docker compose --env-file .env.production build app
+docker compose --env-file .env.production up -d app
+curl -fsS http://127.0.0.1/readyz
+```
+
+`docker compose down -v` для обычного deployment использовать нельзя: команда
+удаляет volumes PostgreSQL, Redis и пользовательских файлов.
+
 Исходный `lug.json` импортируется одноразовой командой
 `scripts/import-json-postgres.py` в нормализованные таблицы PostgreSQL. После
 импорта legacy-таблица `lug_state` удаляется. Образы и volumes не следует
 удалять без отдельной процедуры backup/restore.
 
 Для перехода от staging к production необходимо добавить домен, TLS edge
-(Nginx/Caddy или managed load balancer), WAF/CDN, SMTP и резервное копирование
-PostgreSQL. При росте нагрузки VM можно разделить на app-ноды, managed
-PostgreSQL и Redis; текущий код уже использует общий Postgres/Redis и private
-object storage, поэтому локальный JSON-store не будет узким местом.
+(Nginx/Caddy или managed load balancer), WAF/CDN, secret manager и резервное
+копирование PostgreSQL. SMTP уже подключён на staging, но перед production
+нужно отдельно проверить доставляемость кодов, восстановления пароля и
+уведомлений, а пароль ящика хранить вне `.env` в secret manager. При росте
+нагрузки VM нужно разделить на app-ноды, managed PostgreSQL и Redis; текущий
+код уже использует общий Postgres/Redis и private object storage, поэтому
+локальный JSON-store не будет узким местом.
 
 ## Масштабирование
 
@@ -118,6 +148,12 @@ storage. PostgreSQL-адаптер хранит сущности отдельн�
 экземпляра. Web gateway можно масштабировать отдельно, но
 `LUG_TRUST_PROXY=true` допустим только вместе с точным списком
 `LUG_TRUSTED_PROXY_IPS`.
+
+Письма уведомлений отправляются с ограниченной конкурентностью и изоляцией
+ошибок по адресатам, поэтому один недоступный ящик не отменяет остальные
+отправки. Для больших рассылок это защитный промежуточный режим; при заметном
+росте аудитории отправку следует вынести в durable queue/worker, чтобы HTTP-
+запрос админки не зависел от продолжительности SMTP-доставки.
 
 ## Текущее состояние среды разработки
 
@@ -137,7 +173,7 @@ storage. PostgreSQL-адаптер хранит сущности отдельн�
 - [ ] `LUG_DATABASE_PROVIDER=postgres`, `LUG_DATABASE_URL` и `REDIS_URL` настроены.
 - [ ] `LUG_UPLOAD_SCAN_COMMAND` настроен, scanner доступен, upload quarantine проверен.
 - [ ] `LUG_FILE_STORAGE_PROVIDER=s3`, bucket private, S3 credentials/IAM policy и `LUG_S3_SIGNED_URL_TTL` проверены.
-- [ ] `LUG_EMAIL_MODE=smtp`, SMTP credentials и `LUG_SMTP_FROM` настроены; письмо с кодом проверено.
+- [ ] `LUG_EMAIL_MODE=smtp`, SMTP credentials и `LUG_SMTP_FROM` настроены; проверены письмо с кодом, восстановление пароля и письмо участнику из уведомления.
 - [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` настроен, trace виден в collector/backend.
 - [ ] `LUG_EMAIL_VERIFICATION_SECRET` задан отдельным случайным секретом; коды не пишутся в production-лог.
 - [ ] backup/restore и ротация секретов проверены вручную.

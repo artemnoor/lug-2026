@@ -8,6 +8,7 @@ from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
 from ..security.auth import require_admin
 from ..shared import domain
+from ..shared.notifications import send_notification_emails, target_users, verified_email_recipients
 
 router = APIRouter(prefix="/api/admin")
 
@@ -101,6 +102,7 @@ async def broadcast(request: Request):
         or payload.get("kind") not in {None, "system"}
         or not title
         or len(title) > 120
+        or any(character in title for character in "\r\n")
         or not message
         or len(message) > 1000
     ):
@@ -121,6 +123,13 @@ async def broadcast(request: Request):
         team.get("captainId") for team in state["teams"]
     ):
         raise ApiError(422, "Ни у одной команды нет капитана.")
+    recipients = target_users(state, target_type, target_id)
+    email_recipients = verified_email_recipients(recipients)
+    if target_type in {"user", "team", "captain"} and not email_recipients:
+        raise ApiError(
+            422,
+            "У выбранного участника нет подтверждённого адреса электронной почты.",
+        )
     domain.notify(
         state,
         target_type,
@@ -132,7 +141,20 @@ async def broadcast(request: Request):
         state, admin["id"], "notification.sent", target_type, target_id or "all"
     )
     await context.store.save(state)
-    return json_response({"success": True}, 201, request)
+    email_delivery = await send_notification_emails(
+        context, recipients, title, message
+    )
+    return json_response(
+        {
+            "success": True,
+            "emailRecipients": email_delivery["eligible"],
+            "emailSent": email_delivery["sent"],
+            "emailFailed": email_delivery["failed"],
+            "emailMode": context.config.email_mode,
+        },
+        201,
+        request,
+    )
 
 
 def _number_or_none(value: Any) -> float | None:

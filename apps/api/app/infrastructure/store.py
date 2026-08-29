@@ -27,6 +27,7 @@ def normalize_db(data: Any, defaults: dict) -> DatabaseState:
         sessions=[],
         uploads=[],
         emailVerifications=[],
+        passwordResets=[],
     )
     state["settings"]["content"] = {
         **defaults["content"],
@@ -43,6 +44,7 @@ def normalize_db(data: Any, defaults: dict) -> DatabaseState:
         "sessions",
         "uploads",
         "emailVerifications",
+        "passwordResets",
     ):
         if not isinstance(state.get(key), list):
             state[key] = []

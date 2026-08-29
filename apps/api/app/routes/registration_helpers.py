@@ -7,6 +7,7 @@ from uuid import uuid4
 from ..http.errors import ApiError
 from ..security.auth import PRIVACY_PATH, PRIVACY_VERSION
 from ..shared import domain
+from ..shared.notifications import notify_user_with_email
 
 
 def validate_registration(payload: dict[str, Any], state: dict, is_team: bool) -> None:
@@ -110,7 +111,8 @@ async def commit_pending(context, state: dict, pending: dict) -> dict:
         "team",
         team["id"],
     )
-    domain.notify_user(
+    await notify_user_with_email(
+        context,
         state,
         user["id"],
         "Заявка принята",

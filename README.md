@@ -25,10 +25,13 @@
 - регистрация команды капитаном или присоединение по приглашению;
 - подтверждение email одноразовым кодом;
 - вход по email и паролю с cookie-сессией;
+- восстановление пароля по одноразовому коду из письма;
 - личный кабинет команды и участников;
+- редактирование профиля и повторная загрузка фото личного кабинета;
 - заполнение профиля и портфолио по направлениям конкурса;
 - загрузка файлов и видео с серверными квотами и проверками;
-- просмотр сроков, статусов проверки и уведомлений.
+- просмотр сроков, статусов проверки и уведомлений;
+- получение копий важных уведомлений на подтверждённый email.
 
 ### Для оргкомитета
 
@@ -42,6 +45,7 @@
 
 - запуск без внешней БД в development через JSON store;
 - PostgreSQL, Redis и private S3-compatible storage для production;
+- SMTP-доставка кодов, восстановления пароля и уведомлений участникам;
 - Mailpit для локального тестирования писем;
 - health/readiness/metrics endpoints;
 - ограничение размеров запросов, таймауты, rate limiting, CSP и security headers;
@@ -75,7 +79,7 @@ flowchart LR
     Browser["Браузер<br/>HTML + CSS + JS"]
     Web["apps/web<br/>Node.js web gateway"]
     API["apps/api<br/>FastAPI"]
-    Routes["routes/<br/>auth · registration · user · admin"]
+    Routes["routes/<br/>auth · registration · profile · notifications · admin"]
     Security["security/<br/>sessions · CSRF · RBAC · limits"]
     Store["Store adapter<br/>единый доменный state"]
     Json["data/lug.json<br/>development"]
@@ -129,6 +133,10 @@ sequenceDiagram
     W-->>U: Открывает личный кабинет
 ```
 
+Для незавершённой регистрации повторная отправка формы обновляет существующий код и заявку, поэтому пользователь не получает ложный конфликт «код уже отправлен». Восстановление пароля использует отдельный одноразовый код с тем же SMTP-каналом и после успешной смены пароля завершает активные сессии.
+
+Организаторские решения и изменения статусов сохраняются как уведомления в личном кабинете и дополнительно отправляются подтверждённым адресатам по SMTP. При редактировании профиля участник может заменить фото личного кабинета: новый файл снова проходит проверку формата, содержимого и антивирусную проверку, старый объект удаляется после успешной замены, а администраторам создаётся уведомление о новом фото.
+
 Код подтверждения не хранится в открытом виде: приложение использует HMAC-секрет, срок действия, cooldown повторной отправки и лимит неверных попыток. Для production секрет и SMTP-параметры должны приходить только из secret manager или защищённых переменных окружения.
 
 ### Связи модулей
@@ -139,12 +147,12 @@ sequenceDiagram
 | Web gateway | `apps/web/src/server.js` | Static allowlist, CSRF-cookie, proxy, request IDs, timeouts |
 | HTTP helpers | `apps/web/src/http.js`, `packages/shared/http.js` | Заголовки, cookies, trace context и общие transport helpers |
 | API composition root | `apps/api/app/main.py`, `context.py` | FastAPI lifecycle, middleware, зависимости и bootstrap admin |
-| Route handlers | `apps/api/app/routes/` | Auth, registration, user, notifications, admin и operations |
+| Route handlers | `apps/api/app/routes/` | Auth, registration, password reset, profile, notifications, admin и operations |
 | Security | `apps/api/app/security/` | Пароли, cookie sessions, CSRF, RBAC и rate limits |
 | Domain | `apps/api/app/shared/`, `models.py` | Правила предметной области и response projections |
 | Persistence | `apps/api/app/infrastructure/store.py`, `postgres.py` | JSON store в development и PostgreSQL в production |
 | Files | `file_storage.py`, `s3_storage.py` | MIME/magic/AV checks, quotas, private files и signed URLs |
-| Email | `apps/api/app/infrastructure/email.py` | Log, SMTP и брендированное письмо подтверждения |
+| Email | `apps/api/app/infrastructure/email.py` | Log, SMTP, коды, восстановление пароля и уведомления |
 | Контракты | `packages/contracts/openapi.*` | Проверяемая граница между API и клиентами |
 
 ## Структура проекта
@@ -232,12 +240,15 @@ npm run restore:json -- data/lug-20260828T120000Z.json.gz
 | `LUG_DATA_DIR` / `LUG_UPLOAD_DIR` | JSON state и локальные файлы |
 | `LUG_DATABASE_PROVIDER=postgres` | Явно включает PostgreSQL adapter |
 | `LUG_DATABASE_URL` | DSN PostgreSQL; автоматически не выбирается |
+| `LUG_DATABASE_POOL_MIN_SIZE` / `LUG_DATABASE_POOL_MAX_SIZE` | Размер async-пула PostgreSQL между запросами |
 | `REDIS_URL` | Общий rate limiter между API-инстансами |
 | `LUG_FILE_STORAGE_PROVIDER=local\|s3` | Backend файлов; в production — `s3` |
 | `LUG_S3_*` | Private bucket, endpoint, credentials и prefix |
 | `LUG_UPLOAD_SCAN_COMMAND` / `LUG_UPLOAD_SCAN_REQUIRED` | ClamAV/совместимый сканер и fail-closed режим |
-| `LUG_EMAIL_MODE=log\|smtp` | Лог или SMTP-доставка verification email |
+| `LUG_EMAIL_MODE=log\|smtp` | Лог или SMTP-доставка кодов подтверждения и писем капитанам |
 | `LUG_SMTP_*` | SMTP host, port, user, password, sender и TLS |
+| `LUG_EMAIL_VERIFICATION_TTL_MS`, `LUG_EMAIL_VERIFICATION_COOLDOWN_MS`, `LUG_EMAIL_VERIFICATION_MAX_ATTEMPTS` | Срок жизни, повторная отправка и число попыток email-кодов |
+| `LUG_MAX_UPLOADS_PER_USER`, `LUG_MAX_UPLOAD_BYTES_PER_USER` | Квоты количества и суммарного размера файлов на участника |
 | `LUG_EMAIL_VERIFICATION_SECRET` | HMAC-секрет кодов; в production минимум 32 символа |
 | `LUG_OPERATIONS_TOKEN` | Доступ к operations endpoints не с loopback |
 | `LUG_ALLOWED_HOSTS` | Allowlist заголовка `Host` |
@@ -262,7 +273,7 @@ npm run restore:json -- data/lug-20260828T120000Z.json.gz
 - `/readyz` — readiness с operations-token или loopback policy;
 - `/metrics` — bounded Prometheus-style metrics.
 
-Основные API-группы: `auth`, `registration`, `user`, `user_notifications`, `admin`, `admin_settings` и `operations`. UI может показывать состояние, но права всегда проверяются на сервере.
+Основные API-группы: `auth` (включая восстановление пароля), `registration`, `user`, `user_profile`, `user_notifications`, `admin`, `admin_settings` и `operations`. UI может показывать состояние, но права всегда проверяются на сервере.
 
 ## Безопасность
 
@@ -302,9 +313,10 @@ Smoke-тест поднимает или использует локальные
 
 Текущий экономичный staging-развёрнут в Yandex Cloud и доступен по адресу
 [`http://51.250.102.106`](http://51.250.102.106). На одной VM работают web/API,
-PostgreSQL, Redis и ClamAV; отдельным внешним сервисом остаётся только private
-Object Storage. SMTP, TLS и WAF пока не включены, поэтому этот адрес не следует
-считать финальным production edge.
+PostgreSQL, Redis и ClamAV. Внешними относительно VM являются private Object
+Storage и SMTP Mail.ru по SSL/465; адрес ящика и пароль хранятся только в
+production-конфигурации. TLS, WAF/CDN и закрытый HTTPS-origin пока не включены,
+поэтому этот адрес не следует считать финальным production edge.
 
 Целевая схема развёртывания:
 

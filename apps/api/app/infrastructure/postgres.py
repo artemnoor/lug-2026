@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .postgres_password_reset import PASSWORD_RESET_SCHEMA
 from .store import DatabaseState, normalize_db
 
 SCHEMA = """
@@ -112,8 +113,8 @@ ENTITY_TABLES = {
     "sessions": "lug_sessions",
     "uploads": "lug_uploads",
     "emailVerifications": "lug_email_verifications",
+    "passwordResets": "lug_password_resets",
 }
-
 
 def _json_payload(value: Any) -> dict:
     if isinstance(value, str):
@@ -123,12 +124,10 @@ def _json_payload(value: Any) -> dict:
             return {}
     return value if isinstance(value, dict) else {}
 
-
 def _fingerprint(value: Any) -> str:
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
-
 
 def _entity_id(key: str, item: dict) -> str:
     return str(item.get("tokenHash") if key == "sessions" else item.get("url" if key == "uploads" else "id") or "")
@@ -191,6 +190,7 @@ class PostgresStore:
         )
         store = cls(pool, defaults)
         await pool.execute(SCHEMA)
+        await pool.execute(PASSWORD_RESET_SCHEMA)
         await pool.execute(
             "INSERT INTO lug_meta (id) VALUES ('primary') ON CONFLICT (id) DO NOTHING"
         )
@@ -318,6 +318,11 @@ class PostgresStore:
                 query = """INSERT INTO lug_uploads (url,user_id,kind,payload)
                     VALUES ($1,$2,$3,$4::jsonb) ON CONFLICT (url) DO UPDATE SET
                     user_id=EXCLUDED.user_id,kind=EXCLUDED.kind,payload=EXCLUDED.payload,updated_at=now()"""
+            elif key == "passwordResets":
+                query = """INSERT INTO lug_password_resets (id,email,expires_at_ms,payload)
+                    VALUES ($1,$2,$3,$4::jsonb) ON CONFLICT (id) DO UPDATE SET
+                    email=EXCLUDED.email,expires_at_ms=EXCLUDED.expires_at_ms,
+                    payload=EXCLUDED.payload,updated_at=now()"""
             else:
                 query = """INSERT INTO lug_email_verifications (id,email,expires_at_ms,payload)
                     VALUES ($1,$2,$3,$4::jsonb) ON CONFLICT (id) DO UPDATE SET
@@ -341,6 +346,5 @@ class PostgresStore:
 
     async def close(self) -> None:
         await self.pool.close()
-
     def health(self) -> dict[str, str]:
         return {"provider": self.provider, "schema": "normalized"}

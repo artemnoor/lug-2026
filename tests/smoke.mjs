@@ -103,12 +103,25 @@ try {
   assert.equal(Object.hasOwn(persistedPending.payload, 'password'), false, 'raw password is not persisted');
   assert.match(persistedPending.codeHash, /^[0-9a-f]{64}$/, 'verification code is stored as an HMAC');
   await expectStatus(await participant.request('/api/dashboard'), 401, 'dashboard before email verification');
-  const captainCode = await waitForVerificationCode(server, registrationLogOffset);
+  const replacementLogOffset = server.logs().length;
+  const repeatedRegistration = await participant.request('/api/auth/register-team', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': participant.csrf() }, body: JSON.stringify({ fio: 'Тестовый капитан', group, teamName: 'Smoke команда', totalStudentsInGroup: 1, email: captainEmail, password: 'Strong!Test1', messenger: 'telegram', messengerContact: '@smoketest', telegramAccount: '@smoketest', studentCardFile: pngData, studentCardFileName: 'student-card.png', consent: true }) });
+  await expectStatus(repeatedRegistration, 202, 'repeated pending registration refreshes code');
+  const repeatedRegistrationPayload = await json(repeatedRegistration);
+  assert.equal(repeatedRegistrationPayload.verificationId, registrationPayload.verificationId, 'pending registration keeps verification id');
+  const captainCode = await waitForVerificationCode(server, replacementLogOffset);
   const wrongCode = await participant.request('/api/auth/verify-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': participant.csrf() }, body: JSON.stringify({ verificationId: registrationPayload.verificationId, code: '000000' }) });
   await expectStatus(wrongCode, 422, 'wrong email verification code');
   const verifiedRegistration = await participant.request('/api/auth/verify-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': participant.csrf() }, body: JSON.stringify({ verificationId: registrationPayload.verificationId, code: captainCode }) });
   await expectStatus(verifiedRegistration, 201, 'team registration verification');
   const dashboard = await participant.request('/api/dashboard'); await expectStatus(dashboard, 200, 'dashboard'); const dashboardPayload = await json(dashboard); assert.equal(dashboardPayload.team.group, group); assert.equal(dashboardPayload.members.length, 1); assert.match(dashboardPayload.team.inviteCode, /^INV-[A-F0-9]{32}$/); assert.equal(dashboard.headers.get('cache-control'), 'no-store'); assert.match(dashboard.headers.get('vary') || '', /Cookie/);
+  const previousStudentCard = dashboardPayload.user.studentCardFile;
+  const replacementStudentCard = await participant.request('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': participant.csrf() }, body: JSON.stringify({ studentCardFile: pngData, studentCardFileName: 'student-card-replacement.png' }) });
+  await expectStatus(replacementStudentCard, 200, 'student card replacement');
+  const replacementPayload = await json(replacementStudentCard);
+  assert.notEqual(replacementPayload.user.studentCardFile, previousStudentCard, 'student card URL is replaced');
+  assert.equal(replacementPayload.user.identityStatus, 'pending', 'replacement returns identity to review');
+  const replacementAdminOverview = await json(await admin.request('/api/admin/overview'));
+  assert.ok(replacementAdminOverview.adminNotifications.some((item) => item.targetId === replacementPayload.user.id && item.message.includes('новое фото личного кабинета')), 'admin is notified about student card replacement');
   await expectStatus(await participant.request(`/api/invites/${encodeURIComponent(dashboardPayload.team.inviteCode)}`), 200, 'invite lookup');
   let inviteRateLimitResponse;
   for (let attempt = 0; attempt < 20; attempt += 1) inviteRateLimitResponse = await publicClient.request(`/api/invites/invalid-${attempt}`);
@@ -143,11 +156,25 @@ try {
   await expectStatus(rejectedChatBroadcast, 422, 'chat broadcast rejected');
   const adminBroadcast = await admin.request('/api/admin/notifications/broadcast', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': admin.csrf() }, body: JSON.stringify({ targetType: 'user', targetId: dashboardPayload.user.id, title: 'Уведомление оргкомитета', message: 'Проверьте данные заявки.' }) });
   await expectStatus(adminBroadcast, 201, 'admin broadcast');
+  const adminBroadcastPayload = await json(adminBroadcast);
+  assert.equal(adminBroadcastPayload.emailRecipients, 1, 'participant broadcast email recipient');
+  assert.equal(adminBroadcastPayload.emailFailed, 0, 'participant broadcast email delivery');
   const notificationsAfterBroadcast = await json(await participant.request('/api/notifications'));
   assert.ok(notificationsAfterBroadcast.notifications.some((item) => item.message === 'Проверьте данные заявки.'), 'broadcast appears in notifications');
   const adminOverview = await json(await admin.request('/api/admin/overview'));
   assert.ok(adminOverview.notifications.every((item) => item.kind !== 'chat'), 'admin overview has no chats');
   await expectStatus(await admin.request('/api/admin/overview'), 200, 'admin overview after registration');
+
+  const recovery = createClient(); await recovery.request('/index.html');
+  const recoveryLogOffset = server.logs().length;
+  const recoveryRequest = await recovery.request('/api/auth/request-password-reset', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': recovery.csrf() }, body: JSON.stringify({ email: outsiderEmail }) });
+  await expectStatus(recoveryRequest, 202, 'password reset request');
+  const recoveryCode = await waitForVerificationCode(server, recoveryLogOffset);
+  const resetPassword = await recovery.request('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': recovery.csrf() }, body: JSON.stringify({ email: outsiderEmail, code: recoveryCode, password: 'Strong!Reset2' }) });
+  await expectStatus(resetPassword, 200, 'password reset');
+  const resetLogin = createClient(); await resetLogin.request('/index.html');
+  const resetLoginResponse = await resetLogin.request('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': resetLogin.csrf() }, body: JSON.stringify({ email: outsiderEmail, password: 'Strong!Reset2' }) });
+  await expectStatus(resetLoginResponse, 200, 'login with reset password');
 
   console.log('smoke: ok');
 } finally {

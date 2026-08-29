@@ -87,11 +87,14 @@ async def private_upload(filename: str, request: Request):
     suffix = Path(upload["url"]).suffix.lower()
     media = {
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-        ".webp": "image/webp", ".pdf": "application/pdf", ".doc": "application/msword",
+        ".webp": "image/webp", ".gif": "image/gif", ".avif": "image/avif",
+        ".heic": "image/heic", ".heif": "image/heif", ".tif": "image/tiff",
+        ".tiff": "image/tiff", ".bmp": "image/bmp", ".pdf": "application/pdf",
+        ".doc": "application/msword",
         ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
     }
-    disposition = "inline" if suffix in {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov"} else "attachment"
+    disposition = "inline" if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".heic", ".heif", ".tif", ".tiff", ".bmp", ".mp4", ".webm", ".mov"} else "attachment"
     signed_url = await context.file_storage.signed_url(upload)
     headers = {
         "Cache-Control": "private, no-store",

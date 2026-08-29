@@ -80,7 +80,7 @@ def _pending_response(pending: dict) -> dict[str, Any]:
         "verificationId": pending["id"],
         "email": pending["email"],
         "expiresAt": pending["expiresAt"],
-        "message": "Проверьте почту и введите шестизначный код подтверждения.",
+        "message": "Код отправлен на почту. Проверьте входящие и папку «Спам».",
     }
 
 
@@ -89,8 +89,7 @@ async def _create_pending_verification(
 ) -> dict[str, Any]:
     context = _context(request)
     email = domain.normalize_email(payload.get("email"))
-    if _pending_for_email(state, email):
-        raise ApiError(409, "На эту почту уже отправлен код. Используйте его или запросите новый.")
+    existing = _pending_for_email(state, email)
     student_card = await context.file_storage.save(
         payload["studentCardFile"], payload.get("studentCardFileName", "student-card")
     )
@@ -103,7 +102,9 @@ async def _create_pending_verification(
     stored_payload["passwordHash"] = password_hash(payload["password"])
     code = verification_code()
     pending = {
-        "id": str(uuid4()),
+        # Повторная отправка формы обновляет незавершённую заявку, не создавая
+        # второй конкурирующий код и не ломая уже открытый экран подтверждения.
+        "id": existing.get("id") if existing else str(uuid4()),
         "kind": kind,
         "email": email,
         "codeHash": verification_code_hash(
@@ -126,8 +127,27 @@ async def _create_pending_verification(
     except Exception:
         await context.file_storage.delete(student_card["url"])
         raise
-    state.setdefault("emailVerifications", []).append(pending)
+    old_student_card = (existing or {}).get("studentCard") or {}
+    replaced = False
+    stale_cards = []
+    verifications = []
+    for item in state.setdefault("emailVerifications", []):
+        if domain.normalize_email(item.get("email")) != email:
+            verifications.append(item)
+            continue
+        if not replaced:
+            verifications.append(pending)
+            replaced = True
+        else:
+            stale_cards.append((item.get("studentCard") or {}).get("url", ""))
+    if not replaced:
+        verifications.append(pending)
+    state["emailVerifications"] = verifications
     await context.store.save(state)
+    if old_student_card.get("url") and old_student_card.get("url") != student_card.get("url"):
+        await context.file_storage.delete(old_student_card.get("url", ""))
+    for stale_card in stale_cards:
+        await context.file_storage.delete(stale_card)
     return pending
 
 

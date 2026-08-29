@@ -1,5 +1,6 @@
 import { createReadStream, existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
+import { createGzip } from 'node:zlib';
 import { setSecurityHeaders } from './http.js';
 
 const PUBLIC_PAGE_FILES = new Set(['index.html', 'cabinet.html', 'admin.html', 'privacy.html', 'rules.html', 'register.html', 'results.html', 'api.html']);
@@ -26,10 +27,18 @@ export function serveStatic(req, res, { webRoot, secureCookies = false }) {
   const path = safeStaticPath(req.url || '/', webRoot);
   if (!path || !existsSync(path)) { setSecurityHeaders(res, { secure: secureCookies, csp: false }); res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Request-Id': res.__requestId }); res.end('Not found'); return; }
   setSecurityHeaders(res, { secure: secureCookies, csp: true });
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  const extension = extname(path).toLowerCase();
+  const compressible = new Set(['.html', '.js', '.css', '.svg', '.json']).has(extension);
+  const acceptsGzip = /(?:^|,)\s*gzip\s*(?:,|$)/i.test(String(req.headers['accept-encoding'] || ''));
+  const cacheControl = new Set(['.css', '.js']).has(extension)
+    ? 'public, max-age=300, stale-while-revalidate=86400'
+    : new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.ttf', '.otf']).has(extension)
+      ? 'public, max-age=86400, stale-while-revalidate=604800'
+      : 'no-store, max-age=0';
+  res.setHeader('Cache-Control', cacheControl);
+  if (cacheControl.startsWith('no-store')) { res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); }
   res.setHeader('X-Request-Id', res.__requestId || '');
-  res.setHeader('Content-Type', CONTENT_TYPES[extname(path).toLowerCase()] || 'application/octet-stream');
+  res.setHeader('Content-Type', CONTENT_TYPES[extension] || 'application/octet-stream');
+  if (compressible && acceptsGzip) { res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); createReadStream(path).pipe(createGzip({ level: 6 })).pipe(res); return; }
   createReadStream(path).pipe(res);
 }

@@ -25,6 +25,7 @@
         <a href="#gallery">История</a>
         <a href="#rules">Правила</a>
         <a href="#registration">Участие</a>
+        <a class="site-nav__menu-account" id="siteMenuAccountLink" href="register.html">Войти в кабинет <span aria-hidden="true">→</span></a>
       </nav>
       <a class="site-nav__account" id="siteAccountLink" href="register.html">Войти</a>
     `;
@@ -51,6 +52,7 @@
     document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
 
     const accountLink = navigation.querySelector('#siteAccountLink');
+    const menuAccountLink = navigation.querySelector('#siteMenuAccountLink');
     const authDialog = document.createElement('dialog');
     authDialog.className = 'site-auth-dialog';
     authDialog.setAttribute('aria-labelledby', 'site-auth-title');
@@ -94,11 +96,42 @@
           <button class="site-auth-dialog__back" type="button" data-auth-mode="choice"><span aria-hidden="true">←</span> Назад</button>
           <h2 id="site-auth-login-title">Войти<br>в кабинет</h2>
           <p class="site-auth-dialog__lead">Введите почту и пароль. После входа откроется ваш конкурсный маршрут.</p>
+          <p class="site-auth-dialog__verify-status" id="siteAuthLoginStatus" role="status" aria-live="polite"></p>
           <label>Электронная почта<input data-auth-field="login" id="siteAuthEmail" type="email" autocomplete="username" placeholder="you@example.com" required></label>
           <label>Пароль<input data-auth-field="login" id="siteAuthPassword" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
           <p class="site-auth-dialog__error" id="siteAuthError" role="alert"></p>
           <button class="site-auth-dialog__submit" id="siteAuthLoginSubmit" type="submit">Войти <span aria-hidden="true">→</span></button>
-          <p class="site-auth-dialog__footer">Забыли пароль или не получается войти? <a href="mailto:lug@bmstu.ru?subject=Вопрос%20по%20входу">Написать организаторам</a></p>
+          <p class="site-auth-dialog__footer">Не помните пароль? <button class="site-auth-dialog__inline-link" type="button" data-auth-mode="recovery">Восстановить доступ</button></p>
+        </section>
+
+        <section class="site-auth-dialog__login" id="siteAuthRecovery" hidden>
+          <button class="site-auth-dialog__back" type="button" data-auth-mode="login"><span aria-hidden="true">←</span> Вернуться ко входу</button>
+          <p class="site-auth-dialog__eyebrow">Восстановление доступа</p>
+          <h2 id="site-auth-recovery-title">Вернуть<br>доступ</h2>
+          <div id="siteRecoveryRequestStep">
+            <p class="site-auth-dialog__lead">Укажите почту, которую использовали при регистрации. Мы отправим на неё код восстановления.</p>
+            <label>Электронная почта<input data-auth-field="recovery" id="siteRecoveryEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+            <p class="site-auth-dialog__error" id="siteAuthRecoveryError" role="alert"></p>
+            <button class="site-auth-dialog__submit" id="siteAuthRecoveryRequestSubmit" type="submit">Отправить код <span aria-hidden="true">→</span></button>
+          </div>
+          <div id="siteRecoveryResetStep" hidden>
+            <p class="site-auth-dialog__lead">Код отправлен на <strong id="siteRecoveryVerificationEmail"></strong>. Введите его и задайте новый пароль.</p>
+            <label>Код восстановления<input data-auth-field="recovery" id="siteRecoveryCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required></label>
+            <div class="site-auth-dialog__password-field">
+              <label for="siteRecoveryPassword">Новый пароль</label>
+              <div class="site-auth-dialog__password-control"><input data-auth-field="recovery" id="siteRecoveryPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Придумайте пароль" aria-describedby="siteRecoveryPasswordRules" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteRecoveryPassword" aria-pressed="false">Показать</button></div>
+              <ul class="site-auth-dialog__password-rules" id="siteRecoveryPasswordRules" aria-live="polite"><li data-recovery-password-rule="length">8 символов</li><li data-recovery-password-rule="case">строчная и прописная буква</li><li data-recovery-password-rule="number">цифра</li><li data-recovery-password-rule="special">спецсимвол</li></ul>
+            </div>
+            <div class="site-auth-dialog__password-field">
+              <label for="siteRecoveryPasswordConfirm">Повторите пароль</label>
+              <div class="site-auth-dialog__password-control"><input data-auth-field="recovery" id="siteRecoveryPasswordConfirm" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите пароль" aria-describedby="siteRecoveryPasswordMatch" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteRecoveryPasswordConfirm" aria-pressed="false">Показать</button></div>
+              <p class="site-auth-dialog__password-match" id="siteRecoveryPasswordMatch" role="status" aria-live="polite"></p>
+            </div>
+            <p class="site-auth-dialog__verify-status" id="siteAuthRecoveryStatus" role="status" aria-live="polite"></p>
+            <p class="site-auth-dialog__error" id="siteAuthRecoveryResetError" role="alert"></p>
+            <button class="site-auth-dialog__submit" id="siteAuthRecoveryResetSubmit" type="submit">Сохранить новый пароль <span aria-hidden="true">→</span></button>
+            <button class="site-auth-dialog__inline-link site-auth-dialog__resend" id="siteAuthRecoveryResend" type="button">Отправить код ещё раз</button>
+          </div>
         </section>
 
         <section class="site-auth-dialog__register" id="siteAuthRegister" hidden>
@@ -138,12 +171,20 @@
                 <p class="site-auth-dialog__messenger-status" data-messenger-status="captain" role="status">Способ связи ещё не выбран</p>
               </fieldset>
             </div>
-            <label class="site-auth-dialog__upload" data-dropzone="captain" for="siteCapStudentCardFile">
-              <span class="site-auth-dialog__upload-title">Скриншот личного кабинета студента</span>
-              <input class="site-auth-dialog__file-input" data-auth-field="captain" id="siteCapStudentCardFile" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" aria-label="Выбрать скриншот личного кабинета">
-              <span class="site-auth-dialog__upload-action"><strong>Перетащите файл сюда</strong><small>или нажмите, чтобы выбрать · PNG, JPG, WEBP или PDF до 5 МБ</small></span>
-              <span class="site-auth-dialog__file-status" id="siteCapFilePreview" aria-live="polite">Файл не выбран</span>
-            </label>
+            <div class="site-auth-dialog__upload" data-dropzone="captain">
+              <div class="site-auth-dialog__upload-head">
+                <span class="site-auth-dialog__upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2l1.1-1.5h4.8L15.5 5h2A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12" r="3.5"/></svg></span>
+                <span class="site-auth-dialog__upload-copy"><span class="site-auth-dialog__upload-title">Подтверждение студента</span><strong>Фото личного кабинета</strong><small>Сфотографируйте экран или выберите фото/PDF · до 5 МБ.</small></span>
+              </div>
+              <input class="site-auth-dialog__file-input" data-auth-field="captain" id="siteCapStudentCardFile" type="file" accept="image/*,.pdf" aria-label="Выбрать фото личного кабинета" tabindex="-1">
+              <div class="site-auth-dialog__upload-controls">
+                <button class="site-auth-dialog__upload-choose" data-auth-field="captain" data-upload-trigger data-upload-owner="captain" type="button" aria-controls="siteCapStudentCardFile" aria-describedby="siteCapFilePreview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-upload-action>Выбрать фото</span></button>
+                <button class="site-auth-dialog__upload-clear" data-auth-field="captain" data-upload-clear data-upload-owner="captain" type="button" hidden>Удалить</button>
+              </div>
+              <p class="site-auth-dialog__file-status" id="siteCapFilePreview" role="status" aria-live="polite">Файл не выбран</p>
+              <div class="site-auth-dialog__file-preview" data-upload-preview-wrap hidden><img data-upload-preview alt="Предпросмотр выбранного фото"></div>
+              <small class="site-auth-dialog__upload-desktop-hint">На компьютере можно также перетащить файл сюда · JPG, PNG, WEBP или PDF до 5 МБ.</small>
+            </div>
             <div class="site-auth-dialog__field-grid site-auth-dialog__password-grid">
               <div class="site-auth-dialog__password-field">
                 <label for="siteCapPassword">Пароль</label>
@@ -187,12 +228,20 @@
                 <p class="site-auth-dialog__messenger-status" data-messenger-status="participant" role="status">Способ связи ещё не выбран</p>
               </fieldset>
             </div>
-            <label class="site-auth-dialog__upload" data-dropzone="participant" for="siteJoinStudentCardFile">
-              <span class="site-auth-dialog__upload-title">Скриншот личного кабинета студента</span>
-              <input class="site-auth-dialog__file-input" data-auth-field="participant" id="siteJoinStudentCardFile" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" aria-label="Выбрать скриншот личного кабинета">
-              <span class="site-auth-dialog__upload-action"><strong>Перетащите файл сюда</strong><small>или нажмите, чтобы выбрать · PNG, JPG, WEBP или PDF до 5 МБ</small></span>
-              <span class="site-auth-dialog__file-status" id="siteJoinFilePreview" aria-live="polite">Файл не выбран</span>
-            </label>
+            <div class="site-auth-dialog__upload" data-dropzone="participant">
+              <div class="site-auth-dialog__upload-head">
+                <span class="site-auth-dialog__upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2l1.1-1.5h4.8L15.5 5h2A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12" r="3.5"/></svg></span>
+                <span class="site-auth-dialog__upload-copy"><span class="site-auth-dialog__upload-title">Подтверждение студента</span><strong>Фото личного кабинета</strong><small>Сфотографируйте экран или выберите фото/PDF · до 5 МБ.</small></span>
+              </div>
+              <input class="site-auth-dialog__file-input" data-auth-field="participant" id="siteJoinStudentCardFile" type="file" accept="image/*,.pdf" aria-label="Выбрать фото личного кабинета" tabindex="-1">
+              <div class="site-auth-dialog__upload-controls">
+                <button class="site-auth-dialog__upload-choose" data-auth-field="participant" data-upload-trigger data-upload-owner="participant" type="button" aria-controls="siteJoinStudentCardFile" aria-describedby="siteJoinFilePreview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-upload-action>Выбрать фото</span></button>
+                <button class="site-auth-dialog__upload-clear" data-auth-field="participant" data-upload-clear data-upload-owner="participant" type="button" hidden>Удалить</button>
+              </div>
+              <p class="site-auth-dialog__file-status" id="siteJoinFilePreview" role="status" aria-live="polite">Файл не выбран</p>
+              <div class="site-auth-dialog__file-preview" data-upload-preview-wrap hidden><img data-upload-preview alt="Предпросмотр выбранного фото"></div>
+              <small class="site-auth-dialog__upload-desktop-hint">На компьютере можно также перетащить файл сюда · JPG, PNG, WEBP или PDF до 5 МБ.</small>
+            </div>
             <div class="site-auth-dialog__field-grid site-auth-dialog__password-grid">
               <div class="site-auth-dialog__password-field">
                 <label for="siteJoinPassword">Пароль</label>
@@ -230,13 +279,18 @@
 
     const authForm = authDialog.querySelector('#siteAuthForm');
     const authError = authDialog.querySelector('#siteAuthError');
+    const loginStatus = authDialog.querySelector('#siteAuthLoginStatus');
     const registerError = authDialog.querySelector('#siteAuthRegisterError');
     const loginPanel = authDialog.querySelector('#siteAuthLogin');
     const registerPanel = authDialog.querySelector('#siteAuthRegister');
     const verifyPanel = authDialog.querySelector('#siteAuthVerify');
+    const recoveryPanel = authDialog.querySelector('#siteAuthRecovery');
+    const recoveryRequestStep = authDialog.querySelector('#siteRecoveryRequestStep');
+    const recoveryResetStep = authDialog.querySelector('#siteRecoveryResetStep');
     const choicePanel = authDialog.querySelector('#siteAuthChoice');
-    const introDuration = 1400;
+    const introDuration = 1450;
     let introTimer = null;
+    let introRun = 0;
     let currentMode = 'choice';
     let registerMode = 'captain';
     let capFile = null;
@@ -247,6 +301,8 @@
     let verificationId = '';
     let verificationEmail = '';
     let verificationExpiresAt = '';
+    let recoveryStep = 'request';
+    let recoveryEmail = '';
     const messengerSelections = { captain: new Set(), participant: new Set() };
     const messengerMeta = {
       telegram: { label: 'Telegram', contactLabel: 'Никнейм или ID Telegram', placeholder: '@username или 123456789', test: value => /^@?[a-zA-Z0-9_]{4,32}$/.test(value) || /^(?:https?:\/\/)?t\.me\/[a-zA-Z0-9_]{4,32}$/i.test(value) },
@@ -330,7 +386,7 @@
     const syncDisabledFields = () => {
       authDialog.querySelectorAll('[data-auth-field]').forEach(field => {
         const owner = field.dataset.authField;
-        const active = currentMode === 'login' ? owner === 'login' : currentMode === 'register' ? owner === registerMode : currentMode === 'verify' && owner === 'verify';
+        const active = currentMode === 'login' ? owner === 'login' : currentMode === 'register' ? owner === registerMode : currentMode === 'verify' ? owner === 'verify' : currentMode === 'recovery' && owner === 'recovery';
         field.disabled = !active;
       });
       authDialog.querySelectorAll('[data-dropzone]').forEach(zone => {
@@ -364,26 +420,56 @@
     };
 
     const setAuthMode = mode => {
-      currentMode = ['choice', 'login', 'register', 'verify'].includes(mode) ? mode : 'choice';
+      currentMode = ['choice', 'login', 'register', 'verify', 'recovery'].includes(mode) ? mode : 'choice';
       choicePanel.hidden = currentMode !== 'choice';
       loginPanel.hidden = currentMode !== 'login';
       registerPanel.hidden = currentMode !== 'register';
       verifyPanel.hidden = currentMode !== 'verify';
-      authDialog.setAttribute('aria-labelledby', currentMode === 'login' ? 'site-auth-login-title' : currentMode === 'register' ? 'site-auth-register-title' : currentMode === 'verify' ? 'site-auth-verify-title' : 'site-auth-title');
-      setError(authError); setError(registerError); setError(authDialog.querySelector('#siteAuthVerifyError'));
+      recoveryPanel.hidden = currentMode !== 'recovery';
+      authDialog.setAttribute('aria-labelledby', currentMode === 'login' ? 'site-auth-login-title' : currentMode === 'register' ? 'site-auth-register-title' : currentMode === 'verify' ? 'site-auth-verify-title' : currentMode === 'recovery' ? 'site-auth-recovery-title' : 'site-auth-title');
+      setError(authError); setError(registerError); setError(authDialog.querySelector('#siteAuthVerifyError')); setError(authDialog.querySelector('#siteAuthRecoveryError')); setError(authDialog.querySelector('#siteAuthRecoveryResetError'));
       syncDisabledFields();
       if (currentMode === 'login') focusFirstField(loginPanel);
       if (currentMode === 'register') setRegistrationMode(registerMode);
       if (currentMode === 'verify') focusFirstField(verifyPanel);
+      if (currentMode === 'recovery') {
+        recoveryRequestStep.hidden = recoveryStep !== 'request';
+        recoveryResetStep.hidden = recoveryStep !== 'reset';
+        focusFirstField(recoveryStep === 'request' ? recoveryRequestStep : recoveryResetStep);
+      }
     };
 
-    const startAuthIntro = () => {
+    const syncIntroTravel = () => {
+      const intro = authDialog.querySelector('.site-auth-dialog__intro');
+      const card = authDialog.querySelector('.site-auth-dialog__card');
+      if (!intro || !card) return;
+      const finalAnchor = Number.parseFloat(getComputedStyle(intro).getPropertyValue('--auth-intro-final-anchor')) || 116;
+      const travel = Math.max(0, card.getBoundingClientRect().height / 2 - finalAnchor);
+      intro.style.setProperty('--auth-intro-travel', `${travel}px`);
+    };
+
+    const startAuthIntro = (mode = 'choice') => {
+      const run = ++introRun;
       window.clearTimeout(introTimer);
+      authDialog.classList.add('is-intro-preparing');
+      authDialog.classList.toggle('is-intro-login', mode === 'login');
       authDialog.classList.remove('is-intro-complete');
-      void authDialog.offsetWidth;
-      const completeIntro = () => { authDialog.classList.add('is-intro-complete'); authDialog.querySelector('[data-auth-mode="login"]')?.focus(); };
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) completeIntro();
-      else introTimer = window.setTimeout(completeIntro, introDuration);
+      const completeIntro = () => {
+        if (run !== introRun || !authDialog.open) return;
+        authDialog.classList.add('is-intro-complete');
+        if (mode === 'login') focusFirstField(loginPanel);
+        else authDialog.querySelector('[data-auth-mode="login"]')?.focus();
+      };
+      const beginIntro = () => {
+        if (run !== introRun || !authDialog.open) return;
+        syncIntroTravel();
+        void authDialog.offsetWidth;
+        authDialog.classList.remove('is-intro-preparing');
+        void authDialog.offsetWidth;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) completeIntro();
+        else introTimer = window.setTimeout(completeIntro, introDuration);
+      };
+      window.requestAnimationFrame(() => window.requestAnimationFrame(beginIntro));
     };
 
     let pageScrollY = 0;
@@ -401,25 +487,63 @@
       window.scrollTo(0, pageScrollY);
     };
 
-    const isAllowedFile = file => file && (/^(image\/(png|jpeg|webp)|application\/pdf)$/i.test(file.type) || /\.(png|jpe?g|webp|pdf)$/i.test(file.name));
-    const setFile = (input, file, previewId, type) => {
+    const isAllowedFile = file => file && (/^image\//i.test(file.type) || /^application\/pdf$/i.test(file.type) || /\.(png|jpe?g|webp|gif|avif|heic|heif|tiff?|bmp|pdf)$/i.test(file.name));
+    const setFile = (input, file, previewId, type, previewState) => {
       if (!file) return false;
-      if (!isAllowedFile(file)) { input.value = ''; setError(registerError, 'Поддерживаются только PNG, JPG, WEBP и PDF.'); return false; }
+      if (!isAllowedFile(file)) { input.value = ''; setError(registerError, 'Загрузите изображение или PDF.'); return false; }
       if (file.size > 5 * 1024 * 1024) { input.value = ''; setError(registerError, 'Размер файла не должен превышать 5 МБ.'); return false; }
       try { const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; } catch { /* iOS may keep the file only in the closure. */ }
       if (type === 'captain') capFile = file; else joinFile = file;
-      const preview = authDialog.querySelector(`#${previewId}`);
       const zone = input.closest('[data-dropzone]');
+      const preview = authDialog.querySelector(`#${previewId}`);
+      const previewWrap = zone?.querySelector('[data-upload-preview-wrap]');
+      const previewImage = zone?.querySelector('[data-upload-preview]');
+      const action = zone?.querySelector('[data-upload-action]');
+      const clear = zone?.querySelector('[data-upload-clear]');
+      if (previewState?.url) URL.revokeObjectURL(previewState.url);
+      if (previewState) previewState.url = null;
+      if (/^image\//i.test(file.type) && previewImage && previewWrap) {
+        previewState.url = URL.createObjectURL(file);
+        previewImage.src = previewState.url;
+        previewWrap.hidden = false;
+      } else if (previewWrap) {
+        previewImage?.removeAttribute('src');
+        previewWrap.hidden = true;
+      }
       if (preview) preview.textContent = `✓ ${file.name} · ${Math.ceil(file.size / 1024)} КБ`;
+      if (action) action.textContent = /^image\//i.test(file.type) ? 'Заменить фото' : 'Заменить файл';
+      if (clear) clear.hidden = false;
       zone?.classList.add('is-selected');
       setError(registerError);
       return true;
     };
+    const clearFile = (zone, input, previewId, type, previewState) => {
+      if (previewState?.url) URL.revokeObjectURL(previewState.url);
+      if (previewState) previewState.url = null;
+      input.value = '';
+      if (type === 'captain') capFile = null; else joinFile = null;
+      zone.classList.remove('is-selected', 'is-dragover');
+      const preview = authDialog.querySelector(`#${previewId}`);
+      const previewWrap = zone.querySelector('[data-upload-preview-wrap]');
+      const previewImage = zone.querySelector('[data-upload-preview]');
+      const action = zone.querySelector('[data-upload-action]');
+      const clear = zone.querySelector('[data-upload-clear]');
+      if (preview) preview.textContent = 'Файл не выбран';
+      if (previewImage) previewImage.removeAttribute('src');
+      if (previewWrap) previewWrap.hidden = true;
+      if (action) action.textContent = 'Выбрать фото';
+      if (clear) clear.hidden = true;
+    };
+    const uploadResetters = [];
     const bindFileDropzone = (zone, input, previewId, type) => {
+      const previewState = { url: null };
+      zone.querySelector('[data-upload-trigger]')?.addEventListener('click', () => { if (!input.disabled) input.click(); });
       zone.addEventListener('dragover', event => { if (input.disabled) return; event.preventDefault(); zone.classList.add('is-dragover'); });
       zone.addEventListener('dragleave', () => zone.classList.remove('is-dragover'));
-      zone.addEventListener('drop', event => { if (input.disabled) return; event.preventDefault(); zone.classList.remove('is-dragover'); setFile(input, event.dataTransfer?.files?.[0], previewId, type); });
-      input.addEventListener('change', event => setFile(input, event.target.files?.[0], previewId, type));
+      zone.addEventListener('drop', event => { if (input.disabled) return; event.preventDefault(); zone.classList.remove('is-dragover'); setFile(input, event.dataTransfer?.files?.[0], previewId, type, previewState); });
+      input.addEventListener('change', event => setFile(input, event.target.files?.[0], previewId, type, previewState));
+      zone.querySelector('[data-upload-clear]')?.addEventListener('click', () => clearFile(zone, input, previewId, type, previewState));
+      uploadResetters.push(() => clearFile(zone, input, previewId, type, previewState));
     };
     bindFileDropzone(authDialog.querySelector('[data-dropzone="captain"]'), authDialog.querySelector('#siteCapStudentCardFile'), 'siteCapFilePreview', 'captain');
     bindFileDropzone(authDialog.querySelector('[data-dropzone="participant"]'), authDialog.querySelector('#siteJoinStudentCardFile'), 'siteJoinFilePreview', 'participant');
@@ -445,6 +569,29 @@
       button.textContent = visible ? 'Скрыть' : 'Показать';
       button.setAttribute('aria-pressed', String(visible));
     }));
+
+    const updateRecoveryPasswordUI = () => {
+      const password = authDialog.querySelector('#siteRecoveryPassword');
+      const confirm = authDialog.querySelector('#siteRecoveryPasswordConfirm');
+      const rules = {
+        length: password.value.length >= 8,
+        case: /[a-zа-яё]/.test(password.value) && /[A-ZА-ЯЁ]/.test(password.value),
+        number: /\d/.test(password.value),
+        special: /[^A-Za-zА-Яа-яЁё\d\s]/.test(password.value)
+      };
+      authDialog.querySelectorAll('[data-recovery-password-rule]').forEach(rule => {
+        rule.classList.toggle('is-valid', Boolean(rules[rule.dataset.recoveryPasswordRule]));
+      });
+      const hasConfirm = Boolean(confirm.value);
+      const match = authDialog.querySelector('#siteRecoveryPasswordMatch');
+      match.textContent = hasConfirm ? (password.value === confirm.value ? '✓ Пароли совпадают' : 'Пароли не совпадают') : '';
+      match.className = `site-auth-dialog__password-match${hasConfirm ? (password.value === confirm.value ? ' is-valid' : ' is-error') : ''}`;
+      confirm.setAttribute('aria-invalid', String(hasConfirm && password.value !== confirm.value));
+      password.setAttribute('aria-invalid', String(Boolean(password.value) && !isStrongPassword(password.value)));
+      return { ...rules, match: hasConfirm && password.value === confirm.value };
+    };
+    authDialog.querySelectorAll('[data-recovery-password]').forEach(input => input.addEventListener('input', updateRecoveryPasswordUI));
+    authDialog.querySelectorAll('#siteRecoveryPassword,#siteRecoveryPasswordConfirm').forEach(input => input.addEventListener('input', updateRecoveryPasswordUI));
 
     const checkInviteCode = async () => {
       const code = authDialog.querySelector('#siteJoinInviteCode').value.trim();
@@ -535,6 +682,66 @@
       }
     };
 
+    const requestRecoveryCode = async ({ resend = false } = {}) => {
+      const emailField = authDialog.querySelector('#siteRecoveryEmail');
+      const error = authDialog.querySelector('#siteAuthRecoveryError');
+      const status = authDialog.querySelector('#siteAuthRecoveryStatus');
+      const button = authDialog.querySelector(resend ? '#siteAuthRecoveryResend' : '#siteAuthRecoveryRequestSubmit');
+      const email = (recoveryEmail || emailField.value).trim();
+      emailField.value = email;
+      if (!emailField.checkValidity()) { emailField.reportValidity(); return; }
+      try {
+        button.disabled = true;
+        setError(error);
+        const result = await window.lugStore.requestPasswordReset(email);
+        recoveryEmail = email;
+        authDialog.querySelector('#siteRecoveryVerificationEmail').textContent = email;
+        status.textContent = result.message || 'Проверьте почту и папку «Спам».';
+        if (!resend) {
+          recoveryStep = 'reset';
+          setAuthMode('recovery');
+        }
+      } catch (requestError) {
+        setError(error, requestError.message || 'Не удалось отправить код. Повторите попытку позже.');
+      } finally {
+        button.disabled = false;
+      }
+    };
+
+    const submitRecoveryPassword = async () => {
+      const code = authDialog.querySelector('#siteRecoveryCode');
+      const password = authDialog.querySelector('#siteRecoveryPassword');
+      const confirm = authDialog.querySelector('#siteRecoveryPasswordConfirm');
+      const error = authDialog.querySelector('#siteAuthRecoveryResetError');
+      setError(error);
+      if (!code.checkValidity()) { code.reportValidity(); return; }
+      const passwordState = updateRecoveryPasswordUI();
+      if (!isStrongPassword(password.value)) {
+        setError(error, 'Пароль должен содержать минимум 8 символов, строчную и прописную букву, цифру и спецсимвол.');
+        return;
+      }
+      if (!passwordState.match) {
+        setError(error, 'Введённые пароли не совпадают.');
+        return;
+      }
+      const submit = authDialog.querySelector('#siteAuthRecoveryResetSubmit');
+      try {
+        submit.disabled = true;
+        submit.textContent = 'Сохраняем пароль…';
+        await window.lugStore.resetPassword(recoveryEmail || authDialog.querySelector('#siteRecoveryEmail').value.trim(), code.value.trim(), password.value);
+        authDialog.querySelector('#siteAuthEmail').value = recoveryEmail;
+        authDialog.querySelector('#siteAuthPassword').value = '';
+        loginStatus.textContent = 'Пароль изменён. Войдите с новым паролем.';
+        recoveryStep = 'request';
+        setAuthMode('login');
+      } catch (resetError) {
+        setError(error, resetError.message || 'Не удалось изменить пароль. Запросите новый код.');
+      } finally {
+        submit.disabled = false;
+        submit.innerHTML = 'Сохранить новый пароль <span aria-hidden="true">→</span>';
+      }
+    };
+
     const submitRegistration = async () => {
       setError(registerError);
       if (!validateActiveRegistration()) return;
@@ -579,7 +786,11 @@
       nextPath = options.next === 'admin.html' || options.next === 'cabinet.html' ? options.next : '';
       if (!authDialog.open) { lastFocusedElement = document.activeElement; lockPage(); authDialog.showModal(); }
       setAuthMode(mode);
-      if (mode === 'choice') startAuthIntro(); else authDialog.classList.add('is-intro-complete');
+      if (mode === 'choice' || mode === 'login') startAuthIntro(mode);
+      else {
+        authDialog.classList.remove('is-intro-login');
+        authDialog.classList.add('is-intro-complete');
+      }
       if (options.invite) {
         setAuthMode('register'); setRegistrationMode('participant', false);
         authDialog.querySelector('#siteJoinInviteCode').value = options.invite;
@@ -593,14 +804,17 @@
     authDialog.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => openAuth(button.dataset.authMode)));
     authDialog.querySelectorAll('[data-register-mode]').forEach(button => button.addEventListener('click', () => setRegistrationMode(button.dataset.registerMode)));
     authDialog.addEventListener('close', () => {
-      window.clearTimeout(introTimer); authForm.reset(); setError(authError); setError(registerError);
+      ++introRun; window.clearTimeout(introTimer); authForm.reset(); setError(authError); setError(registerError); loginStatus.textContent = '';
       capFile = null; joinFile = null; inviteValid = false; inviteCheckedCode = ''; nextPath = '';
       verificationId = ''; verificationEmail = ''; verificationExpiresAt = '';
+      recoveryStep = 'request'; recoveryEmail = '';
+      setError(authDialog.querySelector('#siteAuthRecoveryError')); setError(authDialog.querySelector('#siteAuthRecoveryResetError'));
+      authDialog.querySelector('#siteAuthRecoveryStatus').textContent = '';
       messengerSelections.captain.clear(); messengerSelections.participant.clear();
       renderMessengerContacts('captain'); renderMessengerContacts('participant');
       authDialog.querySelectorAll('[data-password-toggle]').forEach(button => { const input = authDialog.querySelector(`#${button.dataset.passwordToggle}`); input.type = 'password'; button.textContent = 'Показать'; button.setAttribute('aria-pressed', 'false'); });
-      authDialog.querySelectorAll('[data-dropzone]').forEach(zone => { zone.classList.remove('is-selected', 'is-dragover'); });
-      setAuthMode('choice'); authDialog.classList.remove('is-intro-complete'); unlockPage();
+      uploadResetters.forEach(reset => reset());
+      setAuthMode('choice'); authDialog.classList.remove('is-intro-login', 'is-intro-complete'); authDialog.querySelector('.site-auth-dialog__intro')?.style.removeProperty('--auth-intro-travel'); unlockPage();
       if (lastFocusedElement && document.contains(lastFocusedElement)) lastFocusedElement.focus();
       lastFocusedElement = null;
     });
@@ -627,6 +841,7 @@
       event.preventDefault();
       if (currentMode === 'verify') return submitEmailVerification();
       if (currentMode === 'register') return submitRegistration();
+      if (currentMode === 'recovery') return recoveryStep === 'request' ? requestRecoveryCode() : submitRecoveryPassword();
       if (currentMode !== 'login') return;
       setError(authError);
       const loginFields = [...loginPanel.querySelectorAll('[data-auth-field]:not(:disabled)')];
@@ -644,12 +859,16 @@
       }
     });
     authDialog.querySelector('#siteAuthResend').addEventListener('click', resendEmailVerification);
+    authDialog.querySelector('#siteAuthRecoveryResend').addEventListener('click', () => requestRecoveryCode({ resend: true }));
 
     window.lugStore?.session?.().then(({ user }) => {
       if (!user) return;
       accountLink.dataset.authenticated = 'true';
       accountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
       accountLink.textContent = 'Личный кабинет';
+      menuAccountLink.dataset.authenticated = 'true';
+      menuAccountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
+      menuAccountLink.textContent = 'Личный кабинет';
     }).catch(() => {});
 
     const params = new URLSearchParams(window.location.search);

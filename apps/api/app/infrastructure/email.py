@@ -25,12 +25,31 @@ def _masked_email(value: str) -> str:
     return f"{local[:2]}***@{domain}"
 
 
-def _verification_html(code: str, expires_minutes: int) -> str:
+def _verification_html(code: str, expires_minutes: int, purpose: str = "verification") -> str:
     safe_code = escape(code)
+    reset = purpose == "password-reset"
+    preheader = (
+        "Код восстановления пароля для личного кабинета ЛУГ 2026."
+        if reset
+        else "Код подтверждения для регистрации в конкурсе «Лучшая учебная группа»."
+    )
+    title = "Восстановите<br>пароль" if reset else "Подтвердите<br>почту"
+    lead = "Код для восстановления доступа к личному кабинету." if reset else "Финальный шаг перед входом в конкурс."
+    description = (
+        "Вы запросили восстановление пароля для личного кабинета конкурса «Лучшая учебная группа»."
+        if reset
+        else "Вы указали этот адрес для регистрации в конкурсе «Лучшая учебная группа»."
+    )
+    instruction = "Введите код на странице восстановления пароля:" if reset else "Введите код подтверждения на странице регистрации:"
+    expired_note = (
+        "Если вы не запрашивали восстановление, просто проигнорируйте это письмо."
+        if reset
+        else "Если вы не начинали регистрацию, просто проигнорируйте это письмо."
+    )
     return f"""<!doctype html>
 <html lang="ru">
   <body style="margin:0;background:#dceeff;color:#07123e;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
-    <span style="display:none!important;max-height:0;overflow:hidden;opacity:0;color:transparent">Код подтверждения для регистрации в конкурсе «Лучшая учебная группа».</span>
+    <span style="display:none!important;max-height:0;overflow:hidden;opacity:0;color:transparent">{preheader}</span>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:28px 12px 34px;background:#dceeff">
       <tr><td align="center">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:620px;background:#ffffff;border:1px solid #07123e;box-shadow:8px 8px 0 #006cdc">
@@ -41,8 +60,8 @@ def _verification_html(code: str, expires_minutes: int) -> str:
                 <tr>
                   <td valign="top" style="padding:0 8px 0 0">
                     <div style="font-size:12px;letter-spacing:.16em;font-weight:700;text-transform:uppercase;color:#006cdc">ЛУГ 2026</div>
-                    <div style="margin-top:12px;font-size:34px;font-weight:700;letter-spacing:-.045em;line-height:.98;text-transform:uppercase;color:#07123e">Подтвердите<br>почту</div>
-                    <div style="margin-top:16px;font-size:13px;line-height:1.45;color:#435170">Финальный шаг перед входом в конкурс.</div>
+                    <div style="margin-top:12px;font-size:34px;font-weight:700;letter-spacing:-.045em;line-height:.98;text-transform:uppercase;color:#07123e">{title}</div>
+                    <div style="margin-top:16px;font-size:13px;line-height:1.45;color:#435170">{lead}</div>
                   </td>
                   <td width="176" align="right" valign="top" style="padding:0">
                     <!-- Точная фирменная звезда с первого экрана. -->
@@ -55,8 +74,8 @@ def _verification_html(code: str, expires_minutes: int) -> str:
             </td>
           </tr>
           <tr><td style="padding:30px 28px 34px;background:#ffffff">
-            <p style="margin:0 0 17px;font-size:17px;font-weight:700;line-height:1.4;color:#07123e">Вы указали этот адрес для регистрации в конкурсе «Лучшая учебная группа».</p>
-            <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#536078">Введите код подтверждения на странице регистрации:</p>
+            <p style="margin:0 0 17px;font-size:17px;font-weight:700;line-height:1.4;color:#07123e">{description}</p>
+            <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#536078">{instruction}</p>
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:2px dashed #006cdc;background:#eef6ff">
               <tr><td style="padding:7px">
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #07123e;background:#ffffff">
@@ -67,7 +86,7 @@ def _verification_html(code: str, expires_minutes: int) -> str:
                 </table>
               </td></tr>
             </table>
-            <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#536078">Код действует <strong style="color:#07123e">{expires_minutes} мин.</strong> Если вы не начинали регистрацию, просто проигнорируйте это письмо.</p>
+            <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#536078">Код действует <strong style="color:#07123e">{expires_minutes} мин.</strong> {expired_note}</p>
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:25px;border-top:1px solid #c7d8ee">
               <tr><td style="padding-top:15px;font-size:13px;line-height:1.5;color:#7a88a2">Это автоматическое письмо, отвечать на него не нужно.</td>
                 <td align="right" valign="bottom" width="64">
@@ -78,6 +97,51 @@ def _verification_html(code: str, expires_minutes: int) -> str:
                 </td>
               </tr>
             </table>
+          </td></tr>
+          <tr><td style="padding:18px 28px;background:#07123e;color:#ffffff;font-size:12px;line-height:1.5">
+            <span style="color:#83c5ff;font-weight:700;letter-spacing:.12em;text-transform:uppercase">ЛУГ МГТУ</span><br>
+            <span style="color:rgba(255,255,255,.72)">Конкурс «Лучшая учебная группа» · 2026</span>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>"""
+
+
+def _notification_html(title: str, body: str) -> str:
+    safe_title = escape(title)
+    safe_body = escape(body).replace("\n", "<br>")
+    return f"""<!doctype html>
+<html lang="ru">
+  <body style="margin:0;background:#dceeff;color:#07123e;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:28px 12px 34px;background:#dceeff">
+      <tr><td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:620px;background:#ffffff;border:1px solid #07123e;box-shadow:8px 8px 0 #006cdc">
+          <tr><td style="height:8px;background:#006cdc;font-size:0;line-height:0">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:28px 28px 30px;background:#dceeff">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td valign="top" style="padding:0 8px 0 0">
+                    <div style="font-size:12px;letter-spacing:.16em;font-weight:700;text-transform:uppercase;color:#006cdc">ЛУГ 2026</div>
+                    <div style="margin-top:12px;font-size:34px;font-weight:700;letter-spacing:-.045em;line-height:.98;text-transform:uppercase;color:#07123e">{safe_title}</div>
+                    <div style="margin-top:16px;font-size:13px;line-height:1.45;color:#435170">Новое сообщение от оргкомитета конкурса.</div>
+                  </td>
+                  <td width="176" align="right" valign="top" style="padding:0">
+                    <svg width="164" height="123" viewBox="0 0 1448 1086" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Синяя звезда ЛУГ 2026" style="display:block">
+                      <path fill="#006cdc" d="{_BRAND_STAR_PATH}"/>
+                    </svg>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr><td style="padding:30px 28px 34px;background:#ffffff">
+            <div style="border:2px dashed #006cdc;background:#eef6ff;padding:7px">
+              <div style="border:1px solid #07123e;background:#ffffff;padding:23px 20px;color:#435170;font-size:16px;line-height:1.6">{safe_body}</div>
+            </div>
+            <p style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#7a88a2">Это автоматическое письмо участнику конкурса. Ответить на него нельзя.</p>
           </td></tr>
           <tr><td style="padding:18px 28px;background:#07123e;color:#ffffff;font-size:12px;line-height:1.5">
             <span style="color:#83c5ff;font-weight:700;letter-spacing:.12em;text-transform:uppercase">ЛУГ МГТУ</span><br>
@@ -107,9 +171,52 @@ class EmailService:
     async def send_verification_code(
         self, recipient: str, code: str, expires_minutes: int
     ) -> None:
-        message = self._message(recipient, code, expires_minutes)
+        await self._send_code(recipient, code, expires_minutes, "verification")
+
+    async def send_password_reset_code(
+        self, recipient: str, code: str, expires_minutes: int
+    ) -> None:
+        await self._send_code(recipient, code, expires_minutes, "password-reset")
+
+    async def send_notification(
+        self, recipient: str, title: str, body: str
+    ) -> None:
+        email_message = self._notification_message(recipient, title, body)
         if self.mode == "log":
-            fields = {"recipient": _masked_email(recipient), "expiresMinutes": expires_minutes}
+            self.logger.info(
+                "email.notification",
+                {"recipient": _masked_email(recipient), "purpose": "participant-notification"},
+            )
+            return
+        if self.mode != "smtp":
+            raise ApiError(503, "Почтовая доставка временно недоступна.")
+        if not self.smtp_host or not self.smtp_from:
+            raise ApiError(503, "Почтовая доставка ещё не настроена организаторами.")
+        try:
+            await asyncio.to_thread(self._send_sync, email_message)
+        except (OSError, smtplib.SMTPException) as exc:
+            self.logger.error(
+                "email.delivery_failed",
+                {"recipient": _masked_email(recipient), "purpose": "participant-notification", "error": exc},
+            )
+            raise ApiError(503, "Не удалось отправить письмо. Повторите попытку позже.") from exc
+        self.logger.info(
+            "email.delivered",
+            {"recipient": _masked_email(recipient), "purpose": "participant-notification"},
+        )
+
+    async def send_captain_notification(
+        self, recipient: str, title: str, body: str
+    ) -> None:
+        """Backward-compatible alias for integrations using the old method name."""
+        await self.send_notification(recipient, title, body)
+
+    async def _send_code(
+        self, recipient: str, code: str, expires_minutes: int, purpose: str
+    ) -> None:
+        message = self._message(recipient, code, expires_minutes, purpose)
+        if self.mode == "log":
+            fields = {"recipient": _masked_email(recipient), "expiresMinutes": expires_minutes, "purpose": purpose}
             if self.log_code:
                 fields["code"] = code
             self.logger.info("email.verification_code", fields)
@@ -125,19 +232,31 @@ class EmailService:
                 "email.delivery_failed", {"recipient": _masked_email(recipient), "error": exc}
             )
             raise ApiError(503, "Не удалось отправить письмо. Повторите попытку позже.") from exc
-        self.logger.info("email.delivered", {"recipient": _masked_email(recipient)})
+        self.logger.info("email.delivered", {"recipient": _masked_email(recipient), "purpose": purpose})
 
-    def _message(self, recipient: str, code: str, expires_minutes: int) -> EmailMessage:
+    def _message(self, recipient: str, code: str, expires_minutes: int, purpose: str = "verification") -> EmailMessage:
         message = EmailMessage()
         sender = self.smtp_from or self.smtp_user
         message["From"] = formataddr((self.smtp_from_name, sender))
         message["To"] = recipient
-        message["Subject"] = "Код подтверждения — ЛУГ 2026"
+        message["Subject"] = "Код восстановления пароля — ЛУГ 2026" if purpose == "password-reset" else "Код подтверждения — ЛУГ 2026"
         message.set_content(
-            "Ваш код подтверждения для регистрации в ЛУГ 2026: "
-            f"{code}\n\nКод действует {expires_minutes} мин."
+            ("Ваш код восстановления пароля для ЛУГ 2026: " if purpose == "password-reset" else "Ваш код подтверждения для регистрации в ЛУГ 2026: ")
+            + f"{code}\n\nКод действует {expires_minutes} мин."
         )
-        message.add_alternative(_verification_html(code, expires_minutes), subtype="html")
+        message.add_alternative(_verification_html(code, expires_minutes, purpose), subtype="html")
+        return message
+
+    def _notification_message(self, recipient: str, title: str, body: str) -> EmailMessage:
+        message = EmailMessage()
+        message["From"] = formataddr((self.smtp_from_name, self.smtp_from or self.smtp_user))
+        message["To"] = recipient
+        subject = " ".join(str(title).split())
+        message["Subject"] = f"ЛУГ 2026 · {subject}"
+        message.set_content(
+            f"{title}\n\n{body}\n\nЭто автоматическое письмо участнику конкурса."
+        )
+        message.add_alternative(_notification_html(title, body), subtype="html")
         return message
 
     def _send_sync(self, message: EmailMessage) -> None:

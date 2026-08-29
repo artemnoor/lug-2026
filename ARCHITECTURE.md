@@ -18,7 +18,7 @@ apps/web :4173  ── static UI + reverse proxy ──┐
              ┌──────────────────────────────────┼────────────────────────┐
              ▼                                  ▼                        ▼
         domain/routes                       PostgreSQL              private object storage
-        auth/admin/user                     + Redis                  + AV/async scan
+        auth/admin/user/profile/notifications + Redis                + AV/async scan
                                                 + SMTP email delivery
 ```
 
@@ -68,6 +68,13 @@ sequenceDiagram
     API-->>Browser: Session cookie + кабинет
 ```
 
+Восстановление пароля использует отдельное временное состояние
+`passwordResets`: код отправляется на подтверждённый email, хранится только
+как HMAC, а после успешной проверки пароль меняется через `Argon2id` и все
+активные сессии пользователя отзываются. Организаторские решения пишутся в
+уведомления участника и параллельно отправляются подтверждённым адресатам по
+SMTP с ограниченной конкурентностью.
+
 ## Границы каталогов
 
 ```text
@@ -82,7 +89,7 @@ apps/web/
 
 apps/api/
   app/main.py              FastAPI composition root, lifecycle и middleware
-  app/routes/               auth, registration, user и admin route handlers
+  app/routes/               auth, registration, password reset, profile, notifications и admin
   app/shared/               доменные правила и organizer projections
   app/security/             cookies, CSRF, password/session, RBAC, rate limiting
   app/infrastructure/       JSON/PostgreSQL stores и local/S3 file storage adapters
@@ -109,7 +116,7 @@ tests/smoke.mjs            сквозная проверка основных с
 
 Для production:
 
-1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications и аудита имеют отдельные строки, индексы по ключевым связям и миграцию legacy `lug_state` при первом запуске. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API.
+1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications, password-resets и аудита имеют отдельные строки, индексы по ключевым связям и миграцию legacy `lug_state` при первом запуске. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API.
 2. Сессии и данные должны жить в общем PostgreSQL/Redis-контуре, а rate limiting при наличии `REDIS_URL` автоматически использует Redis. При включённом trust proxy требуется явно задать `LUG_TRUSTED_PROXY_IPS`.
 3. `LUG_FILE_STORAGE_PROVIDER=s3` включает private S3-compatible adapter: файл проходит те же MIME/magic/AV-проверки, загружается в bucket с непредсказуемым ключом, а после BOLA-проверки API выдаёт presigned GET URL на 5 минут. `LUG_S3_ENDPOINT_URL` поддерживает MinIO, Cloudflare R2 и другие S3-compatible providers. В production local adapter запрещён.
 4. При создании PostgreSQL адаптер применяет идемпотентную bootstrap-схему; retention audit log составляет 730 дней, а операции backup/restore должны выполняться отдельным release/operations-процессом.
@@ -122,7 +129,7 @@ tests/smoke.mjs            сквозная проверка основных с
 - Мутации требуют CSRF-токен из cookie и заголовка `X-CSRF-Token`.
 - Авторизация и admin RBAC выполняются на API; UI не является источником прав.
 - Приватные загрузки проверяются по владельцу, команде или роли администратора; статический сервер не раздаёт `uploads` напрямую.
-- Тела JSON/upload ограничены потоковым чтением на API и лимитом на web gateway; для файлов проверяются размер, расширение, MIME и magic bytes.
+- Тела JSON/upload ограничены потоковым чтением на API и лимитом на web gateway; для файлов проверяются размер, расширение, MIME, magic bytes и AV-сканирование до публикации.
 - Включены `X-Content-Type-Options`, frame/referrer/permissions/cross-origin policies, CSP для UI и HSTS при secure cookies.
 - Rate limiting разделён на login/register/invite lookup, загрузки и чувствительные действия; Redis позволяет синхронизировать лимиты между инстансами.
 - `requestTimeout`, `headersTimeout`, `maxConnections`, keep-alive и `clientError` ограничивают дешёвые resource-exhaustion сценарии.
@@ -139,12 +146,13 @@ tests/smoke.mjs            сквозная проверка основных с
 
 ## API и доменные модули
 
-- `auth`: login/logout по email, регистрация команды, присоединение по инвайту, email verification code и session endpoint.
+- `auth`: login/logout по email, регистрация команды, присоединение по инвайту, email verification code, восстановление пароля и session endpoint.
+- `profile`: изменение личных данных и повторная загрузка фото личного кабинета; после успешной замены администраторам добавляется уведомление.
 - `teams`: команда, captain, invitations с TTL/revoke и серверной квотой 60%.
 - `portfolio`: достижения, файлы, deadline window и статусы проверки.
 - `review`: identity, scoring, decisions, comments и audit log.
 - `video`: загрузка и модерация видео по четырём критериям.
-- `notifications`: адресация `all/team/captain/user`, unread/read state и broadcast-only доставка.
+- `notifications`: адресация `all/team/captain/user`, unread/read state, email-копии подтверждённым адресатам и bounded concurrency для рассылки.
 - `content`: редактируемые организатором сроки, тексты и публичные результаты.
 - `admin`: overview, audit, quota, team/member/identity/achievement/video review, settings и broadcast.
 

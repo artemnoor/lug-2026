@@ -43,6 +43,8 @@
     session: () => request('/api/session'),
     dashboard: () => request('/api/dashboard'),
     login: (email, password) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    requestPasswordReset: email => request('/api/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+    resetPassword: (email, code, password) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, code, password }) }),
     verifyEmail: (verificationId, code) => request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ verificationId, code }) }),
     resendEmailCode: verificationId => request('/api/auth/resend-email-code', { method: 'POST', body: JSON.stringify({ verificationId }) }),
     logout: () => request('/api/auth/logout', { method: 'POST', body: '{}' }),

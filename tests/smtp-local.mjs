@@ -130,6 +130,57 @@ try {
   assert.match(detail.HTML, /viewBox="0 0 1448 1086"/);
   assert.match(detail.HTML, /border:2px dashed #006cdc/);
   assert.equal((detail.HTML.match(/<svg/g) || []).length, 2);
+
+  const verificationCode = (detail.Text || detail.HTML || '').match(/\b\d{6}\b/)?.[0];
+  assert.ok(verificationCode, 'SMTP message did not contain a verification code.');
+  const verification = await client.request('/api/auth/verify-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': client.csrf() },
+    body: JSON.stringify({ verificationId: registrationPayload.verificationId, code: verificationCode }),
+  });
+  await expectStatus(verification, 201, 'SMTP registration verification');
+  const verifiedUser = await json(verification);
+
+  const admin = createClient();
+  await admin.request('/index.html');
+  const adminLogin = await admin.request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': admin.csrf() },
+    body: JSON.stringify({ email: 'admin@smtp.test', password: 'Strong!Admin1' }),
+  });
+  await expectStatus(adminLogin, 200, 'SMTP admin login');
+
+  const broadcastTitle = `Капитану ${Date.now()}`;
+  const broadcast = await admin.request('/api/admin/notifications/broadcast', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': admin.csrf() },
+    body: JSON.stringify({
+      targetType: 'captain',
+      targetId: verifiedUser.user.teamId,
+      title: broadcastTitle,
+      message: 'Проверьте материалы команды в личном кабинете.',
+    }),
+  });
+  await expectStatus(broadcast, 201, 'SMTP captain broadcast');
+  const broadcastPayload = await json(broadcast);
+  assert.equal(broadcastPayload.emailRecipients, 1);
+  assert.equal(broadcastPayload.emailMode, 'smtp');
+
+  const notifications = await client.request('/api/notifications').then(json);
+  assert.ok(notifications.notifications.some((item) => item.title === broadcastTitle), 'Captain notification missing in cabinet.');
+  let broadcastMessage;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const inbox = await fetch('http://127.0.0.1:8025/api/v1/messages').then((response) => response.json());
+    broadcastMessage = inbox.messages?.find((entry) => entry.Subject === `ЛУГ 2026 · ${broadcastTitle}` && JSON.stringify(entry).includes(recipient));
+    if (broadcastMessage) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  assert.ok(broadcastMessage, 'Mailpit did not receive the captain broadcast.');
+  const broadcastDetail = await fetch(`http://127.0.0.1:8025/api/v1/message/${broadcastMessage.ID}`).then((response) => response.json());
+  assert.match(broadcastDetail.Text, /Проверьте материалы команды/);
+  assert.match(broadcastDetail.HTML, new RegExp(broadcastTitle));
+  assert.match(broadcastDetail.HTML, /viewBox="0 0 1448 1086"/);
+  assert.match(broadcastDetail.HTML, /border:2px dashed #006cdc/);
   console.log('smtp-local: ok');
 } finally {
   server.kill('SIGTERM');

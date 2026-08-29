@@ -11,6 +11,7 @@ from ..http.utils import json_response, read_json
 from ..models import ReviewPayload, model_payload
 from ..security.auth import require_admin
 from ..shared import domain
+from ..shared.notifications import notify_user_with_email
 from ..shared.projections import admin_snapshot
 
 router = APIRouter(prefix="/api/admin")
@@ -92,7 +93,8 @@ async def review_team(team_id: str, request: Request):
             if payload["status"] == "rejected"
             else "Проверка поля обновлена"
         )
-        domain.notify_user(
+        await notify_user_with_email(
+            context,
             state,
             team["captainId"],
             title,
@@ -169,8 +171,8 @@ async def review_identity(user_id: str, request: Request):
         if payload["status"] == "rejected"
         else "Проверка личности обновлена"
     )
-    domain.notify_user(
-        state, target["id"], title, comment or "Документы проверены организаторами."
+    await notify_user_with_email(
+        context, state, target["id"], title, comment or "Документы проверены организаторами."
     )
     await context.store.save(state)
     return json_response({"user": domain.public_user(target)}, request=request)
@@ -232,8 +234,8 @@ async def review_achievement(achievement_id: str, request: Request):
         if status == "rejected"
         else "Материал снова на проверке"
     )
-    domain.notify_user(
-        state, achievement["userId"], title, comment or "Материал прошёл проверку."
+    await notify_user_with_email(
+        context, state, achievement["userId"], title, comment or "Материал прошёл проверку."
     )
     await context.store.save(state)
     return json_response({"achievement": achievement}, request=request)
@@ -275,7 +277,8 @@ async def review_video(team_id: str, request: Request):
         if status == "rejected"
         else "Видео-визитка снова на проверке"
     )
-    domain.notify_user(
+    await notify_user_with_email(
+        context,
         state,
         team.get("captainId"),
         title,

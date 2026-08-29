@@ -29,11 +29,17 @@ def main() -> int:
                     break
                 response += part
     except (OSError, struct.error):
-        return 1
+        # Keep scanner failure distinct from a malware verdict. The API maps
+        # this to 503 instead of incorrectly telling the user their file is infected.
+        return 3
 
     result = response.rstrip(b"\0").decode("utf-8", errors="replace")
     print(result)
-    return 0 if result.endswith("OK") else 1
+    if result.endswith("OK"):
+        return 0
+    if result.endswith("FOUND"):
+        return 1
+    return 3
 
 
 if __name__ == "__main__":

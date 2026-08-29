@@ -94,7 +94,7 @@ def set_security_headers(
     response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     if csp:
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'"
+            "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'"
         )
     if secure:
         response.headers["Strict-Transport-Security"] = (

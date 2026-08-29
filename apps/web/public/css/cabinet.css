@@ -1030,10 +1030,11 @@
    ========================================================================== */
 .cabinet-direction-tabs {
   border-bottom: 1px solid var(--cabinet-line);
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 20px;
-  overflow-x: auto;
+  overflow: visible;
   padding-bottom: 12px;
 }
 .cabinet-direction-tabs button {
@@ -1046,13 +1047,18 @@
   color: var(--direction-color);
   cursor: pointer;
   display: inline-flex;
-  flex: 1 0 auto;
+  flex: none;
   font: 800 13px var(--font-body);
   min-height: 42px;
-  padding: 0 20px;
-  justify-content: space-between;
+  min-width: 0;
+  padding: 0 10px;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1.1;
+  text-align: center;
   transition: background .18s ease, color .18s ease, border-color .18s ease;
 }
+.cabinet-direction-tabs button > span { min-width: 0; overflow-wrap: anywhere; }
 .cabinet-direction-tabs button[data-direction="science"] { --direction-color: #006cdc; --direction-soft: #dceeff; }
 .cabinet-direction-tabs button[data-direction="public"] { --direction-color: #5e4edb; --direction-soft: #ece9fd; }
 .cabinet-direction-tabs button[data-direction="sport"] { --direction-color: #d9384c; --direction-soft: #fde8eb; }
@@ -1549,8 +1555,9 @@
   .cabinet-dashboard__chart { padding: 14px; }
   .cabinet-banner__badge { display: none; }
   .cabinet-action--banner { width: 100%; }
-  .cabinet-direction-tabs { margin-inline: -18px; padding-inline: 18px; }
-  .cabinet-direction-tabs button { flex-basis: 128px; }
+  .cabinet-direction-tabs { margin-inline: -18px; padding-inline: 18px; gap: 8px; }
+  .cabinet-direction-tabs button { min-height: 50px; padding-inline: 5px; font-size: 11px; }
+  .cabinet-direction-tabs__count { flex-basis: 22px; height: 22px; min-width: 22px; }
   .cabinet-record { flex-direction: column; }
   .cabinet-delete { align-self: flex-end; }
   .cabinet-invite, .cabinet-video-grid { grid-template-columns: 1fr; }
@@ -2667,3 +2674,173 @@
   .cabinet-dashboard__status-copy small,
   .cabinet-dashboard__status-reason { font-size: 10px; }
 }
+
+/* Компактная навигация для телефона и планшета. */
+.cabinet-mobile-nav-toggle { display: none; }
+.cabinet-mobile-nav-panel { display: contents; }
+.cabinet-guide-menu { display: none; }
+
+@media (max-width: 1100px) {
+  .cabinet-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 18px 60px;
+  }
+  .cabinet-sidebar {
+    gap: 10px;
+    position: static;
+    width: 100%;
+  }
+  .cabinet-content { max-width: 100%; }
+  .cabinet-mobile-nav-toggle {
+    align-items: center;
+    background: #fff;
+    border: 1px solid rgba(0, 108, 220, .2);
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(7, 18, 62, .08);
+    color: var(--cabinet-ink);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    min-height: 62px;
+    padding: 12px 16px;
+    text-align: left;
+    width: 100%;
+  }
+  .cabinet-mobile-nav-toggle:hover,
+  .cabinet-mobile-nav-toggle[aria-expanded="true"] { border-color: var(--cabinet-blue); }
+  .cabinet-mobile-nav-toggle__label { display: grid; gap: 3px; }
+  .cabinet-mobile-nav-toggle__kicker {
+    color: var(--cabinet-blue);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .cabinet-mobile-nav-toggle__label strong {
+    font-family: var(--font-display);
+    font-size: 23px;
+    letter-spacing: -.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .cabinet-mobile-nav-toggle__icon { display: grid; gap: 4px; width: 24px; }
+  .cabinet-mobile-nav-toggle__icon i { background: var(--cabinet-blue); display: block; height: 2px; width: 24px; }
+  .cabinet-mobile-nav-panel {
+    background: rgba(255, 255, 255, .96);
+    border: 1px solid rgba(0, 108, 220, .16);
+    border-radius: 16px;
+    box-shadow: 0 12px 28px rgba(7, 18, 62, .1);
+    padding: 14px;
+  }
+  .cabinet-mobile-nav-panel[hidden] { display: none; }
+  .cabinet-nav-tabs { gap: 16px; }
+  .cabinet-nav-section { gap: 7px; }
+  .cabinet-nav-group { flex-direction: column; gap: 3px; }
+  .cabinet-nav, .cabinet-nav-link { flex: 0 0 auto; min-height: 46px; padding: 10px 12px; }
+  .cabinet-nav__arrow { display: none; }
+  .cabinet-guide-menu {
+    align-items: center;
+    background: #e8f3ff;
+    border: 1px solid rgba(0, 108, 220, .16);
+    border-radius: 12px;
+    color: var(--cabinet-ink);
+    cursor: pointer;
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    min-height: 54px;
+    padding: 9px 12px;
+    text-align: left;
+    width: 100%;
+  }
+  .cabinet-guide-menu:hover { border-color: var(--cabinet-blue); background: #dceeff; }
+  .cabinet-guide-menu__icon { color: var(--cabinet-blue); font-size: 21px; line-height: 1; }
+  .cabinet-guide-menu span:last-child { display: grid; gap: 2px; }
+  .cabinet-guide-menu strong { font-size: 13px; }
+  .cabinet-guide-menu small { color: var(--cabinet-ink-muted); font-size: 11px; line-height: 1.3; }
+}
+
+@media (max-width: 620px) {
+  .cabinet-mobile-nav-toggle { min-height: 58px; }
+  .cabinet-mobile-nav-toggle__label strong { font-size: 21px; }
+}
+
+/* На телефоне навигация живёт в шапке рядом с уведомлениями; планшет сохраняет
+   компактную кнопку над содержимым кабинета. */
+@media (min-width: 621px) and (max-width: 1100px) {
+  .cabinet-mobile-nav-toggle--header { display: none; }
+}
+
+@media (max-width: 620px) {
+  .cabinet-brand { gap: 0; }
+  .cabinet-brand > span:last-child { display: none; }
+  .cabinet-mobile-nav-toggle--sidebar { display: none; }
+  .cabinet-mobile-nav-toggle--header {
+    align-items: center;
+    background: #edf5ff;
+    border: 0;
+    border-radius: 50%;
+    box-shadow: none;
+    display: inline-flex;
+    flex: 0 0 40px;
+    height: 40px;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0;
+    text-align: center;
+    width: 40px;
+  }
+  .cabinet-mobile-nav-toggle--header:hover,
+  .cabinet-mobile-nav-toggle--header[aria-expanded="true"] {
+    background: #dceeff;
+    border: 0;
+  }
+  .cabinet-mobile-nav-toggle--header .cabinet-mobile-nav-toggle__icon { width: 20px; }
+  .cabinet-mobile-nav-toggle--header .cabinet-mobile-nav-toggle__icon i {
+    height: 2px;
+    width: 20px;
+  }
+}
+
+/* Профиль на телефоне раскрывается относительно viewport, а не края кнопки:
+   длинная панель не уезжает влево за границу экрана. */
+@keyframes dropdownFadeMobile {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 620px) {
+  .cabinet-user-menu { position: static; }
+  .cabinet-user-dropdown {
+    animation: dropdownFadeMobile .18s ease forwards;
+    left: 50%;
+    right: auto;
+    top: calc(64px + 10px);
+    transform: translateX(-50%);
+    width: min(362px, calc(100vw - 28px));
+  }
+}
+
+.profile-document-fieldset { display: grid; gap: 14px; }
+.profile-document-fieldset .profile-fields__helper { margin: -2px 0 0; }
+.profile-document-input {
+  align-items: center;
+  background: #f7fbff;
+  border: 1px dashed rgba(0, 108, 220, .34);
+  border-radius: 14px;
+  color: var(--cabinet-blue);
+  display: grid !important;
+  gap: 6px;
+  min-height: 76px;
+  padding: 14px 16px;
+  text-transform: none !important;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+}
+.profile-document-input:hover,
+.profile-document-input:focus-within { background: #edf7ff; border-color: var(--cabinet-blue); }
+.profile-document-input:active { transform: translateY(1px); }
+.profile-document-input input { display: none; }
+.profile-document-input span { color: var(--cabinet-ink-muted); font-size: 12px; line-height: 1.4; }
+.profile-document-status { color: var(--cabinet-ink-muted); font-size: 12px; line-height: 1.45; margin: -4px 0 0; }

@@ -189,6 +189,11 @@ def admin_snapshot(state: dict) -> dict:
         }
         for team in state.get("teams", [])
     ]
+    admin_notifications = [
+        deepcopy(item)
+        for item in state.get("notifications", [])
+        if item.get("targetType") == "admins"
+    ][:200]
     return {
         "settings": state["settings"],
         "summary": {
@@ -196,6 +201,7 @@ def admin_snapshot(state: dict) -> dict:
             "users": len(users),
             "achievements": len(achievements),
             "notifications": len(state.get("notifications", [])),
+            "adminNotifications": len(admin_notifications),
             "pendingAchievements": sum(
                 item.get("status") == "pending" for item in achievements
             ),
@@ -212,6 +218,7 @@ def admin_snapshot(state: dict) -> dict:
         "achievements": achievements,
         "videos": videos,
         "notifications": deepcopy(state.get("notifications", []))[:200],
+        "adminNotifications": admin_notifications,
         "auditLog": state.get("auditLog", [])[:100],
     }
 

@@ -30,8 +30,10 @@ from .routes import (
     admin_settings,
     auth,
     operations,
+    password_reset,
     registration,
     user,
+    user_profile,
     user_notifications,
 )
 from .security.auth import csrf_valid, parse_cookies
@@ -120,8 +122,10 @@ allowed_hosts = [
 ]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or ["127.0.0.1"])
 app.include_router(auth.router)
+app.include_router(password_reset.router)
 app.include_router(registration.router)
 app.include_router(user.router)
+app.include_router(user_profile.router)
 app.include_router(user_notifications.router)
 app.include_router(admin.router)
 app.include_router(admin_settings.router)

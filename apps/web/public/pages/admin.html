@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/platform.css?v=20260824-21">
-  <link rel="stylesheet" href="css/admin.css?v=20260829-02">
+        <link rel="stylesheet" href="css/admin.css?v=20260829-03">
 </head>
 <body class="admin-page">
   <a class="skip-link" href="#admin-main">Перейти к содержанию</a>
@@ -132,6 +132,14 @@
             <span class="admin-section-heading__count" id="adminQueueCount">0</span>
           </div>
           <div id="adminReviewQueue" class="admin-review-queue"></div>
+        </section>
+
+        <section class="admin-surface admin-notification-inbox" aria-labelledby="admin-notification-inbox-title">
+          <div class="admin-section-heading">
+            <div><p class="admin-eyebrow">Связь с участниками</p><h2 id="admin-notification-inbox-title">Уведомления о фотографиях</h2></div>
+            <span class="admin-section-heading__count" id="adminNotificationsCount">0</span>
+          </div>
+          <div id="adminNotificationsList" class="admin-notification-list" aria-live="polite"></div>
         </section>
       </section>
 
@@ -329,7 +337,7 @@
           <div>
             <p class="admin-eyebrow">Связь с участниками</p>
             <h1 id="admin-broadcast-title">Рассылка</h1>
-            <p>Выберите адресата, напишите тему и текст — уведомление появится в кабинете получателей.</p>
+            <p>Выберите адресата, напишите тему и текст — уведомление появится в кабинете получателей и продублируется на их подтверждённые адреса электронной почты.</p>
           </div>
         </header>
 
@@ -390,6 +398,6 @@
   </div>
 
   <script src="js/store.js?v=20260822-04"></script>
-  <script src="js/admin.js?v=20260829-02"></script>
+  <script src="js/admin.js?v=20260829-05"></script>
 </body>
 </html>
