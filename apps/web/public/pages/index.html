@@ -6,13 +6,67 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<script src="js/scroll-reset.js?v=20260828-01"></script>
+<script src="js/scroll-reset.js?v=20260829-auth-01"></script>
 <link rel="icon" href="data:," />
 <title>Лучшая учебная группа | МГТУ им. Н.Э. Баумана</title>
 <link rel="stylesheet" href="css/style.css?v=20260829-public-shift-03">
-    <link rel="stylesheet" href="css/platform.css?v=20260829-auth-10">
+    <link rel="stylesheet" href="css/platform.css?v=20260829-auth-11">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <style>
+      /* Keep the auth entry isolated while the deferred public shell finishes loading. */
+      html.auth-entry-pending .public-page > :not(.site-nav):not(.site-auth-dialog) {
+        visibility: hidden;
+      }
+
+      html.auth-entry-pending .public-page {
+        overflow: hidden;
+      }
+
+      dialog.site-auth-dialog {
+        background: rgba(7, 18, 62, .58);
+        border: 0;
+        box-sizing: border-box;
+        height: 100vh;
+        inset: 0;
+        margin: 0;
+        max-height: none;
+        max-width: none;
+        padding: 14px;
+        position: fixed;
+        width: 100vw;
+      }
+
+      dialog.site-auth-dialog[open] {
+        display: grid;
+        place-items: center;
+      }
+
+      dialog.site-auth-dialog::backdrop {
+        background: transparent;
+      }
+
+      .site-auth-dialog__card {
+        background: #dceeff;
+        border-radius: 22px;
+        box-sizing: border-box;
+        max-height: calc(100vh - 28px);
+        overflow: auto;
+        width: min(100%, 680px);
+      }
+
+      @media (max-width: 560px) {
+        dialog.site-auth-dialog[open] {
+          display: block;
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+
+        .site-auth-dialog__card {
+          min-height: calc(100vh - 28px);
+          width: 100%;
+        }
+      }
+
       @media (max-width: 700px) {
         .stage-manifesto .manifesto-content {
           width: calc(100% - 48px);
@@ -86,7 +140,7 @@
         <span class="timer-separator" aria-hidden="true">:</span>
         <div class="timer-unit"><span class="timer-value" data-timer="seconds">00</span><span class="timer-label">секунд</span></div>
       </div>
-      <a class="hero-apply" href="register.html?action=register">ПОДАТЬ ЗАЯВКУ&nbsp;→</a>
+      <a class="hero-apply" href="index.html?action=register">ПОДАТЬ ЗАЯВКУ&nbsp;→</a>
       <p class="hero-deadline" data-registration-deadline>Зарегистрируйся до 3 сентября</p>
     </div>
 
@@ -1039,7 +1093,7 @@
       <h2 class="headline" data-registration-status data-content="registrationHeadline">Приём заявок открыт до&nbsp;3&nbsp;сентября</h2>
       <p class="sub">Заполните заявку и&nbsp;прикрепите необходимые материалы.</p>
       <div class="actions">
-        <a class="btn btn-primary" href="register.html?action=register">ПОДАТЬ ЗАЯВКУ <span class="arrow">→</span></a>
+        <a class="btn btn-primary" href="index.html?action=register">ПОДАТЬ ЗАЯВКУ <span class="arrow">→</span></a>
         <a class="btn btn-outline" href="rules.html">ПРАВИЛА КОНКУРСА</a>
       </div>
     </section>
@@ -1134,7 +1188,7 @@
   <script src="js/timeline.js?v=20260826-01" defer></script>
   <script src="js/main.js?v=20260826-02" defer></script>
   <script src="js/store.js?v=20260828-01"></script>
-  <script src="js/site-shell.js?v=20260829-auth-08"></script>
+  <script src="js/site-shell.js?v=20260829-auth-09"></script>
   <script src="js/demo-login.js?v=20260828-01"></script>
 </body>
 </html>

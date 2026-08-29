@@ -1,4 +1,9 @@
 (() => {
+  const authParams = new URLSearchParams(location.search);
+  if (authParams.has('action') || authParams.has('invite') || authParams.has('next')) {
+    document.documentElement.classList.add('auth-entry-pending');
+  }
+
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   const resetPublicStart = () => {
     if (location.hash) return;

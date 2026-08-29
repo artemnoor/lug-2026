@@ -1187,3 +1187,59 @@ body.is-auth-dialog-open { inset: 0; position: fixed; width: 100%; }
 .site-auth-dialog[open]:not(.is-intro-complete) .auth-logo-line--7 { animation-delay: .52s; }
 .site-auth-dialog[open]:not(.is-intro-complete) .auth-logo-line--8 { animation-delay: .52s,1.14s; }
 .site-auth-dialog[open]:not(.is-intro-complete) .auth-logo-line--9 { animation-delay: .68s; }
+
+/* Keep the auth overlay a real viewport layer even while mobile browsers
+ * recalculate their visual viewport or finish loading the public shell. */
+.site-auth-dialog {
+  background: rgba(7, 18, 62, .58) !important;
+  border: 0 !important;
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  inset: 0;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  overflow: hidden;
+  padding: 20px;
+  position: fixed;
+  width: 100vw;
+}
+
+.site-auth-dialog[open] {
+  display: grid !important;
+  place-items: center;
+}
+
+.site-auth-dialog::backdrop {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.site-auth-dialog__card {
+  box-sizing: border-box;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  width: min(100%, 680px);
+}
+
+@media (max-width: 560px) {
+  .site-auth-dialog {
+    padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .site-auth-dialog[open] {
+    display: block !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .site-auth-dialog__card {
+    max-height: none;
+    min-height: calc(100vh - 28px);
+    min-height: calc(100dvh - 28px);
+    width: 100%;
+  }
+}

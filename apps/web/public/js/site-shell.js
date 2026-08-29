@@ -25,9 +25,9 @@
         <a href="#gallery">История</a>
         <a href="#rules">Правила</a>
         <a href="#registration">Участие</a>
-        <a class="site-nav__menu-account" id="siteMenuAccountLink" href="register.html">Войти в кабинет <span aria-hidden="true">→</span></a>
+        <a class="site-nav__menu-account" id="siteMenuAccountLink" href="index.html?action=choice">Войти в кабинет <span aria-hidden="true">→</span></a>
       </nav>
-      <a class="site-nav__account" id="siteAccountLink" href="register.html">Войти</a>
+      <a class="site-nav__account" id="siteAccountLink" href="index.html?action=choice">Войти</a>
     `;
     document.body.prepend(navigation);
 
@@ -291,6 +291,8 @@
     const introDuration = 1450;
     let introTimer = null;
     let introRun = 0;
+    let introResizeObserver = null;
+    let introResizeHandler = null;
     let currentMode = 'choice';
     let registerMode = 'captain';
     let capFile = null;
@@ -448,9 +450,29 @@
       intro.style.setProperty('--auth-intro-travel', `${travel}px`);
     };
 
+    const stopIntroGeometryTracking = () => {
+      introResizeObserver?.disconnect();
+      introResizeObserver = null;
+      if (introResizeHandler) window.removeEventListener('resize', introResizeHandler);
+      introResizeHandler = null;
+    };
+
+    const startIntroGeometryTracking = () => {
+      stopIntroGeometryTracking();
+      const card = authDialog.querySelector('.site-auth-dialog__card');
+      if (!card) return;
+      introResizeHandler = () => window.requestAnimationFrame(syncIntroTravel);
+      window.addEventListener('resize', introResizeHandler, { passive: true });
+      if ('ResizeObserver' in window) {
+        introResizeObserver = new ResizeObserver(syncIntroTravel);
+        introResizeObserver.observe(card);
+      }
+    };
+
     const startAuthIntro = (mode = 'choice') => {
       const run = ++introRun;
       window.clearTimeout(introTimer);
+      startIntroGeometryTracking();
       authDialog.classList.add('is-intro-preparing');
       authDialog.classList.toggle('is-intro-login', mode === 'login');
       authDialog.classList.remove('is-intro-complete');
@@ -784,7 +806,12 @@
 
     const openAuth = (mode = 'choice', options = {}) => {
       nextPath = options.next === 'admin.html' || options.next === 'cabinet.html' ? options.next : '';
-      if (!authDialog.open) { lastFocusedElement = document.activeElement; lockPage(); authDialog.showModal(); }
+      if (!authDialog.open) {
+        lastFocusedElement = document.activeElement;
+        lockPage();
+        authDialog.showModal();
+        document.documentElement.classList.remove('auth-entry-pending');
+      }
       setAuthMode(mode);
       if (mode === 'choice' || mode === 'login') startAuthIntro(mode);
       else {
@@ -804,7 +831,7 @@
     authDialog.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => openAuth(button.dataset.authMode)));
     authDialog.querySelectorAll('[data-register-mode]').forEach(button => button.addEventListener('click', () => setRegistrationMode(button.dataset.registerMode)));
     authDialog.addEventListener('close', () => {
-      ++introRun; window.clearTimeout(introTimer); authForm.reset(); setError(authError); setError(registerError); loginStatus.textContent = '';
+      ++introRun; window.clearTimeout(introTimer); stopIntroGeometryTracking(); authForm.reset(); setError(authError); setError(registerError); loginStatus.textContent = '';
       capFile = null; joinFile = null; inviteValid = false; inviteCheckedCode = ''; nextPath = '';
       verificationId = ''; verificationEmail = ''; verificationExpiresAt = '';
       recoveryStep = 'request'; recoveryEmail = '';
@@ -827,7 +854,9 @@
       const link = event.target.closest?.('a[href]');
       if (!link || event.defaultPrevented || link.target === '_blank') return;
       const url = new URL(link.href, window.location.href);
-      if (!url.pathname.endsWith('/register.html')) return;
+      const isRegisterLink = url.pathname.endsWith('/register.html');
+      const isAuthIndexLink = url.pathname.endsWith('/index.html') && (url.searchParams.has('action') || url.searchParams.has('invite') || url.searchParams.has('next'));
+      if (!isRegisterLink && !isAuthIndexLink) return;
       event.preventDefault();
       const params = url.searchParams;
       if (document.body.dataset.registrationClosed === 'true' && params.get('action') !== 'login' && !params.get('invite')) {
