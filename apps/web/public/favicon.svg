@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="225 155 785 870" role="img">
   <title>ЛУГ</title>
-  <rect x="225" y="155" width="785" height="870" rx="72" fill="#fff"/>
-  <g fill="none" stroke="#07123e" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="629.5" cy="249.5" r="77.5"/>
     <circle cx="434.5" cy="333.5" r="77.5"/>
     <circle cx="824.5" cy="333.5" r="77.5"/>
     <path d="M286 753V566C286 511 331 467 386 467h126M746 467h126c55 0 100 44 100 99v199M512 455c4-38 38-68 84-68h66c46 0 80 30 84 68M512 467v199a43.5 43.5 0 0 0 87 0V566c0-48-38-88-87-99M746 467v199a43.5 43.5 0 0 1-87 0V566c0-48 38-88 87-99"/>
   </g>
-  <path fill="#07123e" d="M382 754h82q15 0 15 15v219h-46V790h-60q-35 0-44 34l-48 164h-41l49-178q15-56 93-56ZM821 754h164v25q0 12-12 12H837v197h-46V779q0-25 30-25Z"/>
-  <path d="M536 765l42 96q14 32 67 32h20M732 765l-67 168q-14 35-58 35h-27" fill="none" stroke="#07123e" stroke-width="46" stroke-linecap="butt" stroke-linejoin="round"/>
+  <path fill="#fff" d="M382 754h82q15 0 15 15v219h-46V790h-60q-35 0-44 34l-48 164h-41l49-178q15-56 93-56ZM821 754h164v25q0 12-12 12H837v197h-46V779q0-25 30-25Z"/>
+  <path d="M536 765l42 96q14 32 67 32h20M732 765l-67 168q-14 35-58 35h-27" fill="none" stroke="#fff" stroke-width="46" stroke-linecap="butt" stroke-linejoin="round"/>
 </svg>
