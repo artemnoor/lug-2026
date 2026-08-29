@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="215 145 820 890" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="225 155 785 870" role="img">
   <title>ЛУГ</title>
+  <rect x="225" y="155" width="785" height="870" rx="72" fill="#fff"/>
   <g fill="none" stroke="#07123e" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="629.5" cy="249.5" r="77.5"/>
     <circle cx="434.5" cy="333.5" r="77.5"/>
