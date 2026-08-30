@@ -330,14 +330,16 @@ Smoke-тест поднимает или использует локальные
 
 Минимальный production-контур описан в [`DEPLOYMENT.md`](DEPLOYMENT.md). Архитектурные границы и модель хранения — в [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-Исторический экономичный staging был развёрнут в Yandex Cloud и доступен по адресу
-[`http://51.250.102.106`](http://51.250.102.106). На одной VM работают web/API,
-PostgreSQL, Redis и ClamAV. Внешними относительно VM являются private Object
-Storage и SMTP Mail.ru по SSL/465; адрес ящика и пароль хранятся только в
-production-конфигурации. Этот HTTP endpoint нельзя использовать для ввода паролей
-и персональных данных: после обновления gateway staging/production без HTTPS не
-принимает чувствительные маршруты. Перед повторной публикацией нужен домен,
-TLS edge и закрытый HTTPS-origin.
+Временный staging развёрнут в Yandex Cloud и после обновления до коммита
+`e2ead36` доступен по адресу [`https://51.250.102.106`](https://51.250.102.106).
+На одной VM работают web/API, PostgreSQL, Redis и ClamAV. Nginx принимает HTTPS
+на `:443` и перенаправляет HTTP с `:80`; для IP используется временный
+самоподписанный сертификат, поэтому браузер может показать предупреждение.
+Внешними относительно VM являются private Object Storage и SMTP Mail.ru по
+SSL/465; адрес ящика и пароль хранятся только в production-конфигурации. Этот
+IP-адрес не является финальным production endpoint: перед публичным запуском с
+персональными данными нужно заменить сертификат на доверенный доменный и
+закрыть origin за TLS edge/WAF.
 
 Целевая схема развёртывания:
 
@@ -359,3 +361,4 @@ Nginx :443 → web gateway :4173 → FastAPI :4174
 - [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) — проверенные контроли, найденные риски и условия запуска;
 - [`packages/contracts/openapi.yaml`](packages/contracts/openapi.yaml) — API contract;
 - [`docs/screenshots/`](docs/screenshots/) — изображения интерфейса для документации.
+
