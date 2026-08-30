@@ -85,10 +85,16 @@ CSRF и ограничения web gateway.
 - ClamAV `1.5.4` работает с базой сигнатур, встроенной в официальный образ;
 - `NODE_ENV=staging`, PostgreSQL, Redis, S3 и обязательное сканирование загрузок включены;
 - SMTP Mail.ru настроен по SSL на порту `465` для кодов, восстановления пароля и уведомлений;
-- исторический staging был доступен только по HTTP `:80`; этот endpoint нельзя
-  использовать после включения регистрации, пока не установлен TLS edge;
-- перед повторным запуском staging нужно задать `LUG_REQUIRE_HTTPS=true`,
-  `LUG_TRUST_PROXY=true` и точный `LUG_TRUSTED_PROXY_IPS` для Nginx.
+- временный staging сейчас доступен через Nginx по HTTPS на IP
+  `51.250.102.106`; HTTP `:80` делает redirect на HTTPS `:443`;
+- на IP установлен временный самоподписанный сертификат, поэтому браузер может
+  показывать предупреждение; для production нужен доверенный сертификат на
+  реальном домене;
+- актуальный образ `lug-app:e2ead36` запущен за Nginx на loopback-порту `4175`,
+  PostgreSQL принимает TLS, а `LUG_REQUIRE_HTTPS=true`,
+  `LUG_TRUST_PROXY=true` и точный `LUG_TRUSTED_PROXY_IPS` заданы в staging;
+- перед production нужно заменить временный IP-сертификат на доменный TLS edge,
+  закрыть origin и проверить все обязательные секреты через secret manager.
 
 Это экономичный staging-профиль: PostgreSQL, Redis и ClamAV находятся на той же
 VM, поэтому они не являются отдельными managed-внешними сервисами и делят её
@@ -202,3 +208,4 @@ docker compose --env-file .env.production -f docker-compose.split.yml run --rm a
 - [ ] `LUG_EMAIL_VERIFICATION_SECRET` задан отдельным случайным секретом; коды не пишутся в production-лог.
 - [ ] backup/restore и ротация секретов проверены вручную.
 - [ ] Smoke, dependency audit и внешний security scan пройдены после deployment.
+
