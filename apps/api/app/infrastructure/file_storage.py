@@ -1,12 +1,9 @@
 """Validated local file storage with private URL resolution."""
 
-import asyncio
 import base64
 import binascii
 import re
-import secrets
 import subprocess
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -190,83 +187,17 @@ class FileStorage(Protocol):
 
     async def exists(self, resolved: dict[str, Any]) -> bool: ...
 
+    async def read(self, resolved: dict[str, Any]) -> bytes: ...
+
     async def signed_url(self, resolved: dict[str, Any]) -> str | None: ...
 
     async def delete(self, url_path: str) -> None: ...
 
     async def ready(self) -> bool: ...
 
+    async def cleanup_orphans(self, referenced_urls: set[str], grace_seconds: int = 3600) -> int: ...
+
     def health(self) -> dict[str, Any]: ...
-
-
-class LocalFileStorage:
-    provider = "local"
-
-    def __init__(
-        self, upload_dir: Path, scan_command: str = "", scan_required: bool = False
-    ) -> None:
-        self.upload_dir = upload_dir
-        self.scan_command = scan_command
-        self.scan_required = scan_required
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-    async def save(self, data_url: str, original_name: str) -> dict[str, Any]:
-        return await asyncio.to_thread(self._save_sync, data_url, original_name)
-
-    def _save_sync(self, data_url: str, original_name: str) -> dict[str, str]:
-        data, content_type, extension = decode_upload(data_url, original_name)
-        filename = f"{sha256(secrets.token_bytes(32)).hexdigest()}{extension}"
-        target = self.upload_dir / filename
-        temporary = self.upload_dir / f".{filename}.{secrets.token_hex(8)}.part"
-        try:
-            with temporary.open("xb") as handle:
-                handle.write(data)
-            scan_file(temporary, self.scan_command, self.scan_required)
-            temporary.replace(target)
-        except FileExistsError:
-            raise ApiError(500, "Не удалось сохранить файл. Повторите попытку.")
-        except OSError as exc:
-            raise ApiError(500, "Не удалось сохранить файл. Повторите попытку.") from exc
-        finally:
-            temporary.unlink(missing_ok=True)
-        return {
-            "url": f"/uploads/{filename}",
-            "name": original_name,
-            "type": content_type,
-            "size": len(data),
-        }
-
-    @staticmethod
-    def estimate_size(data_url: str) -> int:
-        match = re.fullmatch(r"data:([^;]+);base64,(.+)", str(data_url or ""))
-        if not match:
-            return 0
-        encoded = match.group(2)
-        padding = len(encoded) - len(encoded.rstrip("="))
-        return max(0, (len(encoded) * 3) // 4 - padding)
-
-    def resolve(self, url_path: str) -> dict[str, Any] | None:
-        filename = resolve_filename(url_path)
-        if not filename:
-            return None
-        return {"url": f"/uploads/{filename}", "path": self.upload_dir / filename}
-
-    async def exists(self, resolved: dict[str, Any]) -> bool:
-        return await asyncio.to_thread(resolved["path"].is_file)
-
-    async def signed_url(self, resolved: dict[str, Any]) -> str | None:
-        return None
-
-    async def delete(self, url_path: str) -> None:
-        resolved = self.resolve(url_path)
-        if resolved:
-            await asyncio.to_thread(resolved["path"].unlink, missing_ok=True)
-
-    def health(self) -> dict[str, str]:
-        return {"provider": self.provider, "uploadDir": str(self.upload_dir)}
-
-    async def ready(self) -> bool:
-        return True
 
 
 def create_file_storage(config: Any) -> FileStorage:
@@ -282,11 +213,16 @@ def create_file_storage(config: Any) -> FileStorage:
             prefix=config.s3_prefix,
             signed_url_ttl=config.s3_signed_url_ttl,
             temp_dir=config.upload_tmp_dir,
+            server_side_encryption=config.s3_server_side_encryption,
+            kms_key_id=config.s3_kms_key_id,
             scan_command=config.upload_scan_command,
             scan_required=config.upload_scan_required,
         )
+    from .local_storage import LocalFileStorage
+
     return LocalFileStorage(
         config.upload_dir,
         config.upload_scan_command,
         config.upload_scan_required,
+        config.local_storage_encryption_key,
     )

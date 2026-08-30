@@ -6,6 +6,13 @@
     if (window.location.protocol === 'file:') {
       throw new Error('Сайт открыт как файл. Запустите приложение и откройте http://localhost:4173, чтобы работали вход и данные кабинета.');
     }
+    if (window.location.protocol === 'http:' && !isLocalDevelopmentHost(window.location.hostname)) {
+      const secureUrl = new URL(window.location.href);
+      secureUrl.protocol = 'https:';
+      if (secureUrl.port === '80') secureUrl.port = '';
+      window.location.replace(secureUrl.toString());
+      throw new Error('Перенаправление на защищённое HTTPS-соединение.');
+    }
     let response;
     try {
       const method = String(options.method || 'GET').toUpperCase();
@@ -26,6 +33,10 @@
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'Не удалось выполнить запрос.');
     return payload;
+  }
+
+  function isLocalDevelopmentHost(hostname) {
+    return new Set(['localhost', '127.0.0.1', '::1', '[::1]']).has(String(hostname || '').toLowerCase());
   }
 
   async function fileToDataUrl(file) {

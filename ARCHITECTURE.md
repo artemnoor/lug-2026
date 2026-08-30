@@ -121,7 +121,10 @@ tests/smoke.mjs            сквозная проверка основных с
 3. `LUG_FILE_STORAGE_PROVIDER=s3` включает private S3-compatible adapter: файл проходит те же MIME/magic/AV-проверки, загружается в bucket с непредсказуемым ключом, а после BOLA-проверки API выдаёт presigned GET URL на 5 минут. `LUG_S3_ENDPOINT_URL` поддерживает MinIO, Cloudflare R2 и другие S3-compatible providers. В production local adapter запрещён.
 4. При создании PostgreSQL адаптер применяет идемпотентную bootstrap-схему; retention audit log составляет 730 дней, а операции backup/restore должны выполняться отдельным release/operations-процессом.
 
-Глобальный `DATABASE_URL` намеренно не выбирается автоматически: в проекте используется только явно включённый `LUG_DATABASE_PROVIDER=postgres` или явный `LUG_DATABASE_URL`. Это предотвращает подключение к чужой базе при случайно унаследованном окружении.
+В development/test глобальный `DATABASE_URL` намеренно не выбирается автоматически:
+нужен явный `LUG_DATABASE_PROVIDER=postgres` или `LUG_DATABASE_URL`. В production
+PostgreSQL обязателен, поэтому `DATABASE_URL` допускается как стандартный DSN,
+но запуск дополнительно fail-closed проверяет Redis, operations token и Host allowlist.
 
 ## Безопасность
 

@@ -1,3 +1,5 @@
+import { escapeHtml as esc, formatDate as date, hostMatches, phaseOpen } from './modules/dom.js';
+
 (() => {
   'use strict';
 
@@ -6,14 +8,7 @@
   let selectedMaterialId = null;
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
-  const phaseOpen = (start, end) => {
-    const from = new Date(start || '').getTime();
-    const to = new Date(end || '').getTime();
-    return Number.isFinite(from) && Number.isFinite(to) && Date.now() >= from && Date.now() <= to;
-  };
   const messengerLabels = { telegram: 'Telegram', vk: 'VK', max: 'MAX' };
-  const esc = (value = '') => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-  const date = (value) => value ? new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium' }).format(new Date(value)) : '—';
   const nameInitial = (name = '') => name.trim().charAt(0).toUpperCase() || 'У';
 
   const videoProviderMeta = {
@@ -22,10 +17,6 @@
     'yandex-disk': { label: 'Яндекс Диск', title: 'Ссылка на видео в Яндекс Диске' },
     file: { label: 'Загруженный файл', title: 'Предпросмотр видеофайла' }
   };
-
-  function hostMatches(host, domain) {
-    return host === domain || host.endsWith(`.${domain}`);
-  }
 
   function parseVideoUrl(value = '') {
     const raw = String(value).trim();

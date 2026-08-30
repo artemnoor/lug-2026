@@ -137,7 +137,7 @@ sequenceDiagram
 
 Организаторские решения и изменения статусов сохраняются как уведомления в личном кабинете и дополнительно отправляются подтверждённым адресатам по SMTP. При редактировании профиля участник может заменить фото личного кабинета: новый файл снова проходит проверку формата, содержимого и антивирусную проверку, старый объект удаляется после успешной замены, а администраторам создаётся уведомление о новом фото.
 
-Код подтверждения не хранится в открытом виде: приложение использует HMAC-секрет, срок действия, cooldown повторной отправки и лимит неверных попыток. Для production секрет и SMTP-параметры должны приходить только из secret manager или защищённых переменных окружения.
+Код подтверждения не хранится в открытом виде: приложение использует HMAC-секрет, срок действия, cooldown повторной отправки и лимит неверных попыток. Для staging и production секрет и SMTP-параметры должны приходить только из secret manager или защищённых переменных окружения.
 
 ### Связи модулей
 
@@ -238,22 +238,41 @@ npm run restore:json -- data/lug-20260828T120000Z.json.gz
 | Переменная | Назначение |
 | --- | --- |
 | `LUG_DATA_DIR` / `LUG_UPLOAD_DIR` | JSON state и локальные файлы |
-| `LUG_DATABASE_PROVIDER=postgres` | Явно включает PostgreSQL adapter |
-| `LUG_DATABASE_URL` | DSN PostgreSQL; автоматически не выбирается |
+| `LUG_DATABASE_PROVIDER=postgres` | Явно включает PostgreSQL adapter; в production обязателен |
+| `LUG_DATABASE_URL` / `DATABASE_URL` | DSN PostgreSQL; в production отсутствие DSN останавливает запуск |
+| `LUG_DATABASE_SSL_MODE` / `LUG_DATABASE_SSL_ROOT_CERT` | TLS PostgreSQL; в production только `verify-full` |
 | `LUG_DATABASE_POOL_MIN_SIZE` / `LUG_DATABASE_POOL_MAX_SIZE` | Размер async-пула PostgreSQL между запросами |
 | `REDIS_URL` | Общий rate limiter между API-инстансами |
 | `LUG_FILE_STORAGE_PROVIDER=local\|s3` | Backend файлов; в production — `s3` |
 | `LUG_S3_*` | Private bucket, endpoint, credentials и prefix |
+| `LUG_S3_SERVER_SIDE_ENCRYPTION` / `LUG_S3_KMS_KEY_ID` | Обязательное SSE для S3 (`AES256` или `aws:kms`) |
 | `LUG_UPLOAD_SCAN_COMMAND` / `LUG_UPLOAD_SCAN_REQUIRED` | ClamAV/совместимый сканер и fail-closed режим |
 | `LUG_EMAIL_MODE=log\|smtp` | Лог или SMTP-доставка кодов подтверждения и писем капитанам |
 | `LUG_SMTP_*` | SMTP host, port, user, password, sender и TLS |
 | `LUG_EMAIL_VERIFICATION_TTL_MS`, `LUG_EMAIL_VERIFICATION_COOLDOWN_MS`, `LUG_EMAIL_VERIFICATION_MAX_ATTEMPTS` | Срок жизни, повторная отправка и число попыток email-кодов |
 | `LUG_MAX_UPLOADS_PER_USER`, `LUG_MAX_UPLOAD_BYTES_PER_USER` | Квоты количества и суммарного размера файлов на участника |
-| `LUG_EMAIL_VERIFICATION_SECRET` | HMAC-секрет кодов; в production минимум 32 символа |
+| `LUG_EMAIL_VERIFICATION_SECRET` | HMAC-секрет кодов; в staging/production минимум 32 символа |
+| `LUG_EMAIL_OUTBOX_ENCRYPTION_KEY` | AES-256-GCM ключ encrypted email outbox; в staging/production обязателен |
+| `LUG_LOCAL_STORAGE_ENCRYPTION_KEY` | AES-256-GCM ключ локальных файлов, если local storage включён в staging |
 | `LUG_OPERATIONS_TOKEN` | Доступ к operations endpoints не с loopback |
 | `LUG_ALLOWED_HOSTS` | Allowlist заголовка `Host` |
 | `LUG_SECURE_COOKIES=true` | Secure cookies для HTTPS |
+| `LUG_REQUIRE_HTTPS=true` | Обязательный HTTPS на Node gateway; в staging/production включается автоматически |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Экспорт OpenTelemetry traces |
+
+В staging и production также обязательны TLS edge, `LUG_REQUIRE_HTTPS=true`,
+`LUG_EMAIL_OUTBOX_ENCRYPTION_KEY`, а для S3 — явный
+`LUG_S3_SERVER_SIDE_ENCRYPTION`. Ключи можно сгенерировать командой:
+
+```powershell
+python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip('='))"
+```
+
+В production также обязательны `REDIS_URL`, `LUG_OPERATIONS_TOKEN` (не менее 32
+символов), явный `LUG_ALLOWED_HOSTS` и доверенный TLS-прокси через
+`LUG_TRUST_PROXY=true` + `LUG_TRUSTED_PROXY_IPS`; API и Node проверяют эти
+настройки до приёма трафика. Для раздельного запуска gateway, API и durable email worker
+используйте `docker-compose.split.yml`.
 
 Никогда не коммитьте `.env`, `data/*.json`, реальные uploads, SMTP-пароли и operations tokens. Шаблон конфигурации лучше хранить отдельно от секретов и подставлять через secret manager.
 
@@ -311,12 +330,14 @@ Smoke-тест поднимает или использует локальные
 
 Минимальный production-контур описан в [`DEPLOYMENT.md`](DEPLOYMENT.md). Архитектурные границы и модель хранения — в [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-Текущий экономичный staging-развёрнут в Yandex Cloud и доступен по адресу
+Исторический экономичный staging был развёрнут в Yandex Cloud и доступен по адресу
 [`http://51.250.102.106`](http://51.250.102.106). На одной VM работают web/API,
 PostgreSQL, Redis и ClamAV. Внешними относительно VM являются private Object
 Storage и SMTP Mail.ru по SSL/465; адрес ящика и пароль хранятся только в
-production-конфигурации. TLS, WAF/CDN и закрытый HTTPS-origin пока не включены,
-поэтому этот адрес не следует считать финальным production edge.
+production-конфигурации. Этот HTTP endpoint нельзя использовать для ввода паролей
+и персональных данных: после обновления gateway staging/production без HTTPS не
+принимает чувствительные маршруты. Перед повторной публикацией нужен домен,
+TLS edge и закрытый HTTPS-origin.
 
 Целевая схема развёртывания:
 

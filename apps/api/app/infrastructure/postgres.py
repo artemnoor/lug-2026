@@ -1,109 +1,18 @@
 """Normalized PostgreSQL persistence with legacy JSONB migration support."""
 
 import json
+import ssl
 from datetime import datetime, timezone
 from typing import Any
 
+from ..security.encryption import encrypt_json
 from .postgres_password_reset import PASSWORD_RESET_SCHEMA
+from .postgres_queries import PostgresQueryMixin
+from .postgres_registration import PostgresRegistrationMixin
+from .postgres_review_writes import PostgresReviewMixin
+from .postgres_schema import INTEGRITY_SCHEMA, OUTBOX_INTEGRITY_SCHEMA, SCHEMA
+from .postgres_writes import PersistenceError
 from .store import DatabaseState, normalize_db
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS lug_meta (
-    id text PRIMARY KEY CHECK (id = 'primary'),
-    revision bigint NOT NULL DEFAULT 0,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS lug_settings (
-    id smallint PRIMARY KEY CHECK (id = 1),
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS lug_users (
-    id text PRIMARY KEY,
-    email text NOT NULL DEFAULT '',
-    phone text NOT NULL DEFAULT '',
-    role text NOT NULL DEFAULT '',
-    team_id text,
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS lug_users_email_idx
-    ON lug_users (lower(email)) WHERE email <> '';
-CREATE INDEX IF NOT EXISTS lug_users_team_idx ON lug_users (team_id);
-CREATE INDEX IF NOT EXISTS lug_users_role_idx ON lug_users (role);
-CREATE TABLE IF NOT EXISTS lug_teams (
-    id text PRIMARY KEY,
-    group_name text NOT NULL DEFAULT '',
-    invite_code text NOT NULL DEFAULT '',
-    captain_id text,
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS lug_teams_group_idx
-    ON lug_teams (group_name) WHERE group_name <> '';
-CREATE INDEX IF NOT EXISTS lug_teams_invite_idx ON lug_teams (invite_code);
-CREATE TABLE IF NOT EXISTS lug_achievements (
-    id text PRIMARY KEY,
-    user_id text NOT NULL DEFAULT '',
-    status text NOT NULL DEFAULT '',
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS lug_achievements_user_idx ON lug_achievements (user_id);
-CREATE INDEX IF NOT EXISTS lug_achievements_status_idx ON lug_achievements (status);
-CREATE TABLE IF NOT EXISTS lug_notifications (
-    id text PRIMARY KEY,
-    target_type text NOT NULL DEFAULT '',
-    target_id text,
-    kind text NOT NULL DEFAULT '',
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS lug_notifications_target_idx
-    ON lug_notifications (target_type, target_id);
-CREATE TABLE IF NOT EXISTS lug_sessions (
-    id text PRIMARY KEY,
-    token_hash text NOT NULL,
-    user_id text NOT NULL DEFAULT '',
-    expires_at_ms bigint NOT NULL DEFAULT 0,
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS lug_sessions_token_idx ON lug_sessions (token_hash);
-CREATE INDEX IF NOT EXISTS lug_sessions_user_idx ON lug_sessions (user_id);
-CREATE INDEX IF NOT EXISTS lug_sessions_expiry_idx ON lug_sessions (expires_at_ms);
-CREATE TABLE IF NOT EXISTS lug_uploads (
-    url text PRIMARY KEY,
-    user_id text NOT NULL DEFAULT '',
-    kind text NOT NULL DEFAULT '',
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS lug_uploads_user_idx ON lug_uploads (user_id);
-CREATE TABLE IF NOT EXISTS lug_email_verifications (
-    id text PRIMARY KEY,
-    email text NOT NULL DEFAULT '',
-    expires_at_ms bigint NOT NULL DEFAULT 0,
-    payload jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS lug_email_verifications_email_idx
-    ON lug_email_verifications (lower(email));
-CREATE INDEX IF NOT EXISTS lug_email_verifications_expiry_idx
-    ON lug_email_verifications (expires_at_ms);
-CREATE TABLE IF NOT EXISTS lug_audit_log (
-    id text PRIMARY KEY,
-    actor_id text NOT NULL DEFAULT '',
-    action text NOT NULL DEFAULT '',
-    entity_type text NOT NULL DEFAULT '',
-    entity_id text NOT NULL DEFAULT '',
-    at timestamptz NOT NULL DEFAULT now(),
-    payload jsonb NOT NULL
-);
-CREATE INDEX IF NOT EXISTS lug_audit_log_at_idx ON lug_audit_log (at DESC);
-CREATE INDEX IF NOT EXISTS lug_audit_log_entity_idx
-    ON lug_audit_log (entity_type, entity_id);
-"""
 
 ENTITY_TABLES = {
     "users": "lug_users",
@@ -150,17 +59,23 @@ def _snapshot(state: DatabaseState) -> dict[str, Any]:
 
 def _indexed_values(key: str, item: dict) -> tuple[Any, ...]:
     if key == "users":
-        return (item.get("email", ""), item.get("phone", ""), item.get("role", ""), item.get("teamId"))
+        return (
+            item.get("email", ""), item.get("phone", ""), item.get("role", ""),
+            item.get("teamId") or None, item.get("emailVerified") is True,
+        )
     if key == "teams":
-        return (item.get("group", ""), item.get("inviteCode", ""), item.get("captainId"))
+        return (
+            item.get("group", ""), item.get("inviteCode", ""), item.get("captainId") or None,
+            item.get("inviteStatus", "active"),
+        )
     if key == "achievements":
-        return (item.get("userId", ""), item.get("status", ""))
+        return (item.get("userId") or None, item.get("status", ""))
     if key == "notifications":
         return (item.get("targetType", ""), item.get("targetId"), item.get("kind", ""))
     if key == "sessions":
-        return (item.get("tokenHash", ""), item.get("userId", ""), int(item.get("expiresAt", 0) or 0))
+        return (item.get("tokenHash", ""), item.get("userId") or None, int(item.get("expiresAt", 0) or 0))
     if key == "uploads":
-        return (item.get("userId", ""), item.get("kind", ""))
+        return (item.get("userId") or None, item.get("kind", ""))
     return (item.get("email", ""), int(item.get("expiresAtMs", 0) or 0))
 
 
@@ -171,34 +86,91 @@ def _audit_at(value: Any) -> datetime:
         return datetime.now(timezone.utc)
 
 
-class PostgresStore:
+def _postgres_ssl_context(mode: str, root_cert: str) -> ssl.SSLContext | None:
+    normalized = str(mode or "disable").strip().lower()
+    if normalized == "disable":
+        return None
+    if normalized not in {"require", "verify-ca", "verify-full"}:
+        raise RuntimeError("Неподдерживаемый режим TLS PostgreSQL.")
+    context = ssl.create_default_context(cafile=root_cert or None)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    if normalized == "require":
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    elif normalized == "verify-ca":
+        context.check_hostname = False
+    return context
+
+
+class PostgresStore(PostgresQueryMixin, PostgresRegistrationMixin, PostgresReviewMixin):
     provider = "postgres"
     serializes_writes = False
 
-    def __init__(self, pool: Any, defaults: dict) -> None:
+    def __init__(self, pool: Any, defaults: dict, email_outbox_encryption_key: bytes) -> None:
         self.pool = pool
         self.defaults = defaults
+        self.email_outbox_encryption_key = email_outbox_encryption_key
 
     @classmethod
     async def create(
-        cls, database_url: str, defaults: dict, min_size: int = 2, max_size: int = 20
+        cls,
+        database_url: str,
+        defaults: dict,
+        min_size: int = 2,
+        max_size: int = 20,
+        email_outbox_encryption_key: bytes | None = None,
+        database_ssl_mode: str = "disable",
+        database_ssl_root_cert: str = "",
     ) -> "PostgresStore":
         import asyncpg
 
+        if email_outbox_encryption_key is None or len(email_outbox_encryption_key) != 32:
+            raise RuntimeError(
+                "PostgreSQL email outbox требует AES-256 encryption key."
+            )
+        ssl_context = _postgres_ssl_context(database_ssl_mode, database_ssl_root_cert)
         pool = await asyncpg.create_pool(
-            database_url, min_size=min_size, max_size=max_size, timeout=5
+            database_url,
+            min_size=min_size,
+            max_size=max_size,
+            timeout=5,
+            ssl=ssl_context,
         )
-        store = cls(pool, defaults)
+        store = cls(pool, defaults, email_outbox_encryption_key)
         await pool.execute(SCHEMA)
+        await pool.execute(INTEGRITY_SCHEMA)
         await pool.execute(PASSWORD_RESET_SCHEMA)
         await pool.execute(
             "INSERT INTO lug_meta (id) VALUES ('primary') ON CONFLICT (id) DO NOTHING"
         )
         await store._migrate_legacy()
+        await store._encrypt_legacy_email_outbox()
+        await pool.execute(OUTBOX_INTEGRITY_SCHEMA)
         if not await pool.fetchval("SELECT EXISTS (SELECT 1 FROM lug_settings WHERE id = 1)"):
             await store.save(normalize_db(None, defaults))
         return store
 
+    async def _encrypt_legacy_email_outbox(self) -> None:
+        """Upgrade pre-encryption outbox rows before the worker can claim them."""
+
+        async with self.pool.acquire() as connection:
+            async with connection.transaction():
+                rows = await connection.fetch(
+                    "SELECT id, status, payload FROM lug_email_outbox "
+                    "WHERE payload->>'algorithm' IS DISTINCT FROM 'AES-256-GCM'"
+                )
+                for row in rows:
+                    if row["status"] == "sent":
+                        encrypted_payload = {"redacted": True, "version": 1}
+                    else:
+                        encrypted_payload = encrypt_json(
+                            _json_payload(row["payload"]),
+                            self.email_outbox_encryption_key,
+                        )
+                    await connection.execute(
+                        "UPDATE lug_email_outbox SET payload = $2::jsonb WHERE id = $1",
+                        row["id"], json.dumps(encrypted_payload, ensure_ascii=False),
+                    )
     async def _migrate_legacy(self) -> None:
         settings_exists = await self.pool.fetchval(
             "SELECT EXISTS (SELECT 1 FROM lug_settings WHERE id = 1)"
@@ -211,13 +183,13 @@ class PostgresStore:
         if not legacy_exists:
             return
         row = await self.pool.fetchrow(
-            "SELECT revision, payload FROM lug_state WHERE id = 'primary'"
+            "SELECT payload FROM lug_state WHERE id = 'primary'"
         )
         if not row:
             return
         state = normalize_db(_json_payload(row["payload"]), self.defaults)
-        old_revision = int(row["revision"] or 0)
-        state.revision = max(-1, old_revision - 1)
+        # The normalized meta revision starts at zero and is advanced by this write.
+        state.revision = 0
         await self.save(state)
 
     async def load(self) -> DatabaseState:
@@ -249,6 +221,16 @@ class PostgresStore:
         previous = getattr(state, "_postgres_snapshot", {})
         async with self.pool.acquire() as connection:
             async with connection.transaction():
+                current_revision = int(
+                    await connection.fetchval(
+                        "SELECT revision FROM lug_meta WHERE id = 'primary' FOR UPDATE"
+                    )
+                    or 0
+                )
+                if int(getattr(state, "revision", 0)) != current_revision:
+                    raise PersistenceError(
+                        "Данные были изменены другим запросом. Повторите действие.", 409
+                    )
                 await connection.execute(
                     """INSERT INTO lug_settings (id, payload) VALUES (1, $1::jsonb)
                     ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload,
@@ -282,8 +264,9 @@ class PostgresStore:
         }
         removed = set(previous) - set(current)
         if removed:
+            key_column = "token_hash" if key == "sessions" else "url" if key == "uploads" else "id"
             await connection.executemany(
-                f"DELETE FROM {table} WHERE {('id' if key != 'uploads' else 'url')} = $1",
+                f"DELETE FROM {table} WHERE {key_column} = $1",
                 [(item_id,) for item_id in removed],
             )
         for item_id, item in current.items():
@@ -291,15 +274,17 @@ class PostgresStore:
                 continue
             values = _indexed_values(key, item)
             if key == "users":
-                query = """INSERT INTO lug_users (id,email,phone,role,team_id,payload)
-                    VALUES ($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT (id) DO UPDATE SET
+                query = """INSERT INTO lug_users (id,email,phone,role,team_id,email_verified,payload)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) ON CONFLICT (id) DO UPDATE SET
                     email=EXCLUDED.email,phone=EXCLUDED.phone,role=EXCLUDED.role,
-                    team_id=EXCLUDED.team_id,payload=EXCLUDED.payload,updated_at=now()"""
+                    team_id=EXCLUDED.team_id,email_verified=EXCLUDED.email_verified,
+                    payload=EXCLUDED.payload,updated_at=now()"""
             elif key == "teams":
-                query = """INSERT INTO lug_teams (id,group_name,invite_code,captain_id,payload)
-                    VALUES ($1,$2,$3,$4,$5::jsonb) ON CONFLICT (id) DO UPDATE SET
+                query = """INSERT INTO lug_teams (id,group_name,invite_code,captain_id,invite_status,payload)
+                    VALUES ($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT (id) DO UPDATE SET
                     group_name=EXCLUDED.group_name,invite_code=EXCLUDED.invite_code,
-                    captain_id=EXCLUDED.captain_id,payload=EXCLUDED.payload,updated_at=now()"""
+                    captain_id=EXCLUDED.captain_id,invite_status=EXCLUDED.invite_status,
+                    payload=EXCLUDED.payload,updated_at=now()"""
             elif key == "achievements":
                 query = """INSERT INTO lug_achievements (id,user_id,status,payload)
                     VALUES ($1,$2,$3,$4::jsonb) ON CONFLICT (id) DO UPDATE SET

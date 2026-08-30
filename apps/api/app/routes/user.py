@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
 from ..models import AchievementPayload, UploadPayload, model_payload
-from ..security.auth import require_user
+from ..security.auth import SESSION_COOKIE, hash_token, parse_cookies, require_user
 from ..shared import domain
 
 router = APIRouter(prefix="/api")
@@ -47,6 +47,16 @@ async def _check_upload_rate(context: Any, request: Request, user: dict) -> None
 
 @router.get("/dashboard")
 async def dashboard(request: Request):
+    context = _context(request)
+    if hasattr(context.store, "get_user_by_session"):
+        token = parse_cookies(request).get(SESSION_COOKIE, "")
+        user = await context.store.get_user_by_session(hash_token(token)) if token else None
+        if not user:
+            raise ApiError(401, "Требуется вход в личный кабинет.")
+        state = await context.store.get_dashboard_state(user["id"])
+        if state is None:
+            raise ApiError(401, "Требуется вход в личный кабинет.")
+        return json_response(domain.dashboard(state, user), request=request)
     _, state, user = await _auth_state(request)
     return json_response(domain.dashboard(state, user), request=request)
 

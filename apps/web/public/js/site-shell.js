@@ -1,3 +1,5 @@
+import { publicDate } from './modules/dom.js';
+
 /* Public navigation and the single account entry point.
  * Login and registration intentionally share one modal so the public page
  * remains visible behind the workflow and users never get a second visual shell.
@@ -914,11 +916,6 @@
       const mode = params.get('invite') || params.get('action') === 'join' || params.get('action') === 'register' ? 'register' : params.get('action') === 'login' || params.get('next') ? 'login' : 'choice';
       window.setTimeout(() => openAuth(mode, { invite: params.get('invite') || '', next: params.get('next') || '' }), 80);
     }
-  }
-
-  function publicDate(value) {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '';
   }
 
   function publicDateRange(start, end) {

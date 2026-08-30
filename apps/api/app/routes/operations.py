@@ -5,7 +5,7 @@ from hmac import compare_digest
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import PlainTextResponse, Response
 
 from ..http.errors import ApiError
 from ..http.utils import json_response
@@ -104,7 +104,12 @@ async def private_upload(filename: str, request: Request):
     if signed_url:
         headers["Location"] = signed_url
         return Response(status_code=302, headers=headers)
-    return FileResponse(upload["path"], media_type=media.get(suffix, "application/octet-stream"), headers=headers)
+    content = await context.file_storage.read(upload)
+    return Response(
+        content,
+        media_type=media.get(suffix, "application/octet-stream"),
+        headers=headers,
+    )
 
 
 def _contract_response(request: Request, filename: str, media_type: str) -> Response:

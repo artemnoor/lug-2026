@@ -19,9 +19,13 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   webLogger.info('process.shutdown', { signal });
-  await new Promise((resolve) => webServer.close(resolve));
-  apiProcess.kill('SIGTERM');
-  process.exit(0);
+  await closeServer(webServer, 10_000);
+  if (apiProcess.exitCode === null) {
+    apiProcess.kill('SIGTERM');
+    await waitForExit(apiProcess, 10_000);
+    if (apiProcess.exitCode === null) apiProcess.kill('SIGKILL');
+  }
+  process.exitCode = signal === 'api_exit' ? 1 : 0;
 }
 
 process.once('SIGINT', () => shutdown('SIGINT'));
@@ -35,4 +39,21 @@ async function waitForApi(runtimeConfig) {
   }
   apiProcess.kill('SIGTERM');
   throw new Error('FastAPI process did not become ready.');
+}
+
+function closeServer(server, timeoutMs) {
+  return new Promise((resolve) => {
+    let closed = false;
+    const finish = () => { if (closed) return; closed = true; clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => { server.closeAllConnections?.(); finish(); }, timeoutMs);
+    server.close(finish);
+  });
+}
+
+function waitForExit(child, timeoutMs) {
+  if (child.exitCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once('exit', () => { clearTimeout(timer); resolve(); });
+  });
 }

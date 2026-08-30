@@ -1,6 +1,6 @@
 # Security review — ЛУГ 2026
 
-Дата проверки: 29 августа 2026 года.
+Дата проверки: 30 августа 2026 года.
 
 ## Итог
 
@@ -22,6 +22,11 @@ ClamAV scanner и SMTP Mail.ru по SSL/465. Публичный production-за�
 - `ruff check apps/api/app` — ошибок нет.
 - `npm run test:smoke` — проходят CSRF, RBAC, BOLA для файлов, mass assignment,
   rate limits, удалённый chat API и полный email verification flow.
+- `python -m unittest discover -s tests -p 'test_*.py' -v` — проходят regression,
+  encryption и production-config tests; PostgreSQL concurrency suite запускается
+  с `LUG_TEST_DATABASE_URL` и включён в CI.
+- `npm run test:web-security` — проверяет Host allowlist, HTTPS enforcement и
+  fail-closed web-конфигурацию.
 - `npm run test:smtp-local` — SMTP-письмо действительно принято Mailpit,
   проверены получатель, тема и HTML-содержимое.
 - `pip-audit -r apps/api/requirements.txt --progress-spinner off` — известных
@@ -41,7 +46,8 @@ Strix в окружении не установлен, а публичные п�
 
 - Email нормализуется и валидируется; login использует email и пароль.
 - Код состоит из шести цифр и создаётся через `secrets.randbelow`.
-- В persistent store не записываются ни исходный код, ни исходный пароль.
+- В persistent store пароль хранится только как hash, а email-код — только как HMAC;
+  durable outbox хранит временный код только внутри AES-256-GCM encrypted payload.
 - Код хранится как HMAC-SHA-256 с отдельным `LUG_EMAIL_VERIFICATION_SECRET`.
 - Есть TTL, cooldown повторной отправки, лимит неверных попыток и IP rate limit.
 - До подтверждения email нет пользователя и нет сессии.
@@ -73,27 +79,29 @@ Strix в окружении не установлен, а публичные п�
 ### HTTP и эксплуатация
 
 - Изменяющие запросы требуют same-origin CSRF cookie/header.
-- Production включает secure cookies; заданы security headers, no-store для
+- Staging и production включают secure cookies; заданы security headers, no-store для
   чувствительных ответов и private no-store для файлов.
 - Readiness и metrics закрыты operations token или loopback-доступом.
 - Доверие к `X-Forwarded-For` включается только для явно перечисленных proxy IP.
 - PostgreSQL хранит сущности отдельными строками с индексами; audit log вынесен в
   отдельную таблицу с retention 730 дней, а метрики используют bounded histograms.
-- S3 uploads хранятся в private bucket, ключи не содержат пользовательских имён,
-  а доступ выдаётся только после BOLA-проверки через короткий presigned URL.
+- S3 uploads хранятся в private bucket с обязательным SSE, ключи не содержат
+  пользовательских имён, а доступ выдаётся только после BOLA-проверки через
+  короткий presigned URL. Local uploads также шифруются AES-256-GCM.
 - Nginx-шаблон проксирует трафик через Node gateway и не открывает FastAPI
   напрямую.
 
 ## Что нельзя считать закрытым до production
 
-1. Перенести SMTP-пароль Mail.ru и остальные production-секреты в secret manager;
+1. Перенести SMTP-пароль Mail.ru и остальные production-секреты, включая ключи
+   outbox/storage, в secret manager;
    отдельно подтвердить доставку кодов, восстановления пароля и уведомлений.
 2. Поставить TLS и edge WAF/CDN, закрыть origin-порты firewall и включить
    администраторскую MFA/SSO.
 3. Задать случайный secret manager-backed
-   `LUG_EMAIL_VERIFICATION_SECRET` длиной не менее 32 символов.
-4. Проверить backup/restore PostgreSQL и lifecycle policy object storage; local
-   storage в production конфигурация не допускается.
+   `LUG_EMAIL_VERIFICATION_SECRET` длиной не менее 32 символов в staging/production.
+4. Проверить backup/restore PostgreSQL, TLS `verify-full`, SSE/KMS и lifecycle
+   policy object storage; local storage в production конфигурация не допускается.
 
 Секреты, реальные SMTP-пароли, `data/lug.json` и пользовательские uploads не
 должны попадать в репозиторий или архив проекта.

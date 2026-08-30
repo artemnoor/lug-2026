@@ -1,3 +1,5 @@
+import { escapeHtml as esc } from './modules/dom.js';
+
 /* Панель оргкомитета: команды — источник правды для проверки, связи и статусов.
    Рендер полностью перестроен под сплит-вью и дизайн-систему сайта. */
 (function (window, document) {
@@ -11,7 +13,6 @@
   let knownAdminNotificationIds = new Set();
   const filters = { teams: '', teamStatus: 'all', users: '', userStatus: 'all', achievements: '', achievementStatus: 'all', achievementDirection: 'all', achievementTeamId: '', achievementUserId: '' };
   const $ = (id) => document.getElementById(id);
-  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
   const dateLabel = (value) => value ? new Date(value).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
   const shortDateLabel = (value) => value ? new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '—';
   const rangeLabel = (start, end) => {

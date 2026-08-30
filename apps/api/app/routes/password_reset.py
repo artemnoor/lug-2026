@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
+from ..infrastructure.postgres_writes import PersistenceError
 from ..models import (
     PasswordResetPayload,
     PasswordResetRequestPayload,
@@ -69,6 +70,29 @@ async def request_password_reset(request: Request):
     if not domain.valid_email(email):
         raise ApiError(422, "Укажите корректный адрес электронной почты.")
     _not_limited(await context.rate_limiter.check(request, f"password-reset-account-{hash_token(email)[:24]}", 5))
+    if hasattr(context.store, "create_password_reset_atomic"):
+        user = await context.store.get_user_by_email(email)
+        if not user or user.get("emailVerified") is not True:
+            return _reset_response(request)
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        code = verification_code()
+        expires_minutes = max(1, context.config.email_verification_ttl_ms // 60_000)
+        reset = {
+            "id": str(uuid4()),
+            "email": email,
+            "codeHash": verification_code_hash(code, context.config.email_verification_secret),
+            "attempts": 0,
+            "lastSentAtMs": now_ms,
+            "expiresAtMs": now_ms + context.config.email_verification_ttl_ms,
+            "createdAt": domain.now(),
+        }
+        queued = await context.store.create_password_reset_atomic(
+            email, reset, {"code": code, "expiresMinutes": expires_minutes},
+            now_ms, context.config.email_verification_cooldown_ms,
+        )
+        if not queued:
+            return _reset_response(request)
+        return _reset_response(request)
     state = await context.store.load()
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     state["passwordResets"] = [item for item in state.get("passwordResets", []) if int(item.get("expiresAtMs", 0)) > now_ms]
@@ -91,10 +115,16 @@ async def request_password_reset(request: Request):
         "expiresAtMs": now_ms + context.config.email_verification_ttl_ms,
         "createdAt": domain.now(),
     }
-    await context.email_service.send_password_reset_code(email, code, max(1, context.config.email_verification_ttl_ms // 60_000))
+    expires_minutes = max(1, context.config.email_verification_ttl_ms // 60_000)
     state["passwordResets"] = [item for item in state.get("passwordResets", []) if domain.normalize_email(item.get("email")) != email]
     state["passwordResets"].append(reset)
     await context.store.save(state)
+    if hasattr(context.store, "enqueue_email"):
+        await context.store.enqueue_email(
+            email, "password-reset", {"code": code, "expiresMinutes": expires_minutes}
+        )
+    else:
+        await context.email_service.send_password_reset_code(email, code, expires_minutes)
     return _reset_response(request)
 
 
@@ -109,6 +139,18 @@ async def reset_password(request: Request):
     if not domain.strong_password(payload.get("password")):
         raise ApiError(422, "Пароль должен содержать минимум 8 символов, строчную и прописную букву, цифру и спецсимвол.")
     _not_limited(await context.rate_limiter.check(request, f"password-reset-verify-account-{hash_token(email)[:24]}", 10))
+    if hasattr(context.store, "reset_password_atomic"):
+        expected = verification_code_hash(
+            payload.get("code", ""), context.config.email_verification_secret
+        )
+        try:
+            await context.store.reset_password_atomic(
+                email, expected, password_hash(payload.get("password", "")),
+                context.config.email_verification_max_attempts,
+            )
+        except PersistenceError as exc:
+            raise ApiError(exc.status_code, exc.message) from exc
+        return json_response({"success": True, "message": "Пароль изменён. Теперь можно войти."}, request=request)
     state = await context.store.load()
     reset = _reset_for_email(state, email)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)

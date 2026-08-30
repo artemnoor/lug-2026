@@ -69,6 +69,7 @@ class AchievementPayload(FlexibleModel):
 
 
 class ReviewPayload(FlexibleModel):
+    field: str = Field("", max_length=32)
     status: str = Field("", max_length=32)
     comment: str = Field("", max_length=2000)
     points: Any = None

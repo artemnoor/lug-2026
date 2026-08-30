@@ -8,7 +8,13 @@ from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
 from ..security.auth import require_admin
 from ..shared import domain
-from ..shared.notifications import send_notification_emails, target_users, verified_email_recipients
+from ..shared.commands import SettingsPatch
+from ..shared.notifications import (
+    send_notification_emails,
+    target_users,
+    verified_email_recipients,
+)
+from . import admin_postgres
 
 router = APIRouter(prefix="/api/admin")
 
@@ -21,7 +27,13 @@ async def _admin_state(request: Request) -> tuple[Any, dict, dict]:
 
 @router.patch("/settings")
 async def update_settings(request: Request):
-    context, state, admin = await _admin_state(request)
+    context = request.app.state.context
+    postgres = hasattr(context.store, "update_settings_atomic")
+    if postgres:
+        admin = await admin_postgres.admin_user(request)
+        state = {"settings": await context.store.get_settings()}
+    else:
+        context, state, admin = await _admin_state(request)
     payload = await read_json(request, context.config.max_json_body)
     date_keys = (
         "registrationStart",
@@ -86,8 +98,25 @@ async def update_settings(request: Request):
     if "minTeamPercentage" in payload:
         state["settings"]["minTeamPercentage"] = int(payload["minTeamPercentage"])
     domain.audit(state, admin["id"], "settings.updated", "settings", "global")
-    await context.store.save(state)
-    return json_response({"settings": state["settings"]}, request=request)
+    if postgres:
+        patch = {key: state["settings"][key] for key in date_keys if key in payload}
+        if "isRegistrationOpen" in payload:
+            patch["isRegistrationOpen"] = state["settings"]["isRegistrationOpen"]
+        if "minTeamPercentage" in payload:
+            patch["minTeamPercentage"] = state["settings"]["minTeamPercentage"]
+        if isinstance(payload.get("content"), dict):
+            patch["content"] = {
+                key: payload["content"][key].strip()
+                for key in ("manifestoLead", "manifestoNote", "registrationHeadline")
+                if key in payload["content"]
+            }
+        settings = await context.store.update_settings_atomic(
+            SettingsPatch(patch).as_dict(), admin["id"]
+        )
+    else:
+        await context.store.save(state)
+        settings = state["settings"]
+    return json_response({"settings": settings}, request=request)
 
 
 @router.post("/notifications/broadcast")

@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -50,6 +51,13 @@ const publicRoot = join(root, 'apps', 'web', 'public');
 for (const entry of readdirSync(publicRoot, { withFileTypes: true })) {
   if (entry.isFile() && entry.name !== 'favicon.svg') {
     failures.push(`apps/web/public/${entry.name} must be in a named static directory`);
+  }
+}
+
+for (const path of filesUnder('apps/web/public/js', '.js')) {
+  const result = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    failures.push(`${relative(root, path)} failed node --check: ${(result.stderr || result.stdout).trim()}`);
   }
 }
 

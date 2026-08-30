@@ -11,6 +11,7 @@
     "web": "node apps/web/server.js",
     "test:smoke": "node tests/smoke.mjs",
     "test:smtp-local": "node tests/smtp-local.mjs",
+    "test:web-security": "node tests/web_security.mjs",
     "backup": "python scripts/backup-json.py backup",
     "restore:json": "python scripts/backup-json.py restore",
     "check": "node --check server.js && node --check apps/web/src/config.js && node --check apps/web/src/http.js && node --check apps/web/src/observability.js && node --check apps/web/src/server.js && node --check apps/web/src/static.js && node --check apps/web/public/js/store.js && node --check apps/web/public/js/auth.js && node --check apps/web/public/js/cabinet.js && node --check apps/web/public/js/onboarding.js && node --check apps/web/public/js/site-shell.js && node --check apps/web/public/js/admin.js && node --check apps/web/public/js/about-orbit.js && node --check apps/web/public/js/timer.js && node --check apps/web/public/js/scroll-reset.js && node --check apps/web/public/js/demo-login.js && python -B -c \"import ast,pathlib; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('apps/api/app').rglob('*.py')]; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('scripts').glob('*.py')]\" && npm run quality",

@@ -17,7 +17,10 @@ export function createWebServer({ config, logger = createLogger('lug-web'), metr
     res.setHeader('traceparent', traceParent);
     res.on('finish', () => { metrics.increment(`http_requests.${res.statusCode}`); metrics.observe('http_request_duration', Date.now() - startedAt); logger.info('http.request', { requestId: id, traceId: traceParent.split('-')[1], method: req.method, path: req.url, status: res.statusCode, durationMs: Date.now() - startedAt }); });
     try {
+      if (!allowedHost(req.headers.host, config.allowedHosts)) return rejectRequest(req, res, 'Недопустимый Host.');
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+      const proxyIsTrusted = config.trustProxy && config.trustedProxyIps.has(normalizeAddress(clientAddress(req)));
+      if (config.requireHttps && !isSecureRequest(req, proxyIsTrusted) && url.pathname !== '/healthz') return redirectToHttps(req, res);
       if (url.pathname === '/healthz') { setSecurityHeaders(res, { secure: config.secureCookies, csp: false }); res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Request-Id': id }); res.end(JSON.stringify({ status: 'ok', service: 'lug-web' })); return; }
       if (url.pathname === '/readyz' || url.pathname === '/metrics') return proxy(req, res, { config, id, logger, metrics, operations: true });
       if (url.pathname === '/livez') return proxy(req, res, { config, id, logger, metrics, operations: false });
@@ -91,6 +94,33 @@ function proxy(req, res, { config, id, logger, operations = false }) {
 }
 
 function normalizeAddress(value) { return String(value || '').replace(/^::ffff:/i, ''); }
+
+function isSecureRequest(req, proxyIsTrusted) {
+  if (req.socket.encrypted) return true;
+  if (!proxyIsTrusted) return false;
+  return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase() === 'https';
+}
+
+function redirectToHttps(req, res) {
+  const host = String(req.headers.host || '').trim();
+  res.writeHead(308, {
+    Location: `https://${host}${req.url || '/'}`,
+    'Cache-Control': 'no-store',
+    'X-Request-Id': res.__requestId || '',
+  });
+  res.end();
+}
+
+function allowedHost(value, allowlist) {
+  const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!raw || !allowlist?.size) return false;
+  try {
+    const host = new URL(`http://${raw}`).hostname.toLowerCase().replace(/\.$/, '');
+    return allowlist.has(host) || allowlist.has(raw);
+  } catch {
+    return false;
+  }
+}
 
 function normalizeTraceparent(value) {
   const candidate = String(value || '').toLowerCase();

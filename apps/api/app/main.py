@@ -15,6 +15,7 @@ from .http.errors import ApiError
 from .http.utils import json_response, set_csrf_cookie, set_security_headers
 from .infrastructure.email import EmailService
 from .infrastructure.file_storage import create_file_storage
+from .infrastructure.postgres_writes import PersistenceError
 from .infrastructure.store import create_store
 from .observability import (
     Logger,
@@ -33,8 +34,8 @@ from .routes import (
     password_reset,
     registration,
     user,
-    user_profile,
     user_notifications,
+    user_profile,
 )
 from .security.auth import csrf_valid, parse_cookies
 from .security.rate_limit import create_rate_limiter
@@ -60,6 +61,9 @@ async def lifespan(application: FastAPI):
         default_settings(),
         config.database_pool_min_size,
         config.database_pool_max_size,
+        config.email_outbox_encryption_key,
+        config.database_ssl_mode,
+        config.database_ssl_root_cert,
     )
     file_storage = create_file_storage(config)
     email_service = EmailService(
@@ -78,6 +82,8 @@ async def lifespan(application: FastAPI):
     rate_limiter = await create_rate_limiter(
         config.redis_url, config.trust_proxy, config.trusted_proxy_ips
     )
+    await file_storage.ready()
+    await rate_limiter.ready()
     context = AppContext(
         config,
         store,
@@ -163,9 +169,11 @@ async def request_pipeline(request: Request, call_next):
                 else:
                     response = await call_next(request)
             except Exception as error:
-                if isinstance(error, ApiError):
+                if isinstance(error, (ApiError, PersistenceError)):
                     response = json_response(
-                        {"error": error.message}, error.status_code, request
+                        {"error": error.message},
+                        error.status_code,
+                        request,
                     )
                 else:
                     context.logger.error(

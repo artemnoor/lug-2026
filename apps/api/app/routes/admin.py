@@ -13,6 +13,7 @@ from ..security.auth import require_admin
 from ..shared import domain
 from ..shared.notifications import notify_user_with_email
 from ..shared.projections import admin_snapshot
+from . import admin_postgres
 
 router = APIRouter(prefix="/api/admin")
 REVIEW_FIELDS = {"name", "group", "flag", "description"}
@@ -41,18 +42,27 @@ async def _review_payload(request: Request, context: Any) -> dict[str, Any]:
 
 @router.get("/overview")
 async def overview(request: Request):
+    if hasattr(_context(request).store, "get_admin_state"):
+        await admin_postgres.admin_user(request)
+        state = await _context(request).store.get_admin_state()
+        return json_response(admin_snapshot(state), request=request)
     _, state, _ = await _admin_state(request)
     return json_response(admin_snapshot(state), request=request)
 
 
 @router.get("/audit")
 async def audit_log(request: Request):
+    if hasattr(_context(request).store, "get_audit_log"):
+        await admin_postgres.admin_user(request)
+        return json_response({"auditLog": await _context(request).store.get_audit_log()}, request=request)
     _, state, _ = await _admin_state(request)
     return json_response({"auditLog": state.get("auditLog", [])[:200]}, request=request)
 
 
 @router.patch("/teams/{team_id}/quota")
 async def update_quota(team_id: str, request: Request):
+    if hasattr(_context(request).store, "update_quota_atomic"):
+        return await admin_postgres.update_quota(request, team_id)
     context, state, admin = await _admin_state(request)
     team = _find_team(state, team_id)
     payload = await read_json(request, context.config.max_json_body)
@@ -64,6 +74,8 @@ async def update_quota(team_id: str, request: Request):
 
 @router.patch("/teams/{team_id}/review")
 async def review_team(team_id: str, request: Request):
+    if hasattr(_context(request).store, "review_team_atomic"):
+        return await admin_postgres.review_team(request, team_id)
     context, state, admin = await _admin_state(request)
     team = _find_team(state, team_id)
     payload = await _review_payload(request, context)
@@ -135,6 +147,8 @@ async def remove_member(team_id: str, user_id: str, request: Request):
 
 @router.patch("/users/{user_id}/identity")
 async def review_identity(user_id: str, request: Request):
+    if hasattr(_context(request).store, "review_identity_atomic"):
+        return await admin_postgres.review_identity(request, user_id)
     context, state, admin = await _admin_state(request)
     target = next(
         (
@@ -180,6 +194,8 @@ async def review_identity(user_id: str, request: Request):
 
 @router.patch("/achievements/{achievement_id}/review")
 async def review_achievement(achievement_id: str, request: Request):
+    if hasattr(_context(request).store, "review_achievement_atomic"):
+        return await admin_postgres.review_achievement(request, achievement_id)
     context, state, admin = await _admin_state(request)
     achievement = next(
         (
@@ -243,6 +259,8 @@ async def review_achievement(achievement_id: str, request: Request):
 
 @router.patch("/videos/{team_id}/review")
 async def review_video(team_id: str, request: Request):
+    if hasattr(_context(request).store, "review_video_atomic"):
+        return await admin_postgres.review_video(request, team_id)
     context, state, admin = await _admin_state(request)
     team = _find_team(state, team_id)
     payload = await _review_payload(request, context)

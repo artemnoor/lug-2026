@@ -61,13 +61,15 @@ FastAPI             auth, RBAC, domain, uploads, notifications
 
 Для небольшого конкурса достаточно одной Linux VM:
 
-1. Nginx принимает `80/443`; API и Node слушают только `127.0.0.1`.
+1. Nginx принимает `80/443`; HTTP делает `308` на HTTPS, а API и Node слушают только `127.0.0.1`.
 2. systemd или Docker Compose управляет Node gateway и FastAPI.
 3. PostgreSQL и Redis работают как отдельные сервисы с backup policy.
 4. Задать `LUG_FILE_STORAGE_PROVIDER=s3`, private bucket, `LUG_S3_BUCKET`, при необходимости endpoint/credentials и lifecycle policy; scanner обязателен. API выдаёт только короткие presigned GET URLs после проверки прав.
 5. `/metrics` и `/readyz` разрешены только monitoring network, `/healthz` можно
    оставить публичным как минимальный liveness endpoint.
 6. Firewall закрывает прямой внешний доступ к `4173`, `4174`, PostgreSQL и Redis.
+   Node gateway дополнительно отклоняет чувствительные HTTP-запросы даже при
+   ошибочной публикации порта.
 
 Шаблон Nginx находится в [`deploy/nginx/lug.conf.example`](deploy/nginx/lug.conf.example).
 Он проксирует весь application traffic в Node gateway, чтобы не обходить
@@ -83,8 +85,10 @@ CSRF и ограничения web gateway.
 - ClamAV `1.5.4` работает с базой сигнатур, встроенной в официальный образ;
 - `NODE_ENV=staging`, PostgreSQL, Redis, S3 и обязательное сканирование загрузок включены;
 - SMTP Mail.ru настроен по SSL на порту `465` для кодов, восстановления пароля и уведомлений;
-- наружу открыт только HTTP `:80`, SSH ограничен текущим IP администратора;
-- приложение доступно на `http://51.250.102.106`.
+- исторический staging был доступен только по HTTP `:80`; этот endpoint нельзя
+  использовать после включения регистрации, пока не установлен TLS edge;
+- перед повторным запуском staging нужно задать `LUG_REQUIRE_HTTPS=true`,
+  `LUG_TRUST_PROXY=true` и точный `LUG_TRUSTED_PROXY_IPS` для Nginx.
 
 Это экономичный staging-профиль: PostgreSQL, Redis и ClamAV находятся на той же
 VM, поэтому они не являются отдельными managed-внешними сервисами и делят её
@@ -155,6 +159,23 @@ storage. PostgreSQL-адаптер хранит сущности отдельн�
 росте аудитории отправку следует вынести в durable queue/worker, чтобы HTTP-
 запрос админки не зависел от продолжительности SMTP-доставки.
 
+После перехода на PostgreSQL уведомления и коды складываются в durable
+`lug_email_outbox`. Для нескольких app-инстансов используйте
+`docker-compose.split.yml`: `web`, `api` и `worker` запускаются отдельными
+deployment units, а worker забирает сообщения через `FOR UPDATE SKIP LOCKED`.
+Graceful shutdown web-gateway закрывает новые запросы и ждёт завершения API;
+worker возвращает зависшие сообщения из `sending` обратно в очередь.
+
+Профиль запускается так:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.split.yml up -d
+docker compose --env-file .env.production -f docker-compose.split.yml run --rm api python -B -m app.maintenance
+```
+
+Последняя команда безопасно удаляет из private object storage только файлы,
+которые не указаны в PostgreSQL и старше grace-периода.
+
 ## Текущее состояние среды разработки
 
 На проверенной машине Nginx не установлен. Docker CLI и Compose установлены,
@@ -165,14 +186,17 @@ storage. PostgreSQL-адаптер хранит сущности отдельн�
 ## Перед публикацией
 
 - [ ] DNS указывает на CDN/WAF или Nginx.
-- [ ] TLS включён; secure cookies проверены.
+- [ ] TLS включён; HTTP делает `308` на HTTPS; secure cookies и HSTS проверены.
+- [ ] `LUG_REQUIRE_HTTPS=true`; прямой HTTP к Node gateway отклоняется.
 - [ ] origin закрыт firewall-правилами.
 - [ ] `LUG_ALLOWED_HOSTS` содержит только реальные hostnames.
 - [ ] `LUG_OPERATIONS_TOKEN` задан; `/metrics` и `/readyz` закрыты ACL.
 - [ ] `LUG_TRUST_PROXY=true` включён только при заданном списке trusted proxy IP.
 - [ ] `LUG_DATABASE_PROVIDER=postgres`, `LUG_DATABASE_URL` и `REDIS_URL` настроены.
+- [ ] `LUG_DATABASE_SSL_MODE=verify-full` и доверенный CA PostgreSQL настроены.
+- [ ] `LUG_EMAIL_OUTBOX_ENCRYPTION_KEY` задан через secret manager.
 - [ ] `LUG_UPLOAD_SCAN_COMMAND` настроен, scanner доступен, upload quarantine проверен.
-- [ ] `LUG_FILE_STORAGE_PROVIDER=s3`, bucket private, S3 credentials/IAM policy и `LUG_S3_SIGNED_URL_TTL` проверены.
+- [ ] `LUG_FILE_STORAGE_PROVIDER=s3`, bucket private, SSE (`AES256` или KMS), S3 credentials/IAM policy и `LUG_S3_SIGNED_URL_TTL` проверены.
 - [ ] `LUG_EMAIL_MODE=smtp`, SMTP credentials и `LUG_SMTP_FROM` настроены; проверены письмо с кодом, восстановление пароля и письмо участнику из уведомления.
 - [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` настроен, trace виден в collector/backend.
 - [ ] `LUG_EMAIL_VERIFICATION_SECRET` задан отдельным случайным секретом; коды не пишутся в production-лог.

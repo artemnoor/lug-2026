@@ -42,7 +42,10 @@ def _not_limited(result: dict[str, Any]) -> None:
 
 @router.get("/config")
 async def config(request: Request):
-    state = await _context(request).store.load()
+    store = _context(request).store
+    if hasattr(store, "get_settings"):
+        return json_response({"settings": await store.get_settings()}, request=request)
+    state = await store.load()
     return json_response({"settings": state["settings"]}, request=request)
 
 
@@ -100,8 +103,13 @@ async def results(request: Request):
 
 @router.get("/session")
 async def session(request: Request):
-    state = await _context(request).store.load()
-    authenticated = current_user(request, state)
+    context = _context(request)
+    if hasattr(context.store, "get_user_by_session"):
+        token = parse_cookies(request).get(SESSION_COOKIE, "")
+        authenticated = await context.store.get_user_by_session(hash_token(token)) if token else None
+    else:
+        state = await context.store.load()
+        authenticated = current_user(request, state)
     user = domain.public_user(authenticated) if authenticated else None
     return json_response({"user": user}, request=request)
 
@@ -109,6 +117,13 @@ async def session(request: Request):
 @router.post("/auth/logout")
 async def logout(request: Request):
     context = _context(request)
+    token = parse_cookies(request).get(SESSION_COOKIE, "")
+    if hasattr(context.store, "remove_session_atomic"):
+        if token:
+            await context.store.remove_session_atomic(hash_token(token))
+        response = json_response({"success": True}, request=request)
+        set_session_cookie(response, "", context.config, max_age=0)
+        return response
     state = await context.store.load()
     if parse_cookies(request).get(SESSION_COOKIE):
         remove_session(state, request)
@@ -131,24 +146,32 @@ async def login(request: Request):
             request, f"auth-account-{hash_token(email)[:24]}", 10
         )
     )
-    state = await context.store.load()
-    user = next(
-        (
-            entry
-            for entry in state["users"]
-            if domain.normalize_email(entry.get("email")) == email
-        ),
-        None,
-    )
+    if hasattr(context.store, "get_user_by_email"):
+        user = await context.store.get_user_by_email(email)
+    else:
+        state = await context.store.load()
+        user = next(
+            (
+                entry
+                for entry in state["users"]
+                if domain.normalize_email(entry.get("email")) == email
+            ),
+            None,
+        )
     if not user or not user.get("emailVerified"):
         raise ApiError(401, "Неверный адрес электронной почты или пароль.")
     if not password_matches(
         payload.get("password", ""), user.get("passwordHash", "")
     ):
         raise ApiError(401, "Неверный адрес электронной почты или пароль.")
-    token = new_session(state, user, context.config.session_ttl_ms)
-    domain.audit(state, user["id"], "auth.login", "user", user["id"])
-    await context.store.save(state)
+    if hasattr(context.store, "create_session_atomic"):
+        token = await context.store.create_session_atomic(
+            user["id"], context.config.session_ttl_ms, user["id"]
+        )
+    else:
+        token = new_session(state, user, context.config.session_ttl_ms)
+        domain.audit(state, user["id"], "auth.login", "user", user["id"])
+        await context.store.save(state)
     response = json_response({"user": domain.public_user(user)}, request=request)
     set_session_cookie(response, token, context.config)
     return response
@@ -161,11 +184,15 @@ async def invite(code: str, request: Request):
     normalized = unquote(code).upper()
     if not domain.valid_invite_code(normalized):
         raise ApiError(404, "Приглашение не найдено, отозвано или истекло.")
-    state = await context.store.load()
-    team = next(
-        (entry for entry in state["teams"] if entry.get("inviteCode") == normalized),
-        None,
-    )
+    store = context.store
+    if hasattr(store, "get_invite"):
+        team = await store.get_invite(normalized)
+    else:
+        state = await store.load()
+        team = next(
+            (entry for entry in state["teams"] if entry.get("inviteCode") == normalized),
+            None,
+        )
     if (
         not team
         or team.get("inviteStatus") != "active"

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +19,7 @@ const pngData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
 
 function startServer() {
   const logs = [];
-  const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, NODE_ENV: 'test', LUG_EMAIL_MODE: 'log', LUG_EMAIL_LOG_CODE: 'true', LUG_EMAIL_VERIFICATION_SECRET: 'smoke-email-verification-secret', LUG_UPLOAD_SCAN_REQUIRED: 'false', LUG_OPERATIONS_TOKEN: 'smoke-ops-token', PORT: String(webPort), LUG_API_PORT: String(apiPort), LUG_DATA_DIR: tempDataDir, LUG_UPLOAD_DIR: tempUploadDir, LUG_ADMIN_EMAIL: adminEmail, LUG_ADMIN_PASSWORD: adminPassword }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, NODE_ENV: 'test', LUG_DATABASE_PROVIDER: 'json', LUG_EMAIL_MODE: 'log', LUG_EMAIL_LOG_CODE: 'true', LUG_EMAIL_VERIFICATION_SECRET: 'smoke-email-verification-secret', LUG_UPLOAD_SCAN_REQUIRED: 'false', LUG_OPERATIONS_TOKEN: 'smoke-ops-token', PORT: String(webPort), LUG_API_PORT: String(apiPort), LUG_DATA_DIR: tempDataDir, LUG_UPLOAD_DIR: tempUploadDir, LUG_ADMIN_EMAIL: adminEmail, LUG_ADMIN_PASSWORD: adminPassword }, stdio: ['ignore', 'pipe', 'pipe'] });
   const capture = (chunk) => logs.push(chunk.toString());
   child.stdout.on('data', capture); child.stderr.on('data', capture);
   return { child, logs: () => logs.join('') };
@@ -50,6 +51,16 @@ function createClient() {
 
 async function json(response) { return response.json(); }
 async function expectStatus(response, expected, label) { if (response.status !== expected) { const details = await response.text(); assert.fail(`${label}: expected ${expected}, got ${response.status}; ${details}`); } }
+function requestWithHost(host) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ hostname: '127.0.0.1', port: webPort, path: '/healthz', headers: { Host: host } }, (response) => {
+      response.resume();
+      response.once('end', () => resolve(response));
+    });
+    request.once('error', reject);
+    request.end();
+  });
+}
 async function waitForVerificationCode(server, offset) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const match = server.logs().slice(offset).match(/"event"\s*:\s*"email\.verification_code"[\s\S]*?"code"\s*:\s*"(\d{6})"/);
@@ -62,6 +73,7 @@ async function waitForVerificationCode(server, offset) {
 const server = startServer();
 try {
   await waitForServer();
+  assert.equal((await requestWithHost('not-allowed.example')).statusCode, 400, 'gateway host allowlist');
   await expectStatus(await fetch(`http://127.0.0.1:${apiPort}/metrics`), 404, 'direct metrics denied');
   await expectStatus(await fetch(`http://127.0.0.1:${apiPort}/metrics`, { headers: { Authorization: 'Bearer smoke-ops-token' } }), 200, 'direct metrics token access');
   const publicClient = createClient();

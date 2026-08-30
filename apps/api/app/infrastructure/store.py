@@ -123,6 +123,9 @@ async def create_store(
     defaults: dict,
     pool_min_size: int = 2,
     pool_max_size: int = 20,
+    email_outbox_encryption_key: bytes | None = None,
+    database_ssl_mode: str = "disable",
+    database_ssl_root_cert: str = "",
 ) -> Store:
     if provider == "postgres":
         if not database_url:
@@ -132,6 +135,12 @@ async def create_store(
         from .postgres import PostgresStore
 
         return await PostgresStore.create(
-            database_url, defaults, pool_min_size, pool_max_size
+            database_url,
+            defaults,
+            pool_min_size,
+            pool_max_size,
+            email_outbox_encryption_key,
+            database_ssl_mode,
+            database_ssl_root_cert,
         )
     return JsonStore(data_dir, defaults)

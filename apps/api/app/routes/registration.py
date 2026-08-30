@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json, set_session_cookie
+from ..infrastructure.postgres_writes import PersistenceError
 from ..models import (
     EmailVerificationPayload,
     JoinTeamPayload,
@@ -118,15 +119,14 @@ async def _create_pending_verification(
         "studentCard": student_card,
         "createdAt": domain.now(),
     }
-    try:
-        await context.email_service.send_verification_code(
-            email,
-            code,
-            max(1, context.config.email_verification_ttl_ms // 60_000),
-        )
-    except Exception:
-        await context.file_storage.delete(student_card["url"])
-        raise
+    expires_minutes = max(1, context.config.email_verification_ttl_ms // 60_000)
+    email_message = {"code": code, "expiresMinutes": expires_minutes}
+    if not hasattr(context.store, "replace_email_verification"):
+        try:
+            await context.email_service.send_verification_code(email, code, expires_minutes)
+        except Exception:
+            await context.file_storage.delete(student_card["url"])
+            raise
     old_student_card = (existing or {}).get("studentCard") or {}
     replaced = False
     stale_cards = []
@@ -143,10 +143,20 @@ async def _create_pending_verification(
     if not replaced:
         verifications.append(pending)
     state["emailVerifications"] = verifications
-    await context.store.save(state)
+    old_urls: list[str] = []
+    if hasattr(context.store, "replace_email_verification"):
+        try:
+            old_urls = await context.store.replace_email_verification(
+                pending, email_message
+            )
+        except Exception:
+            await context.file_storage.delete(student_card["url"])
+            raise
+    else:
+        await context.store.save(state)
     if old_student_card.get("url") and old_student_card.get("url") != student_card.get("url"):
         await context.file_storage.delete(old_student_card.get("url", ""))
-    for stale_card in stale_cards:
+    for stale_card in set(stale_cards + old_urls):
         await context.file_storage.delete(stale_card)
     return pending
 
@@ -197,6 +207,22 @@ async def verify_email(request: Request):
     payload = await _validated(
         request, EmailVerificationPayload, context.config.max_json_body
     )
+    if hasattr(context.store, "get_email_verification"):
+        expected = verification_code_hash(
+            payload.get("code", ""), context.config.email_verification_secret
+        )
+        try:
+            user, token = await context.store.commit_pending_atomic(
+                payload.get("verificationId"),
+                context.config.session_ttl_ms,
+                expected,
+                context.config.email_verification_max_attempts,
+            )
+        except PersistenceError as exc:
+            raise ApiError(exc.status_code, exc.message) from exc
+        response = json_response({"user": domain.public_user(user)}, 201, request)
+        set_session_cookie(response, token, context.config)
+        return response
     state = await context.store.load()
     await _prune_expired(context, state)
     pending = next(
@@ -236,6 +262,27 @@ async def resend_email_code(request: Request):
     payload = await _validated(
         request, ResendEmailVerificationPayload, context.config.max_json_body
     )
+    if hasattr(context.store, "resend_email_verification_atomic"):
+        pending = await context.store.get_email_verification(payload.get("verificationId"))
+        if not pending:
+            raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        if int(pending.get("expiresAtMs", 0)) <= now_ms:
+            raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
+        code = verification_code()
+        expires_at_ms, expires_at = _verification_expiry(context)
+        try:
+            pending = await context.store.resend_email_verification_atomic(
+                pending["id"],
+                {"codeHash": verification_code_hash(code, context.config.email_verification_secret),
+                 "attempts": 0, "lastSentAtMs": now_ms, "expiresAtMs": expires_at_ms,
+                 "expiresAt": expires_at},
+                {"code": code, "expiresMinutes": max(1, context.config.email_verification_ttl_ms // 60_000)},
+                now_ms, context.config.email_verification_cooldown_ms,
+            )
+        except PersistenceError as exc:
+            raise ApiError(exc.status_code, exc.message) from exc
+        return json_response(_pending_response(pending), 200, request)
     state = await context.store.load()
     await _prune_expired(context, state)
     pending = next(
