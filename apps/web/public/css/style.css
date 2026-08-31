@@ -975,7 +975,7 @@
   color: var(--ink);
 }
 .stage-process .timeline-card:nth-child(2),
-.stage-process .timeline-card:nth-child(4) { background: #caffde; }
+.stage-process .timeline-card:nth-child(4) { background: var(--page); }
 .stage-process .timeline-card:nth-child(1) .timeline-card-num,
 .stage-process .timeline-card:nth-child(4) .timeline-card-num,
 .stage-process .timeline-card:nth-child(1) .timeline-kicker,
@@ -1021,6 +1021,24 @@
 .stage-reg .footer .eye svg { stroke: #caffde; }
 .stage-reg .footer .footer-bottom { border-top-color: rgba(255, 255, 255, .38); }
 .stage-reg .footer .telegram { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .48); }
+
+/* Keep every public surface on the participant memo background. The hero
+   image remains the only intentional photographic surface. */
+body.public-page,
+body.public-page .stage:not(.stage-hero),
+body.public-page .rules-preview,
+body.public-page .stage-process .timeline-card,
+body.public-page .stage-process .timeline-card:nth-child(1),
+body.public-page .stage-process .timeline-card:nth-child(2),
+body.public-page .stage-process .timeline-card:nth-child(3),
+body.public-page .stage-process .timeline-card:nth-child(4) {
+  background-color: var(--mint-cream);
+}
+
+body.public-page .hero-timer,
+body.public-page .hero-apply {
+  background-color: var(--sky-aqua);
+}
 
 @media (max-width:700px) {
   .stage-reg .footer { height: 30%; }

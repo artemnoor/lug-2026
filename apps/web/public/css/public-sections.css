@@ -101,7 +101,7 @@
    translucent card treatment. The hero, manifesto and orbit remain untouched.
    ======================================================================== */
 .stage-process {
-  background: #f8fbff;
+  background: var(--page);
   border-block: 1px solid rgba(2, 18, 37, .1);
   padding-block: clamp(88px, 10vw, 144px);
 }
@@ -127,7 +127,7 @@ a.is-disabled { cursor: not-allowed; opacity: .55; }
   transition: background .18s ease, color .18s ease, transform .18s ease;
 }
 .timeline-card + .timeline-card { border-inline-start: 0; }
-.timeline-card--white, .timeline-card--tint { background: #fff; border: 1px solid rgba(2, 18, 37, .14); }
+.timeline-card--white, .timeline-card--tint { background: var(--page); border: 1px solid rgba(2, 18, 37, .14); }
 .timeline-card--tint { background: #caffde; }
 .timeline-card:first-child { border-radius: 20px 0 0 20px; }
 .timeline-card:last-child { border-radius: 0 20px 20px 0; }
@@ -153,12 +153,12 @@ a.is-disabled { cursor: not-allowed; opacity: .55; }
 .winner .win-title { color: #fff; }.winner .win-sub { color: rgba(255,255,255,.68); }
 .years { border-left-color: rgba(2, 18, 37, .26); }.stage-history .year { color: rgba(2,18,37,.42); }.stage-history .year.active { color: var(--blue); }
 
-.stage-reg { background: var(--ink); }
-.stage-reg .title { color: #fff; left: 6.4%; top: 17%; }
+.stage-reg { background: var(--page); }
+.stage-reg .title { color: var(--ink); left: 6.4%; top: 17%; }
 .stage-reg .title::after { background: #caffde; content: ""; display: block; height: 8px; margin-top: 18px; width: 96px; }
-.stage-reg .status-icon { background: #fff; box-shadow: none; }.stage-reg .status-icon svg { stroke: var(--blue); }.stage-reg .status-icon::before,.stage-reg .status-icon::after { border-color: rgba(151, 207, 255, .28); }
-.stage-reg .eyebrow { color: #caffde; }.stage-reg .headline { color: #fff; max-width: 18ch; text-wrap: balance; }.stage-reg .sub { color: rgba(255,255,255,.68); }
-.stage-reg .btn-primary { background: #fff; box-shadow: none; color: var(--ink); }.stage-reg .btn-primary:hover { background: #f2fff6; }.stage-reg .btn-outline { background: transparent; border-color: rgba(255,255,255,.55); color: #fff; }.stage-reg .btn-outline:hover { background: rgba(255,255,255,.12); }
+.stage-reg .status-icon { background: var(--sky-aqua); box-shadow: none; }.stage-reg .status-icon svg { stroke: var(--ink); }.stage-reg .status-icon::before,.stage-reg .status-icon::after { border-color: rgba(37, 197, 233, .28); }
+.stage-reg .eyebrow { color: var(--dark-cyan); }.stage-reg .headline { color: var(--ink); max-width: 18ch; text-wrap: balance; }.stage-reg .sub { color: var(--ink-muted); }
+.stage-reg .btn-primary { background: var(--sky-aqua); box-shadow: none; color: var(--ink); }.stage-reg .btn-primary:hover { background: var(--dark-cyan); }.stage-reg .btn-outline { background: transparent; border-color: var(--dark-cyan); color: var(--dark-cyan); }.stage-reg .btn-outline:hover { background: var(--tea-green); }
 .stage-reg .footer { background: rgba(2, 10, 38, .54); border-top-color: rgba(255,255,255,.16); }.stage-reg .f-title { color: #fff; }.stage-reg .f-row,.stage-reg .footer-bottom,.stage-reg .telegram,.stage-reg .links { color: rgba(255,255,255,.7); }.stage-reg .f-row svg,.stage-reg .telegram svg,.stage-reg .eye svg { stroke: #caffde; }.stage-reg .footer-bottom { border-top-color: rgba(255,255,255,.16); }.stage-reg .telegram { border-color: rgba(202,255,222,.5); color: #caffde; }
 
 @media (max-width: 1200px) {
