@@ -6341,3 +6341,33 @@ body.public-page .hero-timer .timer-separator,
 body.public-page .hero-apply {
   color: #fff !important;
 }
+
+/* On touch browsers, `cover` can be recalculated while the address bar
+   collapses during a swipe. Keep the hero viewport and both photo layers tied
+   to the stable small viewport so the campus never performs a scroll zoom. */
+@media (max-width: 700px) {
+  html,
+  body.public-page {
+    overscroll-behavior-y: none;
+  }
+
+  body.public-page .stage-hero {
+    height: 115svh !important;
+    background-size: auto 100%;
+    background-position: center top;
+    background-attachment: scroll;
+  }
+
+  body.public-page .stage-hero .hero-building {
+    background-size: auto 100%;
+    background-position: calc(50% - 3vw) top;
+    background-attachment: scroll;
+    transform: none !important;
+    will-change: auto;
+  }
+}
+
+/* The wave separator is part of the same participant memo surface. */
+body.public-page .marquee-wave-section {
+  background: var(--tea-green) !important;
+}
