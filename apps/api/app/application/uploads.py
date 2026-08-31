@@ -1,9 +1,11 @@
 """Application service for authenticated upload workflows."""
 
-from typing import Any, AsyncIterable
+from collections.abc import AsyncIterable, Mapping
+from typing import Any
 from uuid import uuid4
 
 from ..shared import domain
+from .repositories import UploadRepository
 
 
 class UploadRuleViolation(Exception):
@@ -17,22 +19,27 @@ class UploadRuleViolation(Exception):
 class UploadService:
     ALLOWED_KINDS = {"attachment", "video", "student-card"}
 
-    def __init__(self, store: Any, file_storage: Any, config: Any):
-        self.store = store
+    def __init__(
+        self,
+        uploads: UploadRepository,
+        file_storage: Any,
+        config: Any,
+    ):
+        self.uploads = uploads
         self.file_storage = file_storage
         self.config = config
 
     async def stream(
         self,
         chunks: AsyncIterable[bytes],
-        user: dict,
+        user: Mapping[str, Any],
         name: str,
         content_type: str,
         kind: str,
         declared_size: int = 0,
     ) -> dict:
         self._validate_metadata(name, content_type, kind)
-        uploads = await self.store.get_user_uploads(user["id"])
+        uploads = await self.uploads.get_user_uploads(user["id"])
         if not self._quota_available(uploads, user["id"], declared_size):
             raise self._quota_error()
         uploaded = await self.file_storage.save_stream(
@@ -52,14 +59,16 @@ class UploadService:
             "scanStatus": "clean",
             "createdAt": domain.now(),
         }
-        await self.store.create_upload_atomic(record, user["id"])
+        await self.uploads.create_upload_atomic(record, user["id"])
         return uploaded
 
-    async def create_intent(self, payload: dict, user: dict) -> dict:
+    async def create_intent(
+        self, payload: Mapping[str, Any], user: Mapping[str, Any]
+    ) -> dict:
         self._validate_metadata(
             payload["name"], payload["contentType"], payload["kind"]
         )
-        uploads = await self.store.get_user_uploads(user["id"])
+        uploads = await self.uploads.get_user_uploads(user["id"])
         if not self._quota_available(uploads, user["id"], payload["size"]):
             raise self._quota_error()
         return await self.file_storage.create_upload_intent(
@@ -70,7 +79,9 @@ class UploadService:
             user["id"],
         )
 
-    async def complete(self, payload: dict, user: dict) -> dict:
+    async def complete(
+        self, payload: Mapping[str, Any], user: Mapping[str, Any]
+    ) -> dict:
         self._validate_metadata(
             payload["name"], payload["contentType"], payload["kind"]
         )
@@ -82,7 +93,7 @@ class UploadService:
             payload["parts"],
             user["id"],
         )
-        uploads = await self.store.get_user_uploads(user["id"])
+        uploads = await self.uploads.get_user_uploads(user["id"])
         if not self._quota_available(uploads, user["id"], uploaded["size"]):
             await self.file_storage.delete(uploaded["url"])
             raise self._quota_error()
@@ -97,7 +108,7 @@ class UploadService:
             "scanStatus": "pending",
             "createdAt": domain.now(),
         }
-        await self.store.create_upload_atomic(record, user["id"])
+        await self.uploads.create_upload_atomic(record, user["id"])
         return {
             **uploaded,
             "status": record["status"],
@@ -121,7 +132,7 @@ class UploadService:
             )
         return uploaded
 
-    async def registration_intent(self, payload: dict, owner: str) -> dict:
+    async def registration_intent(self, payload: Mapping[str, Any], owner: str) -> dict:
         if payload["kind"] != "student-card":
             raise UploadRuleViolation(
                 422, "Для регистрации нужен файл изображения.", "UPLOAD_IMAGE_REQUIRED"
@@ -140,7 +151,9 @@ class UploadService:
             owner,
         )
 
-    async def registration_complete(self, payload: dict, owner: str) -> dict:
+    async def registration_complete(
+        self, payload: Mapping[str, Any], owner: str
+    ) -> dict:
         if payload["kind"] != "student-card":
             raise UploadRuleViolation(
                 422, "Для регистрации нужен файл изображения.", "UPLOAD_IMAGE_REQUIRED"

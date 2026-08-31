@@ -81,7 +81,8 @@ flowchart LR
     API["apps/api<br/>FastAPI"]
     Routes["routes/<br/>auth · registration · profile · notifications · admin"]
     Security["security/<br/>sessions · CSRF · RBAC · limits"]
-    Store["Store adapter<br/>единый доменный state"]
+    UseCases["application/<br/>use-case services"]
+    Repositories["narrow repository ports"]
     Json["data/lug.json<br/>development"]
     Pg["PostgreSQL<br/>production"]
     Files["File storage adapter"]
@@ -97,14 +98,15 @@ flowchart LR
     Web --> Ops
     API --> Routes
     API --> Security
-    Routes --> Store
-    Security --> Store
-    Store --> Json
-    Store --> Pg
-    Routes --> Files
+    Routes --> UseCases
+    Security --> UseCases
+    UseCases --> Repositories
+    Repositories --> Json
+    Repositories --> Pg
+    UseCases --> Files
     Files --> Local
     Files --> S3
-    Routes --> Email
+    UseCases --> Email
     Email --> SMTP
 ```
 
@@ -114,23 +116,26 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant U as Участник
+    participant User as Участник
     participant W as Web gateway
     participant A as FastAPI
-    participant S as Store
+    participant UC as Use-case services
+    participant R as Repository ports
     participant M as SMTP / Mailpit
 
-    U->>W: Заполняет форму регистрации
+    User->>W: Заполняет форму регистрации
     W->>A: POST /api/auth/register-team
     A->>A: Проверяет CSRF, лимиты и поля
-    A->>S: Создаёт команду и pending verification
+    A->>UC: Запускает регистрацию
+    UC->>R: Создаёт команду и pending verification
     A->>M: Отправляет одноразовый код
-    M-->>U: Письмо с кодом
-    U->>W: Вводит код
+    M-->>User: Письмо с кодом
+    User->>W: Вводит код
     W->>A: POST /api/auth/verify-email
-    A->>S: Проверяет HMAC-код, TTL и число попыток
+    A->>UC: Проверяет код, TTL и число попыток
+    UC->>R: Завершает регистрацию атомарно
     A-->>W: Создаёт сессию и возвращает результат
-    W-->>U: Открывает личный кабинет
+    W-->>User: Открывает личный кабинет
 ```
 
 Для незавершённой регистрации повторная отправка формы обновляет существующий код и заявку, поэтому пользователь не получает ложный конфликт «код уже отправлен». Восстановление пароля использует отдельный одноразовый код с тем же SMTP-каналом и после успешной смены пароля завершает активные сессии.
@@ -148,9 +153,10 @@ sequenceDiagram
 | HTTP helpers | `apps/web/src/http.js`, `packages/shared/http.js` | Заголовки, cookies, trace context и общие transport helpers |
 | API composition root | `apps/api/app/main.py`, `context.py` | FastAPI lifecycle, middleware, зависимости и bootstrap admin |
 | Route handlers | `apps/api/app/routes/` | Auth, registration, password reset, profile, notifications, admin и operations |
+| Application | `apps/api/app/application/` | Use cases, orchestration, typed commands and repository ports |
 | Security | `apps/api/app/security/` | Пароли, cookie sessions, CSRF, RBAC и rate limits |
 | Domain | `apps/api/app/shared/`, `models.py` | Правила предметной области и response projections |
-| Persistence | `apps/api/app/infrastructure/store.py`, `postgres.py` | JSON store в development и PostgreSQL в production |
+| Persistence | `apps/api/app/infrastructure/` | Narrow PostgreSQL/JSON adapters; `store.py` оставляет lifecycle и dev-compatibility |
 | Files | `file_storage.py`, `s3_storage.py` | MIME/magic/AV checks, quotas, private files и signed URLs |
 | Email | `apps/api/app/infrastructure/email.py` | Log, SMTP, коды, восстановление пароля и уведомления |
 | Контракты | `packages/contracts/openapi.*` | Проверяемая граница между API и клиентами |

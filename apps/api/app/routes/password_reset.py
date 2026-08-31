@@ -1,22 +1,15 @@
 """Email-code password recovery endpoints."""
 
-from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 from fastapi import APIRouter, Request
 
+from ..application.errors import PersistenceError
+from ..application.password_reset import PasswordResetRuleViolation
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
-from ..infrastructure.persistence_errors import PersistenceError
 from ..models import PasswordResetPayload, PasswordResetRequestPayload, model_payload
-from ..security.auth import (
-    hash_token,
-    password_hash_async,
-    verification_code,
-    verification_code_hash,
-)
-from ..shared import domain
+from ..security.auth import hash_token
 
 router = APIRouter(prefix="/api")
 
@@ -56,42 +49,16 @@ async def request_password_reset(request: Request):
     payload = await _validated(
         request, PasswordResetRequestPayload, context.config.max_json_body
     )
-    email = domain.normalize_email(payload.get("email"))
-    if not domain.valid_email(email):
-        raise ApiError(422, "Укажите корректный адрес электронной почты.")
+    email = payload.get("email", "")
     _not_limited(
         await context.rate_limiter.check(
             request, f"password-reset-account-{hash_token(email)[:24]}", 5
         )
     )
-    user = await context.store.get_user_by_email(email)
-    if not user or user.get("emailVerified") is not True:
-        return _reset_response(request)
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    code = verification_code()
-    expires_minutes = max(1, context.config.email_verification_ttl_ms // 60_000)
-    reset = {
-        "id": str(uuid4()),
-        "email": email,
-        "codeHash": verification_code_hash(
-            code, context.config.email_verification_secret
-        ),
-        "attempts": 0,
-        "lastSentAtMs": now_ms,
-        "expiresAtMs": now_ms + context.config.email_verification_ttl_ms,
-        "createdAt": domain.now(),
-    }
-    queued = await context.store.create_password_reset_atomic(
-        email,
-        reset,
-        {"code": code, "expiresMinutes": expires_minutes},
-        now_ms,
-        context.config.email_verification_cooldown_ms,
-    )
-    if queued and not context.store.queues_email:
-        await context.email_service.send_password_reset_code(
-            email, code, expires_minutes
-        )
+    try:
+        await context.services.password_reset.request(email)
+    except PasswordResetRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return _reset_response(request)
 
 
@@ -102,29 +69,18 @@ async def reset_password(request: Request):
     payload = await _validated(
         request, PasswordResetPayload, context.config.max_json_body
     )
-    email = domain.normalize_email(payload.get("email"))
-    if not domain.valid_email(email):
-        raise ApiError(422, "Укажите корректный адрес электронной почты.")
-    if not domain.strong_password(payload.get("password")):
-        raise ApiError(
-            422,
-            "Пароль должен содержать минимум 8 символов, строчную и прописную букву, цифру и спецсимвол.",
-        )
+    email = payload.get("email", "")
     _not_limited(
         await context.rate_limiter.check(
             request, f"password-reset-verify-account-{hash_token(email)[:24]}", 10
         )
     )
-    expected = verification_code_hash(
-        payload.get("code", ""), context.config.email_verification_secret
-    )
     try:
-        await context.store.reset_password_atomic(
-            email,
-            expected,
-            await password_hash_async(payload.get("password", "")),
-            context.config.email_verification_max_attempts,
+        await context.services.password_reset.reset(
+            email, payload.get("code", ""), payload.get("password", "")
         )
+    except PasswordResetRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     except PersistenceError as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(

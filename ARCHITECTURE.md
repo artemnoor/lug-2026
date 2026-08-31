@@ -32,17 +32,18 @@ flowchart LR
     U["Browser"] --> W["apps/web\nNode.js gateway"]
     W -->|"static allowlist"| U
     W -->|"/api/*, /uploads/*"| A["apps/api\nFastAPI"]
-    A --> R["routes"]
+    A --> R["routes<br/>HTTP only"]
+    R --> U["application/<br/>use cases"]
     A --> S["security + middleware"]
-    R --> D["domain + models"]
+    U --> D["domain + typed models"]
     S --> D
-    D --> P["store adapter"]
+    U --> P["narrow repository ports"]
     P --> J["JSON\ndev"]
     P --> PG["PostgreSQL\nprod"]
-    R --> F["file storage"]
+    U --> F["file storage"]
     F --> L["local files\ndev"]
     F --> B["private S3 + AV\nprod"]
-    R --> E["EmailService"]
+    U --> E["EmailService"]
     E --> M["SMTP / Mailpit"]
 ```
 
@@ -53,18 +54,21 @@ sequenceDiagram
     participant Browser
     participant Web as Web gateway
     participant API as FastAPI
-    participant Store
+    participant UseCase as Use-case services
+    participant Repo as Repository ports
     participant Mail as SMTP
 
     Browser->>Web: POST /api/auth/register-team
     Web->>API: Проксирует same-origin запрос
     API->>API: CSRF + validation + rate limit
-    API->>Store: Команда + pending email verification
+    API->>UseCase: Запускает регистрацию
+    UseCase->>Repo: Команда + pending email verification
     API->>Mail: Одноразовый код
     Mail-->>Browser: Verification email
     Browser->>Web: POST /api/auth/verify-email
     Web->>API: Код + CSRF token
-    API->>Store: HMAC/TTL/attempts check
+    API->>UseCase: HMAC/TTL/attempts check
+    UseCase->>Repo: Завершает регистрацию атомарно
     API-->>Browser: Session cookie + кабинет
 ```
 
@@ -89,11 +93,11 @@ apps/web/
 
 apps/api/
   app/main.py              FastAPI composition root, lifecycle и middleware
-  app/application/         use-case services: authentication, profile, uploads, participant and admin review flows
+  app/application/         use-case services, typed commands and narrow repository ports
   app/routes/               тонкий HTTP boundary: auth, registration, profile, notifications и admin
   app/shared/               доменные правила и organizer projections
   app/security/             cookies, CSRF, password/session, RBAC, rate limiting
-  app/infrastructure/       JSON/PostgreSQL stores и local/S3 file storage adapters
+  app/infrastructure/       PostgreSQL/JSON repository adapters и local/S3 file storage
   app/http/                 body limits, security headers, request IDs
   app/observability.py      structured logs, counters, Prometheus metrics
   requirements.txt          runtime-зависимости FastAPI/asyncpg/Redis/S3/OTel
@@ -113,14 +117,14 @@ tests/smoke.mjs            сквозная проверка основных с
 
 ## Persistence и масштабирование
 
-В development по умолчанию используется совместимый `data/lug.json` с атомарной записью через временный файл. Это позволяет поднять проект без инфраструктуры и сохранить существующие данные.
+В development по умолчанию используется совместимый `data/lug.json` с атомарной записью через временный файл. Это переходный single-process adapter; production use cases работают через узкие repository ports и не зависят от JSON state.
 
 Для production:
 
-1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications, password-resets и аудита имеют отдельные строки и индексы по ключевым связям. Ключевые поля сущностей (идентификаторы, связи, статусы, поисковые поля, размеры и timestamps) читаются из canonical SQL columns; `payload` оставлен только как compatibility/extension JSONB. Текущий release schema head — Alembic `0012_achievement_upload_fk`; схема подготавливается отдельным migration job до запуска API, runtime только проверяет её наличие. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API. HTTP routes вызывают repository/use-case boundaries и не загружают глобальный `DatabaseState`.
+1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications, password-resets и аудита имеют отдельные строки и индексы по ключевым связям. Ключевые поля сущностей (идентификаторы, связи, статусы, поисковые поля, размеры и timestamps) читаются из canonical SQL columns; `payload` оставлен только как compatibility/extension JSONB. Схема подготавливается отдельным migration job до запуска API, runtime проверяет только стабильные capability tables, а не конкретный revision. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API. HTTP routes вызывают use cases через repository ports и не загружают глобальный `DatabaseState`.
 2. Сессии и данные должны жить в общем PostgreSQL/Redis-контуре, а rate limiting при наличии `REDIS_URL` автоматически использует Redis. При включённом trust proxy требуется явно задать `LUG_TRUSTED_PROXY_IPS`.
 3. `LUG_FILE_STORAGE_PROVIDER=s3` включает private S3-compatible adapter: файл проходит те же MIME/magic/AV-проверки, загружается в bucket с непредсказуемым ключом, а после BOLA-проверки API выдаёт presigned GET URL на 5 минут. Multipart intents хранятся в Redis с TTL, поэтому complete-запрос может попасть на другую API-реплику или пережить рестарт процесса. `LUG_S3_ENDPOINT_URL` поддерживает MinIO, Cloudflare R2 и другие S3-compatible providers. В production local adapter запрещён.
-4. При создании PostgreSQL адаптер не выполняет DDL и миграции; retention audit log составляет 730 дней, а операции migration и backup/restore выполняются отдельным release/operations-процессом.
+4. При создании PostgreSQL адаптер не выполняет DDL и миграции; retention audit log составляет 730 дней, а операции migration, backup/restore и одноразовый импорт `scripts/import-json-postgres.py` выполняются отдельным release/operations-процессом.
 
 В development/test глобальный `DATABASE_URL` намеренно не выбирается автоматически:
 нужен явный `LUG_DATABASE_PROVIDER=postgres` или `LUG_DATABASE_URL`. В production

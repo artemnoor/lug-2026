@@ -6,7 +6,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Request
 
-from ..application.authentication import AuthenticationService, InvalidCredentials
+from ..application.authentication import InvalidCredentials
 from ..http.errors import ApiError
 from ..http.utils import (
     json_response,
@@ -44,14 +44,17 @@ def _not_limited(result: dict[str, Any]) -> None:
 
 @router.get("/config")
 async def config(request: Request):
-    store = _context(request).store
-    return public_json_response({"settings": await store.get_settings()}, request)
+    context = _context(request)
+    return public_json_response(
+        {"settings": await context.repositories.settings.get_settings()}, request
+    )
 
 
 @router.get("/results")
 async def results(request: Request):
     return public_json_response(
-        await _context(request).store.get_public_results(), request
+        await _context(request).repositories.participant_reads.get_public_results(),
+        request,
     )
 
 
@@ -60,7 +63,9 @@ async def session(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
     authenticated = (
-        await context.store.get_user_by_session(hash_token(token)) if token else None
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
     )
     user = domain.public_user(authenticated) if authenticated else None
     return json_response({"user": user}, request=request)
@@ -70,7 +75,11 @@ async def _session_user(request: Request) -> tuple[dict, str]:
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
     token_hash = hash_token(token) if token else ""
-    user = await context.store.get_user_by_session(token_hash) if token_hash else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(token_hash)
+        if token_hash
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
     return user, token_hash
@@ -79,16 +88,18 @@ async def _session_user(request: Request) -> tuple[dict, str]:
 @router.get("/sessions")
 async def sessions(request: Request):
     user, token_hash = await _session_user(request)
-    items = await _context(request).store.list_sessions(user["id"], token_hash)
+    items = await _context(request).repositories.sessions.list_sessions(
+        user["id"], token_hash
+    )
     return json_response({"sessions": items}, request=request)
 
 
 @router.delete("/sessions/others")
 async def remove_other_sessions(request: Request):
     user, token_hash = await _session_user(request)
-    removed = await _context(request).store.remove_other_sessions_atomic(
-        user["id"], token_hash
-    )
+    removed = await _context(
+        request
+    ).repositories.sessions.remove_other_sessions_atomic(user["id"], token_hash)
     return json_response({"removed": removed}, request=request)
 
 
@@ -97,7 +108,7 @@ async def logout(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
     if token:
-        await context.store.remove_session_atomic(hash_token(token))
+        await context.repositories.sessions.remove_session_atomic(hash_token(token))
     response = json_response({"success": True}, request=request)
     set_session_cookie(response, "", context.config, max_age=0)
     return response
@@ -117,9 +128,9 @@ async def login(request: Request):
         )
     )
     try:
-        user, token = await AuthenticationService(
-            context.store, context.config.session_ttl_ms
-        ).authenticate(email, payload.get("password", ""))
+        user, token = await context.services.authentication.authenticate(
+            email, payload.get("password", "")
+        )
     except InvalidCredentials as exc:
         raise ApiError(401, "Неверный адрес электронной почты или пароль.") from exc
     response = json_response({"user": domain.public_user(user)}, request=request)
@@ -134,8 +145,7 @@ async def invite(code: str, request: Request):
     normalized = unquote(code).upper()
     if not domain.valid_invite_code(normalized):
         raise ApiError(404, "Приглашение не найдено, отозвано или истекло.")
-    store = context.store
-    team = await store.get_invite(normalized)
+    team = await context.repositories.teams.get_invite(normalized)
     if (
         not team
         or team.get("inviteStatus") != "active"

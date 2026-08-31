@@ -79,17 +79,15 @@ class PostgresStore(
             ssl=ssl_context,
         )
         store = cls(pool, defaults, email_outbox_encryption_key)
+        # Migrations own schema versioning. Runtime checks a stable capability,
+        # not a release-specific Alembic revision, so adding a migration does
+        # not require changing application code.
         schema_ready = await pool.fetchval(
-            "SELECT to_regclass('public.lug_settings') IS NOT NULL"
+            """SELECT to_regclass('public.lug_settings') IS NOT NULL
+               AND to_regclass('public.lug_users') IS NOT NULL
+               AND to_regclass('public.lug_teams') IS NOT NULL
+               AND to_regclass('public.lug_uploads') IS NOT NULL"""
         )
-        if schema_ready and await pool.fetchval(
-            "SELECT to_regclass('public.alembic_version') IS NOT NULL"
-        ):
-            schema_ready = await pool.fetchval(
-                "SELECT EXISTS (SELECT 1 FROM alembic_version WHERE version_num = '0012_achievement_upload_fk')"
-            )
-        else:
-            schema_ready = False
         if not schema_ready:
             await pool.close()
             raise RuntimeError(

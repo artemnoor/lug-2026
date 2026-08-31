@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from ..application.profile import ProfileRuleViolation, ProfileService
+from ..application.profile import ProfileRuleViolation
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
 from ..security.auth import SESSION_COOKIE, hash_token, parse_cookies
@@ -20,10 +20,14 @@ def _context(request: Request):
 async def _auth_state(request: Request) -> tuple[Any, dict, dict]:
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
-    state = {"uploads": await context.store.get_user_uploads(user["id"]), "users": []}
+    state = {"uploads": await context.repositories.uploads.get_user_uploads(user["id"])}
     return context, state, user
 
 
@@ -47,9 +51,7 @@ async def update_profile(request: Request):
     ):
         await _check_upload_rate(context, request, user)
     try:
-        saved_user = await ProfileService(context.store, context.file_storage).update(
-            state, user, payload
-        )
+        saved_user = await context.services.profile.update(state, user, payload)
     except ProfileRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response({"user": domain.public_user(saved_user)}, request=request)

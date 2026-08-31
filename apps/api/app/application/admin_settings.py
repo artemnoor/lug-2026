@@ -10,6 +10,12 @@ from ..shared.notifications import (
     target_users,
     verified_email_recipients,
 )
+from .repositories import (
+    AdminReadRepository,
+    NotificationRepository,
+    SettingsRepository,
+    UserRepository,
+)
 
 
 class AdminSettingsRuleViolation(Exception):
@@ -40,10 +46,21 @@ class AdminSettingsService:
 
     def __init__(self, context: Any) -> None:
         self.context = context
-        self.store = context.store
+        repositories = getattr(context, "repositories", None)
+        backend = getattr(context, "store", None)
+        self.settings: SettingsRepository = (
+            repositories.settings if repositories else backend
+        )
+        self.notifications: NotificationRepository = (
+            repositories.notifications if repositories else backend
+        )
+        self.admin_reads: AdminReadRepository = (
+            repositories.admin_reads if repositories else backend
+        )
+        self.users: UserRepository = repositories.users if repositories else backend
 
     async def update(self, payload: dict[str, Any], actor_id: str) -> dict:
-        current = await self.store.get_settings()
+        current = await self.settings.get_settings()
         self._validate_settings_payload(payload, current)
         if "minTeamPercentage" in payload:
             payload = {
@@ -62,7 +79,7 @@ class AdminSettingsService:
                 for key in self.CONTENT_KEYS
                 if key in payload["content"]
             }
-        return await self.store.update_settings_atomic(
+        return await self.settings.update_settings_atomic(
             SettingsPatch(patch).as_dict(), actor_id
         )
 
@@ -83,7 +100,7 @@ class AdminSettingsService:
                 "Укажите адресатов, заголовок и текст сообщения.",
                 "BROADCAST_PAYLOAD_INVALID",
             )
-        targets = await self.store.get_broadcast_targets()
+        targets = await self.admin_reads.get_broadcast_targets()
         target_id = payload.get("targetId")
         if target_type in {"teams", "captains"}:
             target_id = None
@@ -111,7 +128,7 @@ class AdminSettingsService:
                 "У выбранного участника нет подтверждённого адреса электронной почты.",
                 "VERIFIED_EMAIL_REQUIRED",
             )
-        await self.store.create_notification_atomic(
+        await self.notifications.create_notification_atomic(
             {
                 "id": str(uuid4()),
                 "targetType": target_type,

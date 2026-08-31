@@ -1,16 +1,11 @@
 """Authenticated participant and captain endpoints."""
 
-from copy import deepcopy
 from typing import Any
 
 from fastapi import APIRouter, Request
 
-from ..application.participant_context import ParticipantContextService
-from ..application.participant_mutations import (
-    ParticipantMutationService,
-    ParticipantRuleViolation,
-)
-from ..application.uploads import UploadRuleViolation, UploadService
+from ..application.participant_mutations import ParticipantRuleViolation
+from ..application.uploads import UploadRuleViolation
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json
 from ..models import (
@@ -20,7 +15,6 @@ from ..models import (
     model_payload,
 )
 from ..security.auth import SESSION_COOKIE, hash_token, parse_cookies
-from ..shared import domain
 
 router = APIRouter(prefix="/api")
 
@@ -37,13 +31,17 @@ async def _validated(request: Request, model: type, limit: int) -> dict[str, Any
         raise ApiError(422, "Некорректный формат запроса.") from exc
 
 
-async def _auth_state(request: Request) -> tuple[Any, dict, dict]:
+async def _auth_state(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
-    state = await ParticipantContextService(context.store).load(user)
+    state = await context.services.participant_context.load(user)
     return context, state, user
 
 
@@ -62,13 +60,17 @@ async def _check_upload_rate(context: Any, request: Request, user: dict) -> None
 async def dashboard(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
-    projection = await context.store.get_dashboard_projection(user["id"])
-    if projection is None:
+    dashboard_result = await context.services.participant_context.dashboard(user)
+    if dashboard_result is None:
         raise ApiError(401, "Требуется вход в личный кабинет.")
-    return json_response(domain.dashboard(projection, user), request=request)
+    return json_response(dashboard_result, request=request)
 
 
 @router.post("/uploads/stream")
@@ -82,9 +84,9 @@ async def upload_stream(request: Request):
     declared_size = request.headers.get("content-length")
     size = int(declared_size) if declared_size and declared_size.isdigit() else 0
     try:
-        uploaded = await UploadService(
-            context.store, context.file_storage, context.config
-        ).stream(request.stream(), user, name, content_type, kind, size)
+        uploaded = await context.services.uploads.stream(
+            request.stream(), user, name, content_type, kind, size
+        )
     except UploadRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(uploaded, 201, request)
@@ -94,7 +96,11 @@ async def upload_stream(request: Request):
 async def upload_intent(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
     try:
@@ -107,9 +113,7 @@ async def upload_intent(request: Request):
         raise ApiError(422, "Некорректные параметры загрузки.") from exc
     await _check_upload_rate(context, request, user)
     try:
-        intent = await UploadService(
-            context.store, context.file_storage, context.config
-        ).create_intent(payload, user)
+        intent = await context.services.uploads.create_intent(payload, user)
     except UploadRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(intent, 201, request)
@@ -119,7 +123,11 @@ async def upload_intent(request: Request):
 async def upload_complete(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход в личный кабинет.")
     try:
@@ -131,9 +139,7 @@ async def upload_complete(request: Request):
     except ValueError as exc:
         raise ApiError(422, "Некорректные параметры завершения загрузки.") from exc
     try:
-        uploaded = await UploadService(
-            context.store, context.file_storage, context.config
-        ).complete(payload, user)
+        uploaded = await context.services.uploads.complete(payload, user)
     except UploadRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(uploaded, 201, request)
@@ -146,7 +152,7 @@ async def create_achievement(request: Request):
         request, AchievementPayload, context.config.max_json_body
     )
     try:
-        record = await ParticipantMutationService(context.store).create_achievement(
+        record = await context.services.participant_mutations.create_achievement(
             state, user, payload
         )
     except ParticipantRuleViolation as exc:
@@ -157,12 +163,12 @@ async def create_achievement(request: Request):
 @router.delete("/achievements/{achievement_id}")
 async def delete_achievement(achievement_id: str, request: Request):
     context, state, user = await _auth_state(request)
-    if not domain.portfolio_open(state["settings"]):
-        raise ApiError(
-            403, "Период заполнения портфолио ещё не начался или уже завершён."
+    try:
+        await context.services.participant_mutations.delete_achievement(
+            state, user, achievement_id
         )
-    if not await context.store.delete_achievement_atomic(achievement_id, user["id"]):
-        raise ApiError(404, "Достижение не найдено.")
+    except ParticipantRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response({"success": True}, request=request)
 
 
@@ -171,23 +177,24 @@ async def update_team(request: Request):
     context, state, user = await _auth_state(request)
     payload = await read_json(request, context.config.max_json_body)
     try:
-        team = await ParticipantMutationService(context.store).update_team(
+        team = await context.services.participant_mutations.update_team(
             state, user, payload
         )
     except ParticipantRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
-    result = deepcopy(team)
-    result["quota"] = domain.team_quota(state, team)
-    return json_response({"team": result}, request=request)
+    return json_response(
+        {
+            "team": context.services.participant_mutations.team_response(state, team),
+        },
+        request=request,
+    )
 
 
 @router.post("/team/invite")
 async def rotate_invite(request: Request):
     context, state, user = await _auth_state(request)
     try:
-        invite = await ParticipantMutationService(context.store).rotate_invite(
-            state, user
-        )
+        invite = await context.services.participant_mutations.rotate_invite(state, user)
     except ParticipantRuleViolation as exc:
         raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(
@@ -202,7 +209,7 @@ async def update_video(request: Request):
     await _check_upload_rate(context, request, user)
     payload = await read_json(request, context.config.max_upload_body)
     try:
-        video_card = await ParticipantMutationService(context.store).update_video(
+        video_card = await context.services.participant_mutations.update_video(
             state, user, payload
         )
     except ParticipantRuleViolation as exc:

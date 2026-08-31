@@ -135,7 +135,7 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
         expected_code_hash: str | None = None,
         max_attempts: int | None = None,
     ) -> tuple[dict, str]:
-        from ..routes.registration_helpers import make_team, make_user
+        from ..shared.registration import make_team, make_user
 
         async with self.pool.acquire() as connection:
             async with connection.transaction():
@@ -212,7 +212,7 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                         raise PersistenceError(
                             "Для этой учебной группы уже создана команда.", 409
                         )
-                    team = make_team(request_payload, {"settings": settings})
+                    team = make_team(request_payload, settings)
                 else:
                     code = str(request_payload.get("inviteCode") or "").strip().upper()
                     team_row = await connection.fetchrow(

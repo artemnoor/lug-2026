@@ -27,3 +27,13 @@ class SettingsPatch:
 class QuotaCommand:
     team_id: str
     confirmed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RegistrationCommand:
+    """Validated registration input kept out of the HTTP request object."""
+
+    values: dict[str, Any]
+
+    def as_mapping(self) -> dict[str, Any]:
+        return dict(self.values)

@@ -30,7 +30,7 @@ async def healthz(request: Request):
             "status": "ok",
             "service": "lug-api",
             **_build_metadata(),
-            "persistence": context.store.provider,
+            "persistence": context.persistence_provider,
             "storage": context.file_storage.provider,
             "rateLimitStore": context.rate_limiter.store_name,
         },
@@ -55,7 +55,7 @@ async def readyz(request: Request):
     _require_operations_access(request)
     context = request.app.state.context
     try:
-        await context.store.get_settings()
+        await context.repositories.settings.get_settings()
         await context.file_storage.ready()
         await context.rate_limiter.ready()
     except Exception as error:
@@ -94,13 +94,19 @@ async def openapi_json(request: Request):
 async def private_upload(filename: str, request: Request):
     context = request.app.state.context
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    user = await context.store.get_user_by_session(hash_token(token)) if token else None
+    user = (
+        await context.repositories.sessions.get_user_by_session(hash_token(token))
+        if token
+        else None
+    )
     if not user:
         raise ApiError(401, "Требуется вход для доступа к файлу.")
     upload = context.file_storage.resolve(f"/uploads/{filename}")
     if not upload or not await context.file_storage.exists(upload):
         raise ApiError(404, "Файл не найден.")
-    if not await context.store.can_user_read_upload(user["id"], upload["url"]):
+    if not await context.repositories.upload_access.can_user_read_upload(
+        user["id"], upload["url"]
+    ):
         raise ApiError(403, "Недостаточно прав для доступа к файлу.")
     suffix = Path(upload["url"]).suffix.lower()
     media = {

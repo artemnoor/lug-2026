@@ -1,9 +1,13 @@
 """Participant/captain mutation use cases."""
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import uuid4
 
 from ..shared import domain
+from ..shared.entities import ParticipantState
+from .repositories import AchievementRepository, TeamRepository
 
 
 class ParticipantRuleViolation(Exception):
@@ -15,10 +19,23 @@ class ParticipantRuleViolation(Exception):
 
 
 class ParticipantMutationService:
-    def __init__(self, store) -> None:
-        self.store = store
+    def __init__(
+        self,
+        teams: TeamRepository,
+        achievements: AchievementRepository | None = None,
+    ) -> None:
+        self.teams = teams
+        # Compatibility adapters can still provide both ports through one
+        # object; production composition supplies each narrow port explicitly.
+        self.achievements = achievements or teams  # type: ignore[assignment]
 
-    async def create_achievement(self, state: dict, user: dict, payload: dict) -> dict:
+    async def create_achievement(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> dict:
+        state = _state_mapping(state)
         if not domain.portfolio_open(state["settings"]):
             raise ParticipantRuleViolation(
                 403,
@@ -60,9 +77,15 @@ class ParticipantMutationService:
             "points": None,
             "createdAt": now,
         }
-        return await self.store.create_achievement_atomic(record, user["id"])
+        return await self.achievements.create_achievement_atomic(record, user["id"])
 
-    async def update_team(self, state: dict, user: dict, payload: dict) -> dict:
+    async def update_team(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> dict:
+        state = _state_mapping(state)
         team = domain.team_for(state, user)
         if not team or user.get("role") != "captain":
             raise ParticipantRuleViolation(
@@ -100,13 +123,19 @@ class ParticipantMutationService:
                 )
             team_patch["flagUrl"] = payload["flagUrl"]
             review["flag"] = {"status": "pending", "comment": "", "updatedAt": None}
-        return await self.store.update_team_atomic(
+        return await self.teams.update_team_atomic(
             team["id"],
             {**team_patch, "review": review, "isAdmitted": False},
             user["id"],
         )
 
-    async def update_video(self, state: dict, user: dict, payload: dict) -> dict:
+    async def update_video(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> dict:
+        state = _state_mapping(state)
         team = domain.team_for(state, user)
         if not team or user.get("role") != "captain":
             raise ParticipantRuleViolation(
@@ -140,11 +169,16 @@ class ParticipantMutationService:
             "submittedAt": domain.now(),
             "score": None,
         }
-        return await self.store.update_video_atomic(
+        return await self.teams.update_video_atomic(
             team["id"], video_card, user["id"], None
         )
 
-    async def rotate_invite(self, state: dict, user: dict) -> dict:
+    async def rotate_invite(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+    ) -> dict:
+        state = _state_mapping(state)
         team = domain.team_for(state, user)
         if not team or user.get("role") != "captain":
             raise ParticipantRuleViolation(
@@ -164,6 +198,39 @@ class ParticipantMutationService:
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z")
         )
-        return await self.store.rotate_invite_atomic(
+        return await self.teams.rotate_invite_atomic(
             team["id"], domain.invite_code(team["group"]), expires_at, user["id"]
         )
+
+    async def delete_achievement(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+        achievement_id: str,
+    ) -> None:
+        state = _state_mapping(state)
+        if not domain.portfolio_open(state["settings"]):
+            raise ParticipantRuleViolation(
+                403,
+                "Период заполнения портфолио ещё не начался или уже завершён.",
+                "PORTFOLIO_CLOSED",
+            )
+        if not await self.achievements.delete_achievement_atomic(
+            achievement_id, user["id"]
+        ):
+            raise ParticipantRuleViolation(404, "Достижение не найдено.", "NOT_FOUND")
+
+    @staticmethod
+    def team_response(
+        state: ParticipantState | Mapping[str, Any], team: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        state = _state_mapping(state)
+        result = dict(team)
+        result["quota"] = domain.team_quota(state, result)
+        return result
+
+
+def _state_mapping(state: ParticipantState | Mapping[str, Any]) -> dict[str, Any]:
+    if isinstance(state, ParticipantState):
+        return state.as_mapping()
+    return dict(state)

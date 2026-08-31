@@ -1,9 +1,12 @@
 """Profile update use case and student-card replacement workflow."""
 
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
 from ..shared import domain
+from ..shared.entities import ParticipantState
+from .repositories import UploadRepository, UserRepository
 
 
 class ProfileRuleViolation(Exception):
@@ -23,11 +26,26 @@ class ProfileService:
         "telegramAccount": 128,
     }
 
-    def __init__(self, store: Any, file_storage: Any) -> None:
-        self.store = store
+    def __init__(
+        self,
+        users: UserRepository,
+        file_storage: Any,
+        uploads: UploadRepository | None = None,
+    ) -> None:
+        self.users = users
+        self.uploads = uploads or users  # type: ignore[assignment]
         self.file_storage = file_storage
 
-    async def update(self, state: dict, user: dict, payload: dict) -> dict:
+    async def update(
+        self,
+        state: ParticipantState | Mapping[str, Any],
+        user: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> dict:
+        if isinstance(state, ParticipantState):
+            state = state.as_mapping()
+        else:
+            state = dict(state)
         next_user = deepcopy(user)
         await self._validate_fields(user, next_user, payload)
         uploaded_card, old_card_url = self._student_card_replacement(
@@ -45,7 +63,7 @@ class ProfileService:
                 if uploaded_card
                 else None
             )
-            saved_user = await self.store.update_user_atomic(
+            saved_user = await self.users.update_user_atomic(
                 user["id"],
                 next_user,
                 user["id"],
@@ -64,7 +82,7 @@ class ProfileService:
         return saved_user
 
     async def _validate_fields(
-        self, user: dict, next_user: dict, payload: dict
+        self, user: Mapping[str, Any], next_user: dict, payload: Mapping[str, Any]
     ) -> None:
         if "email" in payload and domain.normalize_email(
             payload.get("email")
@@ -99,7 +117,7 @@ class ProfileService:
             )
         if next_user.get("phone"):
             next_user["phone"] = domain.normal_phone(next_user["phone"])
-        if next_user.get("phone") and await self.store.is_phone_in_use(
+        if next_user.get("phone") and await self.users.is_phone_in_use(
             next_user["phone"], user["id"]
         ):
             raise ProfileRuleViolation(
@@ -116,7 +134,11 @@ class ProfileService:
         )
 
     def _student_card_replacement(
-        self, state: dict, user: dict, next_user: dict, payload: dict
+        self,
+        state: Mapping[str, Any],
+        user: Mapping[str, Any],
+        next_user: dict,
+        payload: Mapping[str, Any],
     ) -> tuple[dict | None, str]:
         student_card_data = payload.get("studentCardFile")
         has_replacement = isinstance(student_card_data, str) and bool(

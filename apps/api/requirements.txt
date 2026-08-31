@@ -3,7 +3,7 @@ starlette==1.6.0
 uvicorn[standard]==0.34.0
 pydantic==2.10.6
 argon2-cffi==25.1.0
-cryptography==45.0.7
+cryptography==50.0.1
 asyncpg==0.30.0
 alembic==1.16.4
 SQLAlchemy==2.0.43

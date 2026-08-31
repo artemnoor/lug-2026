@@ -56,6 +56,7 @@ class PostgresQueryMixin:
             """SELECT payload, id, email, phone, role, team_id, email_verified,
                       fio, identity_status, avatar_url, student_card_file
                FROM lug_users WHERE id = $1""",
+            user_id,
         )
         return _entity(row, USER_FIELDS) if row else None
 

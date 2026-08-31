@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from uuid import uuid4
 
+from .application.repositories import ApplicationRepositories
+from .application.services import ApplicationServices
 from .config import AppConfig
 from .infrastructure.email import EmailService
 from .infrastructure.file_storage import FileStorage
-from .infrastructure.store import Store
+from .infrastructure.store import PersistenceBackend
 from .observability import Logger, Metrics
 from .security.auth import password_hash_async, password_matches_async
 from .shared.domain import normalize_email, now, strong_password, valid_email
@@ -18,7 +20,8 @@ from .shared.domain import normalize_email, now, strong_password, valid_email
 @dataclass
 class AppContext:
     config: AppConfig
-    store: Store
+    store: PersistenceBackend
+    repositories: ApplicationRepositories
     file_storage: FileStorage
     email_service: EmailService
     rate_limiter: object
@@ -26,6 +29,11 @@ class AppContext:
     metrics: Metrics
     mutation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     tracer: object | None = None
+    services: ApplicationServices | None = None
+
+    @property
+    def persistence_provider(self) -> str:
+        return self.store.provider
 
     @asynccontextmanager
     async def mutation_guard(self):
@@ -47,13 +55,15 @@ async def ensure_bootstrap_admin(context: AppContext) -> None:
                 "LUG_ADMIN_EMAIL и LUG_ADMIN_PASSWORD должны быть заданы и соответствовать требованиям безопасности."
             )
     if not email or not password:
-        if not await context.store.has_admin():
+        if not await context.repositories.users.has_admin():
             context.logger.warning(
                 "admin.not_configured",
                 {"hint": "Set LUG_ADMIN_EMAIL and LUG_ADMIN_PASSWORD"},
             )
         return
-    existing = await context.store.get_admin_by_identity(email, legacy_phone)
+    existing = await context.repositories.users.get_admin_by_identity(
+        email, legacy_phone
+    )
     if existing:
         changed = False
         credentials_changed = False
@@ -68,7 +78,9 @@ async def ensure_bootstrap_admin(context: AppContext) -> None:
             changed = True
             credentials_changed = True
         if changed:
-            await context.store.save_admin_atomic(existing, credentials_changed)
+            await context.repositories.users.save_admin_atomic(
+                existing, credentials_changed
+            )
         return
     admin = {
         "id": str(uuid4()),
@@ -94,4 +106,4 @@ async def ensure_bootstrap_admin(context: AppContext) -> None:
         "passwordHash": await password_hash_async(password),
         "createdAt": now(),
     }
-    await context.store.save_admin_atomic(admin)
+    await context.repositories.users.save_admin_atomic(admin)

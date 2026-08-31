@@ -48,7 +48,7 @@ class JsonStoreCommandMixin:
         expected_code_hash: str | None = None,
         max_attempts: int | None = None,
     ) -> tuple[dict, str]:
-        from ..routes.registration_helpers import make_team, make_user
+        from ..shared.registration import make_team, make_user
 
         state = await self.load()
         pending = next(
@@ -97,7 +97,7 @@ class JsonStoreCommandMixin:
                 raise PersistenceError(
                     "Для этой учебной группы уже создана команда.", 409
                 )
-            team = make_team(request_payload, state)
+            team = make_team(request_payload, settings)
         else:
             team = next(
                 (

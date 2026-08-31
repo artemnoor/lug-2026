@@ -60,11 +60,13 @@ async def send_notification_emails(
     if not recipients:
         return {"eligible": 0, "sent": 0, "failed": 0}
 
-    if context.store.queues_email:
+    repositories = getattr(context, "repositories", None)
+    outbox = repositories.email_outbox if repositories else context.store
+    if outbox.queues_email:
         queued = 0
         for recipient in recipients:
             try:
-                await context.store.enqueue_email(
+                await outbox.enqueue_email(
                     recipient, "notification", {"title": title, "message": message}
                 )
                 queued += 1

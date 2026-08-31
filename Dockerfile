@@ -2,14 +2,29 @@
 
 FROM python:3.11-slim AS python-deps
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH"
-RUN python -m venv /opt/venv
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m venv /opt/venv
 COPY apps/api/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm -rf /opt/venv/lib/python3.11/site-packages/pip* \
+              /opt/venv/lib/python3.11/site-packages/setuptools* \
+              /opt/venv/lib/python3.11/site-packages/wheel* \
+              /usr/local/lib/python3.11/site-packages/pip* \
+              /usr/local/lib/python3.11/site-packages/setuptools* \
+              /usr/local/lib/python3.11/site-packages/wheel*
 
 FROM python:3.11-slim AS api-runtime
 ARG BUILD_SHA=unknown
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/apps/api PATH="/opt/venv/bin:$PATH"
 ENV LUG_BUILD_SHA=$BUILD_SHA
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+              /usr/local/lib/python3.11/site-packages/pip* \
+              /usr/local/lib/python3.11/site-packages/setuptools* \
+              /usr/local/lib/python3.11/site-packages/wheel*
 WORKDIR /app
 COPY --from=python-deps /opt/venv /opt/venv
 COPY apps/api ./apps/api
@@ -31,6 +46,9 @@ FROM api-runtime AS migrate
 CMD ["python", "-B", "scripts/migrate.py"]
 
 FROM node:22-bookworm-slim AS web-build
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -41,6 +59,9 @@ RUN npm run build:web
 FROM node:22-bookworm-slim AS web
 ENV NODE_ENV=production
 ENV LUG_WEB_ROOT=/app/apps/web/dist
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
@@ -48,7 +69,9 @@ COPY apps/web/server.js ./apps/web/server.js
 COPY apps/web/src ./apps/web/src
 COPY --from=web-build /app/apps/web/dist ./apps/web/dist
 COPY packages ./packages
-RUN useradd --create-home --uid 10001 lug && chown -R lug:lug /app
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+    && useradd --create-home --uid 10001 lug \
+    && chown -R lug:lug /app
 USER lug
 EXPOSE 4173
 CMD ["node", "apps/web/server.js"]

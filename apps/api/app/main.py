@@ -9,13 +9,15 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .application.errors import PersistenceError
+from .application.repositories import expose_application_repositories
+from .application.services import build_services
 from .config import create_config, default_settings
 from .context import AppContext, ensure_bootstrap_admin
 from .http.errors import ApiError
 from .http.utils import json_response, set_csrf_cookie, set_security_headers
 from .infrastructure.email import EmailService
 from .infrastructure.file_storage import create_file_storage
-from .infrastructure.persistence_errors import PersistenceError
 from .infrastructure.store import create_store
 from .observability import (
     Logger,
@@ -92,6 +94,7 @@ async def lifespan(application: FastAPI):
     context = AppContext(
         config,
         store,
+        expose_application_repositories(store),
         file_storage,
         email_service,
         rate_limiter,
@@ -102,6 +105,7 @@ async def lifespan(application: FastAPI):
             os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip(),
         ),
     )
+    context.services = build_services(context)
     application.state.context = context
     await ensure_bootstrap_admin(context)
     logger.info(
