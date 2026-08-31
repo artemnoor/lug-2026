@@ -16,14 +16,16 @@ class PostgresEmailOutboxMixin:
         await connection.execute(
             """INSERT INTO lug_email_outbox (id, recipient, purpose, payload)
             VALUES ($1, $2, $3, $4::jsonb)""",
-            uuid4(), recipient, purpose, json.dumps(encrypted, ensure_ascii=False),
+            uuid4(),
+            recipient,
+            purpose,
+            json.dumps(encrypted, ensure_ascii=False),
         )
 
     async def enqueue_email(self, recipient: str, purpose: str, message: dict) -> None:
         async with self.pool.acquire() as connection:
             async with connection.transaction():
                 await self._enqueue_email(connection, recipient, purpose, message)
-                await self._bump_revision(connection)
 
     async def requeue_stale_emails(self) -> None:
         await self.pool.execute(
@@ -52,9 +54,12 @@ class PostgresEmailOutboxMixin:
             )
         except ValueError as exc:
             await self.pool.execute(
-                """UPDATE lug_email_outbox SET status = 'failed', last_error = $2,
-                available_at = now() + interval '1 hour' WHERE id = $1""",
-                row["id"], "email outbox encryption failure",
+                """UPDATE lug_email_outbox SET status = CASE WHEN attempts >= 5 THEN 'dead' ELSE 'failed' END,
+                last_error = $2, available_at = CASE WHEN attempts >= 5
+                THEN now() + interval '100 years' ELSE now() + interval '1 hour' END
+                WHERE id = $1""",
+                row["id"],
+                "email outbox encryption failure",
             )
             raise RuntimeError("Email outbox payload не удалось расшифровать.") from exc
         return {
@@ -68,10 +73,12 @@ class PostgresEmailOutboxMixin:
     async def finish_email(self, message_id: Any, error: str | None = None) -> None:
         if error:
             await self.pool.execute(
-                """UPDATE lug_email_outbox SET status = 'failed', last_error = $2,
-                available_at = now() + LEAST(interval '1 hour', interval '5 minutes' *
-                GREATEST(attempts, 1)) WHERE id = $1""",
-                message_id, error[:1000],
+                """UPDATE lug_email_outbox SET status = CASE WHEN attempts >= 5 THEN 'dead' ELSE 'failed' END, last_error = $2,
+                available_at = CASE WHEN attempts >= 5 THEN now() + interval '100 years'
+                ELSE now() + LEAST(interval '1 hour', interval '5 minutes' *
+                GREATEST(attempts, 1)) END WHERE id = $1""",
+                message_id,
+                error[:1000],
             )
             return
         await self.pool.execute(

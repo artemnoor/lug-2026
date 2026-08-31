@@ -1,6 +1,16 @@
 services:
+  migrate:
+    build: {context: ., target: migrate}
+    profiles: ["migration"]
+    command: ["python", "-B", "scripts/migrate.py"]
+    env_file: [.env.production]
+    environment:
+      LUG_DATABASE_PROVIDER: postgres
+    depends_on:
+      postgres: {condition: service_healthy}
+
   api:
-    build: .
+    build: {context: ., target: api}
     restart: unless-stopped
     command: ["python", "-B", "-m", "uvicorn", "app.main:app", "--app-dir", "apps/api", "--host", "0.0.0.0", "--port", "4174", "--no-access-log"]
     env_file: [.env.production]
@@ -9,6 +19,7 @@ services:
       LUG_DATA_DIR: /var/lib/lug/data
       LUG_UPLOAD_DIR: /var/lib/lug/uploads
       LUG_UPLOAD_TMP_DIR: /var/lib/lug/upload-tmp
+      LUG_UPLOAD_SCAN_COMMAND: tcp://clamav:3310
       LUG_API_HOST: 0.0.0.0
       LUG_API_PORT: 4174
     volumes:
@@ -20,13 +31,13 @@ services:
       redis: {condition: service_healthy}
       clamav: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4174/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4174/healthz', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 5
 
   web:
-    build: .
+    build: {context: ., target: web}
     restart: unless-stopped
     command: ["node", "apps/web/server.js"]
     env_file: [.env.production]
@@ -42,9 +53,28 @@ services:
       api: {condition: service_healthy}
 
   worker:
-    build: .
+    build: {context: ., target: worker}
     restart: unless-stopped
     command: ["python", "-B", "-m", "app.worker"]
+    env_file: [.env.production]
+    environment:
+      LUG_ROOT: /app
+      LUG_DATA_DIR: /var/lib/lug/data
+      LUG_DATABASE_PROVIDER: postgres
+      LUG_UPLOAD_SCAN_COMMAND: tcp://clamav:3310
+    depends_on:
+      postgres: {condition: service_healthy}
+      clamav: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "from pathlib import Path; import time; p=Path('/tmp/lug-email-worker.heartbeat'); raise SystemExit(0 if p.exists() and time.time()-p.stat().st_mtime < 45 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  maintenance:
+    build: {context: ., target: api}
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do python -B -m app.maintenance; sleep 21600; done"]
     env_file: [.env.production]
     environment:
       LUG_ROOT: /app
@@ -54,7 +84,7 @@ services:
       postgres: {condition: service_healthy}
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.4-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: lug
@@ -68,7 +98,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}

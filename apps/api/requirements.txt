@@ -5,6 +5,8 @@ pydantic==2.10.6
 argon2-cffi==25.1.0
 cryptography==45.0.7
 asyncpg==0.30.0
+alembic==1.16.4
+SQLAlchemy==2.0.43
 boto3==1.40.61
 opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0

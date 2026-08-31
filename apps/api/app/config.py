@@ -92,12 +92,18 @@ class AppConfig:
 def create_config(env: dict[str, str] | None = None) -> AppConfig:
     values = os.environ if env is None else env
     root = Path(values.get("LUG_ROOT", PROJECT_ROOT)).resolve()
-    node_env = values.get("NODE_ENV", "development").strip().lower()
+    # Python's deployment marker is intentionally independent from the Node
+    # gateway marker. NODE_ENV remains a compatibility fallback for old local
+    # launchers, but LUG_ENV is the canonical API setting.
+    node_env = (
+        values.get("LUG_ENV", values.get("NODE_ENV", "development")).strip().lower()
+    )
     hardened_env = node_env in {"staging", "production"}
     explicit_provider = values.get("LUG_DATABASE_PROVIDER")
     provider = explicit_provider or (
         "postgres"
-        if values.get("LUG_DATABASE_URL") or (node_env == "production" and values.get("DATABASE_URL"))
+        if values.get("LUG_DATABASE_URL")
+        or (node_env == "production" and values.get("DATABASE_URL"))
         else "json"
     )
     database_url = (
@@ -106,9 +112,7 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
     ).strip()
     if provider not in {"json", "postgres"}:
         raise ValueError("LUG_DATABASE_PROVIDER должен быть json или postgres.")
-    database_ssl_mode = values.get(
-        "LUG_DATABASE_SSL_MODE", "disable"
-    ).strip().lower()
+    database_ssl_mode = values.get("LUG_DATABASE_SSL_MODE", "disable").strip().lower()
     if database_ssl_mode not in {"disable", "require", "verify-ca", "verify-full"}:
         raise ValueError(
             "LUG_DATABASE_SSL_MODE должен быть disable, require, verify-ca или verify-full."
@@ -127,7 +131,8 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
     allowed_hosts = tuple(
         item.strip().lower().rstrip(".")
         for item in values.get(
-            "LUG_ALLOWED_HOSTS", "" if node_env == "production" else "127.0.0.1,localhost"
+            "LUG_ALLOWED_HOSTS",
+            "" if node_env == "production" else "127.0.0.1,localhost",
         ).split(",")
         if item.strip()
     )
@@ -135,9 +140,13 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
     redis_url = values.get("REDIS_URL", "").strip()
     if node_env == "production":
         if provider != "postgres" or not database_url:
-            raise ValueError("В production нужен PostgreSQL: LUG_DATABASE_URL или DATABASE_URL.")
+            raise ValueError(
+                "В production нужен PostgreSQL: LUG_DATABASE_URL или DATABASE_URL."
+            )
         if len(operations_token) < 32:
-            raise ValueError("В production нужен LUG_OPERATIONS_TOKEN длиной минимум 32 символа.")
+            raise ValueError(
+                "В production нужен LUG_OPERATIONS_TOKEN длиной минимум 32 символа."
+            )
         if not redis_url:
             raise ValueError("В production нужен REDIS_URL для общего rate limiter.")
         if not allowed_hosts or any("*" in host for host in allowed_hosts):
@@ -152,9 +161,13 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         if outbox_key_value
         else development_key("email-outbox")
     )
-    file_storage_provider = values.get(
-        "LUG_FILE_STORAGE_PROVIDER", "s3" if node_env == "production" else "local"
-    ).strip().lower()
+    file_storage_provider = (
+        values.get(
+            "LUG_FILE_STORAGE_PROVIDER", "s3" if node_env == "production" else "local"
+        )
+        .strip()
+        .lower()
+    )
     if file_storage_provider not in {"local", "s3"}:
         raise ValueError("LUG_FILE_STORAGE_PROVIDER должен быть local или s3.")
     s3_bucket = values.get("LUG_S3_BUCKET", "").strip()
@@ -162,16 +175,24 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
     s3_access_key = values.get("LUG_S3_ACCESS_KEY", "").strip()
     s3_secret_key = values.get("LUG_S3_SECRET_KEY", "")
     if node_env == "production" and file_storage_provider != "s3":
-        raise ValueError("В production нужно использовать LUG_FILE_STORAGE_PROVIDER=s3.")
+        raise ValueError(
+            "В production нужно использовать LUG_FILE_STORAGE_PROVIDER=s3."
+        )
     if file_storage_provider == "s3" and not s3_bucket:
         raise ValueError("Для S3 storage нужно задать LUG_S3_BUCKET.")
-    if hardened_env and s3_endpoint_url and not s3_endpoint_url.lower().startswith("https://"):
+    if (
+        hardened_env
+        and s3_endpoint_url
+        and not s3_endpoint_url.lower().startswith("https://")
+    ):
         raise ValueError("В staging/production endpoint S3 должен использовать HTTPS.")
     if bool(s3_access_key) != bool(s3_secret_key):
-        raise ValueError("LUG_S3_ACCESS_KEY и LUG_S3_SECRET_KEY должны задаваться вместе.")
-    s3_server_side_encryption = values.get(
-        "LUG_S3_SERVER_SIDE_ENCRYPTION", "AES256"
-    ).strip().lower()
+        raise ValueError(
+            "LUG_S3_ACCESS_KEY и LUG_S3_SECRET_KEY должны задаваться вместе."
+        )
+    s3_server_side_encryption = (
+        values.get("LUG_S3_SERVER_SIDE_ENCRYPTION", "AES256").strip().lower()
+    )
     if s3_server_side_encryption == "aes256":
         s3_server_side_encryption = "AES256"
     if s3_server_side_encryption not in {"AES256", "aws:kms"}:
@@ -183,14 +204,20 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         raise ValueError(
             "Для LUG_S3_SERVER_SIDE_ENCRYPTION=aws:kms нужен LUG_S3_KMS_KEY_ID."
         )
-    if file_storage_provider == "s3" and hardened_env and not values.get(
-        "LUG_S3_SERVER_SIDE_ENCRYPTION", ""
-    ).strip():
+    if (
+        file_storage_provider == "s3"
+        and hardened_env
+        and not values.get("LUG_S3_SERVER_SIDE_ENCRYPTION", "").strip()
+    ):
         raise ValueError(
             "В staging/production нужно явно включить S3 server-side encryption."
         )
     local_storage_key_value = values.get("LUG_LOCAL_STORAGE_ENCRYPTION_KEY", "").strip()
-    if hardened_env and file_storage_provider == "local" and not local_storage_key_value:
+    if (
+        hardened_env
+        and file_storage_provider == "local"
+        and not local_storage_key_value
+    ):
         raise ValueError(
             "Для local storage в staging нужен LUG_LOCAL_STORAGE_ENCRYPTION_KEY."
         )
@@ -199,13 +226,15 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         if local_storage_key_value
         else development_key("local-storage")
     )
-    email_mode = values.get(
-        "LUG_EMAIL_MODE", "smtp" if hardened_env else "log"
-    ).strip().lower()
+    email_mode = (
+        values.get("LUG_EMAIL_MODE", "smtp" if hardened_env else "log").strip().lower()
+    )
     if email_mode not in {"smtp", "log"}:
         raise ValueError("LUG_EMAIL_MODE должен быть smtp или log.")
     if hardened_env and email_mode != "smtp":
-        raise ValueError("В staging/production доставка кодов должна использовать SMTP.")
+        raise ValueError(
+            "В staging/production доставка кодов должна использовать SMTP."
+        )
     email_secret = values.get("LUG_EMAIL_VERIFICATION_SECRET", "").strip()
     if hardened_env and len(email_secret) < 32:
         raise ValueError(
@@ -265,7 +294,10 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         data_dir=Path(values.get("LUG_DATA_DIR", root / "data")).resolve(),
         upload_dir=Path(values.get("LUG_UPLOAD_DIR", root / "uploads")).resolve(),
         upload_tmp_dir=Path(
-            values.get("LUG_UPLOAD_TMP_DIR", Path(values.get("LUG_DATA_DIR", root / "data")) / "upload-tmp")
+            values.get(
+                "LUG_UPLOAD_TMP_DIR",
+                Path(values.get("LUG_DATA_DIR", root / "data")) / "upload-tmp",
+            )
         ).resolve(),
         api_host=values.get("LUG_API_HOST", "127.0.0.1"),
         api_port=int(values.get("LUG_API_PORT", "4174")),
@@ -323,11 +355,7 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         max_uploads_per_user=max(1, int(values.get("LUG_MAX_UPLOADS_PER_USER", "50"))),
         max_upload_bytes_per_user=max(
             1,
-            int(
-                values.get(
-                    "LUG_MAX_UPLOAD_BYTES_PER_USER", str(250 * 1024 * 1024)
-                )
-            ),
+            int(values.get("LUG_MAX_UPLOAD_BYTES_PER_USER", str(250 * 1024 * 1024))),
         ),
         upload_rate_limit_per_ip=max(
             1, int(values.get("LUG_UPLOAD_RATE_LIMIT_PER_IP", "30"))
@@ -335,6 +363,5 @@ def create_config(env: dict[str, str] | None = None) -> AppConfig:
         upload_rate_limit_per_user=max(
             1, int(values.get("LUG_UPLOAD_RATE_LIMIT_PER_USER", "30"))
         ),
-        secure_cookies=values.get("LUG_SECURE_COOKIES") == "true"
-        or hardened_env,
+        secure_cookies=values.get("LUG_SECURE_COOKIES") == "true" or hardened_env,
     )

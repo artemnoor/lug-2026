@@ -1,6 +1,10 @@
 """Password, cookie session, CSRF and role helpers."""
 
+import asyncio
+import base64
+import json
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from hashlib import scrypt, sha256
 from hmac import compare_digest
 from hmac import new as hmac_new
@@ -8,8 +12,6 @@ from time import time
 from typing import Any
 
 from fastapi import Request
-
-from ..http.errors import ApiError
 
 CSRF_COOKIE = "lug_csrf"
 SESSION_COOKIE = "lug_session"
@@ -29,14 +31,11 @@ try:
 except ImportError:  # pragma: no cover - requirements install argon2 in deployments
     PASSWORD_HASHER = None
 
+PASSWORD_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="lug-password")
+
 
 def parse_cookies(request: Request) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for part in request.headers.get("cookie", "").split(";"):
-        key, separator, value = part.strip().partition("=")
-        if separator and key:
-            result[key] = value
-    return result
+    return dict(request.cookies)
 
 
 def hash_token(token: str) -> str:
@@ -48,9 +47,35 @@ def verification_code() -> str:
 
 
 def verification_code_hash(code: str, secret: str) -> str:
-    return hmac_new(
-        secret.encode("utf-8"), code.encode("ascii"), "sha256"
-    ).hexdigest()
+    return hmac_new(secret.encode("utf-8"), code.encode("ascii"), "sha256").hexdigest()
+
+
+def issue_registration_upload_claim(
+    secret: str, owner: str, url: str = "", key: str = "", ttl_seconds: int = 900
+) -> str:
+    body = {"owner": owner, "url": url, "key": key, "exp": int(time()) + ttl_seconds}
+    encoded = (
+        base64.urlsafe_b64encode(json.dumps(body, separators=(",", ":")).encode())
+        .decode()
+        .rstrip("=")
+    )
+    signature = hmac_new(secret.encode(), encoded.encode(), "sha256").hexdigest()
+    return f"{encoded}.{signature}"
+
+
+def verify_registration_upload_claim(token: str, secret: str) -> dict[str, Any] | None:
+    encoded, separator, signature = str(token or "").partition(".")
+    expected = hmac_new(secret.encode(), encoded.encode(), "sha256").hexdigest()
+    if not separator or not encoded or not compare_digest(signature, expected):
+        return None
+    try:
+        padding = "=" * (-len(encoded) % 4)
+        body = json.loads(base64.urlsafe_b64decode((encoded + padding).encode()))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(body, dict) or int(body.get("exp", 0)) < int(time()):
+        return None
+    return body
 
 
 def password_hash(password: str) -> str:
@@ -81,6 +106,28 @@ def password_matches(password: str, stored: str) -> bool:
     return compare_digest(actual, expected)
 
 
+def password_needs_rehash(stored: str) -> bool:
+    return bool(
+        PASSWORD_HASHER is not None
+        and str(stored).startswith("$argon2id$")
+        and PASSWORD_HASHER.check_needs_rehash(stored)
+    )
+
+
+async def password_hash_async(password: str) -> str:
+    """Run the memory/CPU-heavy password hash outside the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(PASSWORD_EXECUTOR, password_hash, password)
+
+
+async def password_matches_async(password: str, stored: str) -> bool:
+    """Run password verification in the bounded password executor."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        PASSWORD_EXECUTOR, password_matches, password, stored
+    )
+
+
 def csrf_valid(request: Request) -> bool:
     cookie = parse_cookies(request).get(CSRF_COOKIE, "")
     header = request.headers.get("x-csrf-token", "")
@@ -96,72 +143,3 @@ def request_address(
         if forwarded:
             return forwarded
     return client_host
-
-
-def current_user(request: Request, state: dict[str, Any]) -> dict[str, Any] | None:
-    token = parse_cookies(request).get(SESSION_COOKIE)
-    if not token:
-        return None
-    token_hash = hash_token(token)
-    session = next(
-        (
-            item
-            for item in state.get("sessions", [])
-            if item.get("tokenHash") == token_hash
-        ),
-        None,
-    )
-    if not session or int(session.get("expiresAt", 0)) < time() * 1000:
-        return None
-    return next(
-        (
-            user
-            for user in state.get("users", [])
-            if user.get("id") == session.get("userId")
-        ),
-        None,
-    )
-
-
-def require_user(request: Request, state: dict[str, Any]) -> dict[str, Any]:
-    user = current_user(request, state)
-    if not user:
-        raise ApiError(401, "Требуется вход в личный кабинет.")
-    return user
-
-
-def require_admin(request: Request, state: dict[str, Any]) -> dict[str, Any]:
-    user = require_user(request, state)
-    if user.get("role") != "admin":
-        raise ApiError(403, "Доступ разрешён только организаторам.")
-    return user
-
-
-def new_session(state: dict[str, Any], user: dict[str, Any], ttl_ms: int) -> str:
-    now_ms = int(time() * 1000)
-    state["sessions"] = [
-        item
-        for item in state.get("sessions", [])
-        if int(item.get("expiresAt", 0)) >= now_ms
-    ]
-    token = secrets.token_hex(32)
-    state["sessions"].append(
-        {
-            "tokenHash": hash_token(token),
-            "userId": user["id"],
-            "expiresAt": now_ms + ttl_ms,
-        }
-    )
-    return token
-
-
-def remove_session(state: dict[str, Any], request: Request) -> None:
-    token = parse_cookies(request).get(SESSION_COOKIE)
-    if not token:
-        return
-    token_hash = hash_token(token)
-    state["sessions"] = [
-        item
-        for item in state.get("sessions", [])
-        if item.get("tokenHash") != token_hash
-    ]

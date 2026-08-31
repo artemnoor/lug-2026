@@ -26,22 +26,29 @@ class EncryptionTests(unittest.TestCase):
             {"code": "123456", "expiresMinutes": 15},
         )
         encrypted["ciphertext"] = (
-            ("A" if encrypted["ciphertext"][0] != "A" else "B")
-            + encrypted["ciphertext"][1:]
-        )
+            "A" if encrypted["ciphertext"][0] != "A" else "B"
+        ) + encrypted["ciphertext"][1:]
         with self.assertRaises(ValueError):
             decrypt_json(encrypted, self.key)
 
     def test_local_upload_is_encrypted_before_it_reaches_target(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             storage = LocalFileStorage(Path(directory), encryption_key=self.key)
-            data_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-            uploaded = asyncio.run(storage.save(data_url, "card.png"))
+            data = base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            )
+
+            async def chunks():
+                yield data
+
+            uploaded = asyncio.run(
+                storage.save_stream(chunks(), "card.png", "image/png", 1024)
+            )
             stored = Path(directory, Path(uploaded["url"]).name).read_bytes()
             self.assertNotIn(b"PNG", stored)
             self.assertEqual(
                 asyncio.run(storage.read(storage.resolve(uploaded["url"]))),
-                base64.b64decode(data_url.split(",", 1)[1]),
+                data,
             )
 
     def test_key_parser_requires_exactly_256_bits(self) -> None:

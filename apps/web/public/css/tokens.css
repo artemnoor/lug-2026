@@ -1,0 +1,19 @@
+/* Shared design tokens and font faces used by public, cabinet and admin surfaces. */
+@font-face { font-family: 'MegaSans'; src: url('../fonts/MegaSans-Light-014e5c46.bd0339.ttf') format('truetype'); font-display: swap; font-weight: 300; font-style: normal; }
+@font-face { font-family: 'MegaSans'; src: url('../fonts/MegaSans-Regular-43815a4d.508b3b.ttf') format('truetype'); font-display: swap; font-weight: 400; font-style: normal; }
+@font-face { font-family: 'MegaSans'; src: url('../fonts/MegaSans-Medium-f156c711.433765.ttf') format('truetype'); font-display: swap; font-weight: 500; font-style: normal; }
+@font-face { font-family: 'MegaSans'; src: url('../fonts/MegaSans-Bold-4898fab3.7acea0.ttf') format('truetype'); font-display: swap; font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Grechka SHA'; src: url('../fonts/Grechka SHA_0.otf') format('opentype'); font-display: swap; font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Grechka SHA Hollow'; src: url('../fonts/Grechka SHA Hollow_0.otf') format('opentype'); font-display: swap; font-weight: 700; font-style: normal; }
+@font-face { font-family: 'KULAG SHA'; src: url('../fonts/KULAG SHA.otf') format('opentype'); font-display: swap; font-weight: 700; font-style: normal; }
+
+:root {
+  --ink:#07123e; --ink-secondary:#2b3754; --ink-muted:#626f8d;
+  --blue:#0b4eff; --blue2:#164fe8; --blue-soft:#d9e7ff;
+  --star-blue:#A3C8FD; --star-lavender:#006cdc; --line:#2d63f0;
+  --ph:#edf3ff; --ph2:#f7f9ff; --paper:#ffffff; --page:#DCEEFF;
+  --orbit-accent:#7697f4; --orbit-accent-soft:#dbe7ff; --orbit-accent-glow:rgba(118,151,244,.28);
+  --font-display:'MegaSans', sans-serif; --font-body:'MegaSans', sans-serif;
+  --font-mono:"Courier New", Courier, monospace;
+  --hero-weight:700; --hero-letter-spacing:-0.035em; --hero-line-height:0.84;
+}

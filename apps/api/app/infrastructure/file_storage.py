@@ -1,8 +1,8 @@
 """Validated local file storage with private URL resolution."""
 
-import base64
-import binascii
 import re
+import socket
+import struct
 import subprocess
 from pathlib import Path
 from typing import Any, Protocol
@@ -26,25 +26,6 @@ ALLOWED_TYPES = {
     "video/webm",
     "video/quicktime",
 }
-ALLOWED_EXTENSIONS = {
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".webp",
-    ".gif",
-    ".avif",
-    ".heic",
-    ".heif",
-    ".tif",
-    ".tiff",
-    ".bmp",
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".mp4",
-    ".webm",
-    ".mov",
-}
 EXTENSIONS_BY_TYPE = {
     "image/png": {".png"},
     "image/jpeg": {".jpg", ".jpeg"},
@@ -65,11 +46,8 @@ EXTENSIONS_BY_TYPE = {
     "video/quicktime": {".mov"},
 }
 
-IMAGE_TYPES = {content_type for content_type in ALLOWED_TYPES if content_type.startswith("image/")}
-TYPE_BY_EXTENSION = {
-    extension: content_type
-    for content_type, extensions in EXTENSIONS_BY_TYPE.items()
-    for extension in extensions
+IMAGE_TYPES = {
+    content_type for content_type in ALLOWED_TYPES if content_type.startswith("image/")
 }
 
 
@@ -90,9 +68,7 @@ def _has_magic(content_type: str, data: bytes) -> bool:
         "image/webp": data[:4] == b"RIFF" and data[8:12] == b"WEBP",
         "image/gif": data[:6] in {b"GIF87a", b"GIF89a"},
         "image/avif": _has_ftyp_brand(data, {b"avif", b"avis"}),
-        "image/heic": _has_ftyp_brand(
-            data, {b"heic", b"heix", b"hevc", b"hevx"}
-        ),
+        "image/heic": _has_ftyp_brand(data, {b"heic", b"heix", b"hevc", b"hevx"}),
         "image/heif": _has_ftyp_brand(
             data, {b"mif1", b"msf1", b"heic", b"heix", b"hevc", b"hevx"}
         ),
@@ -111,45 +87,16 @@ def _has_magic(content_type: str, data: bytes) -> bool:
     return signatures.get(content_type, False)
 
 
-def decode_upload(data_url: str, original_name: str) -> tuple[bytes, str, str]:
-    match = re.fullmatch(r"data:([^;]+);base64,(.+)", str(data_url or ""))
-    if not match or not original_name:
-        raise ApiError(422, "Выберите файл для загрузки.")
-    content_type, encoded = match.groups()
-    content_type = content_type.strip().lower()
-    if content_type not in ALLOWED_TYPES:
-        extension = Path(original_name).suffix.lower()
-        if content_type in {"image/jpg", "application/octet-stream", "binary/octet-stream"}:
-            content_type = TYPE_BY_EXTENSION.get(extension, content_type)
-    if content_type not in ALLOWED_TYPES:
-        raise ApiError(422, "Поддерживаются распространённые форматы изображений, PDF, DOC, DOCX, MP4, WEBM и MOV.")
-    extension = Path(original_name).suffix.lower()
-    if extension not in ALLOWED_EXTENSIONS or extension not in EXTENSIONS_BY_TYPE[content_type]:
-        raise ApiError(422, "Расширение файла не соответствует его типу.")
-    max_bytes = (
-        50 * 1024 * 1024
-        if content_type.startswith("video/")
-        else 5 * 1024 * 1024
-    )
-    try:
-        if len(encoded) > ((max_bytes + 2) // 3) * 4:
-            raise ApiError(413, "Размер файла превышает допустимый лимит.")
-        data = base64.b64decode(encoded, validate=True)
-    except (ValueError, binascii.Error) as exc:
-        raise ApiError(422, "Некорректное содержимое файла.") from exc
-    if not data or not _has_magic(content_type, data):
-        raise ApiError(422, "Файл не прошёл проверку содержимого.")
-    if len(data) > max_bytes:
-        limit = 50 if content_type.startswith("video/") else 5
-        raise ApiError(413, f"Размер файла не должен превышать {limit} МБ.")
-    return data, content_type, extension
-
-
 def scan_file(path: Path, scan_command: str, scan_required: bool) -> None:
     if not scan_required and not scan_command:
         return
     if not scan_command:
-        raise ApiError(503, "Загрузка файлов временно недоступна: не настроен антивирусный сканер.")
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: не настроен антивирусный сканер."
+        )
+    if scan_command.startswith(("tcp://", "clamav://")):
+        _scan_file_clamav(path, scan_command)
+        return
     try:
         result = subprocess.run(
             [scan_command, "--no-summary", "--infected", str(path)],
@@ -159,29 +106,77 @@ def scan_file(path: Path, scan_command: str, scan_required: bool) -> None:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ApiError(503, "Загрузка файлов временно недоступна: проверка не выполнена.") from exc
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: проверка не выполнена."
+        ) from exc
     if result.returncode == 1:
         raise ApiError(422, "Файл не прошёл антивирусную проверку.")
     if result.returncode != 0:
-        raise ApiError(503, "Загрузка файлов временно недоступна: проверка не выполнена.")
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: проверка не выполнена."
+        )
+
+
+def _scan_file_clamav(path: Path, endpoint: str) -> None:
+    host_port = endpoint.split("://", 1)[1]
+    host, _, port_text = host_port.rpartition(":")
+    if not host or not port_text.isdigit():
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: неверный адрес сканера."
+        )
+    try:
+        with socket.create_connection((host, int(port_text)), timeout=30) as connection:
+            connection.sendall(b"zINSTREAM\0")
+            with path.open("rb") as handle:
+                while chunk := handle.read(1024 * 1024):
+                    connection.sendall(struct.pack("!I", len(chunk)) + chunk)
+            connection.sendall(struct.pack("!I", 0))
+            response = connection.recv(4096).decode("utf-8", "replace").lower()
+    except (OSError, ValueError) as exc:
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: проверка не выполнена."
+        ) from exc
+    if "found" in response:
+        raise ApiError(422, "Файл не прошёл антивирусную проверку.")
+    if "ok" not in response:
+        raise ApiError(
+            503, "Загрузка файлов временно недоступна: проверка не выполнена."
+        )
 
 
 def resolve_filename(url_path: str) -> str | None:
     filename = url_path.split("?", 1)[0].removeprefix("/uploads/")
-    return filename if re.fullmatch(
-        r"[a-f0-9]{64}\.(?:png|jpe?g|webp|gif|avif|heic|heif|tiff?|bmp|pdf|docx?|mp4|webm|mov)",
-        filename,
-        re.I,
-    ) else None
+    return (
+        filename
+        if re.fullmatch(
+            r"[a-f0-9]{32,64}\.(?:png|jpe?g|webp|gif|avif|heic|heif|tiff?|bmp|pdf|docx?|mp4|webm|mov)",
+            filename,
+            re.I,
+        )
+        else None
+    )
 
 
 class FileStorage(Protocol):
     provider: str
 
-    async def save(self, data_url: str, original_name: str) -> dict[str, Any]: ...
+    async def save_stream(
+        self, chunks: Any, original_name: str, content_type: str, max_bytes: int
+    ) -> dict[str, Any]: ...
 
-    @staticmethod
-    def estimate_size(data_url: str) -> int: ...
+    async def create_upload_intent(
+        self, name: str, content_type: str, size: int, kind: str, owner_id: str = ""
+    ) -> dict[str, Any]: ...
+
+    async def complete_upload(
+        self,
+        upload_id: str,
+        key: str,
+        name: str,
+        content_type: str,
+        parts: list[dict[str, Any]],
+        owner_id: str = "",
+    ) -> dict[str, Any]: ...
 
     def resolve(self, url_path: str) -> dict[str, Any] | None: ...
 
@@ -189,13 +184,19 @@ class FileStorage(Protocol):
 
     async def read(self, resolved: dict[str, Any]) -> bytes: ...
 
+    async def download_to_file(
+        self, resolved: dict[str, Any], target: Path
+    ) -> None: ...
+
     async def signed_url(self, resolved: dict[str, Any]) -> str | None: ...
 
     async def delete(self, url_path: str) -> None: ...
 
     async def ready(self) -> bool: ...
 
-    async def cleanup_orphans(self, referenced_urls: set[str], grace_seconds: int = 3600) -> int: ...
+    async def cleanup_orphans(
+        self, referenced_urls: set[str], grace_seconds: int = 3600
+    ) -> int: ...
 
     def health(self) -> dict[str, Any]: ...
 
@@ -217,6 +218,7 @@ def create_file_storage(config: Any) -> FileStorage:
             kms_key_id=config.s3_kms_key_id,
             scan_command=config.upload_scan_command,
             scan_required=config.upload_scan_required,
+            intent_redis_url=config.redis_url,
         )
     from .local_storage import LocalFileStorage
 

@@ -15,7 +15,7 @@ from .http.errors import ApiError
 from .http.utils import json_response, set_csrf_cookie, set_security_headers
 from .infrastructure.email import EmailService
 from .infrastructure.file_storage import create_file_storage
-from .infrastructure.postgres_writes import PersistenceError
+from .infrastructure.persistence_errors import PersistenceError
 from .infrastructure.store import create_store
 from .observability import (
     Logger,
@@ -53,7 +53,12 @@ def _request_id(request: Request) -> str:
 async def lifespan(application: FastAPI):
     configure_logging()
     config = create_config()
-    logger = Logger("lug-api")
+    logger = Logger(
+        "lug-api",
+        allow_sensitive_codes=config.email_log_code
+        and os.getenv("LUG_ENV", os.getenv("NODE_ENV", "development")).lower()
+        not in {"production", "staging"},
+    )
     store = await create_store(
         config.database_provider,
         config.data_dir,
@@ -156,7 +161,8 @@ async def request_pipeline(request: Request, call_next):
         if request.method in MUTATIONS and not csrf_valid(request):
             response = json_response(
                 {
-                    "error": "Недействительный CSRF-токен. Обновите страницу и повторите действие."
+                    "error": "Недействительный CSRF-токен. Обновите страницу и повторите действие.",
+                    "code": "CSRF_INVALID",
                 },
                 403,
                 request,
@@ -171,7 +177,7 @@ async def request_pipeline(request: Request, call_next):
             except Exception as error:
                 if isinstance(error, (ApiError, PersistenceError)):
                     response = json_response(
-                        {"error": error.message},
+                        {"error": error.message, "code": error.code},
                         error.status_code,
                         request,
                     )
@@ -181,11 +187,17 @@ async def request_pipeline(request: Request, call_next):
                         {
                             "requestId": request.state.request_id,
                             "traceId": request.state.trace_id,
-                            "error": error,
+                            "errorType": type(error).__name__,
+                            "errorMessage": str(error)[:500],
                         },
                     )
                     response = json_response(
-                        {"error": "Не удалось выполнить запрос."}, 500, request
+                        {
+                            "error": "Не удалось выполнить запрос.",
+                            "code": "INTERNAL_ERROR",
+                        },
+                        500,
+                        request,
                     )
         if span:
             span.set_attribute("http.response.status_code", response.status_code)
@@ -194,7 +206,10 @@ async def request_pipeline(request: Request, call_next):
         set_csrf_cookie(response, uuid4().hex, context.config)
     set_security_headers(response, context.config.secure_cookies)
     context.metrics.increment(f"http_requests.{response.status_code}")
-    context.metrics.observe("http_request_duration", (perf_counter() - started) * 1000)
+    route = getattr(request.scope.get("route"), "path", "unknown")
+    duration_ms = (perf_counter() - started) * 1000
+    context.metrics.observe("http_request_duration", duration_ms)
+    context.metrics.observe_route("http_request_duration", route, duration_ms)
     context.logger.info(
         "http.request",
         {

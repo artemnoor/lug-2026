@@ -34,7 +34,6 @@ class PostgresConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             "UPDATE lug_settings SET payload = $1::jsonb WHERE id = 1",
             json.dumps(settings),
         )
-        await self.store.pool.execute("UPDATE lug_meta SET revision = 0 WHERE id = 'primary'")
 
     async def asyncTearDown(self) -> None:
         await self.store.close()
@@ -42,39 +41,66 @@ class PostgresConcurrencyTests(unittest.IsolatedAsyncioTestCase):
     async def test_join_capacity_is_serialized_by_team_row_lock(self) -> None:
         team_id = str(uuid4())
         invite = "INV-" + "A" * 32
-        expires = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
+        expires = (
+            (datetime.now(timezone.utc) + timedelta(days=1))
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
         team = {
-            "id": team_id, "name": "Concurrent", "group": "CONCURRENT",
-            "totalStudentsInGroup": 1, "captainId": None, "inviteCode": invite,
-            "inviteStatus": "active", "inviteExpiresAt": expires,
+            "id": team_id,
+            "name": "Concurrent",
+            "group": "CONCURRENT",
+            "totalStudentsInGroup": 1,
+            "captainId": None,
+            "inviteCode": invite,
+            "inviteStatus": "active",
+            "inviteExpiresAt": expires,
         }
         await self.store.pool.execute(
             "INSERT INTO lug_teams (id, group_name, invite_code, payload) VALUES ($1,$2,$3,$4::jsonb)",
-            team_id, team["group"], invite, json.dumps(team),
+            team_id,
+            team["group"],
+            invite,
+            json.dumps(team),
         )
 
         async def pending(email: str) -> str:
             verification_id = str(uuid4())
             request = {
-                "fio": email, "email": email, "passwordHash": password_hash("Strong!Test1"),
-                "inviteCode": invite, "messenger": "telegram", "messengerContact": "@testuser",
+                "fio": email,
+                "email": email,
+                "passwordHash": password_hash("Strong!Test1"),
+                "inviteCode": invite,
+                "messenger": "telegram",
+                "messengerContact": "@testuser",
             }
             record = {
-                "id": verification_id, "kind": "participant", "email": email,
-                "expiresAtMs": int(datetime.now(timezone.utc).timestamp() * 1000) + 900000,
-                "payload": request, "studentCard": {"url": f"/uploads/{email.replace('@', '-')}.png", "size": 1},
+                "id": verification_id,
+                "kind": "participant",
+                "email": email,
+                "expiresAtMs": int(datetime.now(timezone.utc).timestamp() * 1000)
+                + 900000,
+                "payload": request,
+                "studentCard": {
+                    "url": f"/uploads/{email.replace('@', '-')}.png",
+                    "size": 1,
+                },
             }
             await self.store.replace_email_verification(record)
             return verification_id
 
-        ids = await asyncio.gather(pending("one@example.test"), pending("two@example.test"))
+        ids = await asyncio.gather(
+            pending("one@example.test"), pending("two@example.test")
+        )
         results = await asyncio.gather(
             *(self.store.commit_pending_atomic(item, 3600000) for item in ids),
             return_exceptions=True,
         )
         self.assertEqual(sum(isinstance(item, tuple) for item in results), 1)
         self.assertEqual(sum(isinstance(item, PersistenceError) for item in results), 1)
-        self.assertEqual(await self.store.pool.fetchval("SELECT count(*) FROM lug_users"), 1)
+        self.assertEqual(
+            await self.store.pool.fetchval("SELECT count(*) FROM lug_users"), 1
+        )
 
     async def test_email_verification_attempts_and_commit_are_serialized(self) -> None:
         verification_id = str(uuid4())
@@ -108,7 +134,9 @@ class PostgresConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('"code"', stored_outbox)
         results = await asyncio.gather(
             self.store.commit_pending_atomic(verification_id, 3600000, "wrong", 5),
-            self.store.commit_pending_atomic(verification_id, 3600000, "expected-code-hash", 5),
+            self.store.commit_pending_atomic(
+                verification_id, 3600000, "expected-code-hash", 5
+            ),
             return_exceptions=True,
         )
         self.assertEqual(sum(isinstance(item, PersistenceError) for item in results), 1)
@@ -127,24 +155,40 @@ class PostgresConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         user_id = str(uuid4())
         email = "reset@example.test"
         user = {
-            "id": user_id, "email": email, "emailVerified": True,
-            "role": "participant", "teamId": None, "passwordHash": "old",
+            "id": user_id,
+            "email": email,
+            "emailVerified": True,
+            "role": "participant",
+            "teamId": None,
+            "passwordHash": "old",
         }
         await self.store.pool.execute(
             "INSERT INTO lug_users (id,email,role,email_verified,payload) VALUES ($1,$2,$3,$4,$5::jsonb)",
-            user_id, email, "participant", True, json.dumps(user),
+            user_id,
+            email,
+            "participant",
+            True,
+            json.dumps(user),
         )
         reset = {
-            "id": str(uuid4()), "email": email, "codeHash": "expected",
-            "attempts": 0, "lastSentAtMs": 1,
+            "id": str(uuid4()),
+            "email": email,
+            "codeHash": "expected",
+            "attempts": 0,
+            "lastSentAtMs": 1,
             "expiresAtMs": int(datetime.now(timezone.utc).timestamp() * 1000) + 900000,
         }
         queued = await self.store.create_password_reset_atomic(
-            email, reset, {"code": "123456", "expiresMinutes": 15},
-            int(datetime.now(timezone.utc).timestamp() * 1000), 60000,
+            email,
+            reset,
+            {"code": "123456", "expiresMinutes": 15},
+            int(datetime.now(timezone.utc).timestamp() * 1000),
+            60000,
         )
         self.assertTrue(queued)
-        self.assertEqual(await self.store.pool.fetchval("SELECT count(*) FROM lug_email_outbox"), 1)
+        self.assertEqual(
+            await self.store.pool.fetchval("SELECT count(*) FROM lug_email_outbox"), 1
+        )
         message = await self.store.claim_email()
         self.assertEqual(message["purpose"], "password-reset")
         stored_payload = await self.store.pool.fetchval(
@@ -158,4 +202,97 @@ class PostgresConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(json.loads(redacted_payload)["redacted"])
         changed = await self.store.reset_password_atomic(email, "expected", "new", 5)
         self.assertEqual(changed["passwordHash"], "new")
-        self.assertEqual(await self.store.pool.fetchval("SELECT count(*) FROM lug_password_resets"), 0)
+        self.assertEqual(
+            await self.store.pool.fetchval("SELECT count(*) FROM lug_password_resets"),
+            0,
+        )
+
+    async def test_atomic_entity_writes_populate_canonical_columns(self) -> None:
+        user_id = str(uuid4())
+        upload_url = "/uploads/canonical.png"
+        await self.store.pool.execute(
+            """INSERT INTO lug_users (id,email,role,email_verified,payload)
+            VALUES ($1,$2,'participant',TRUE,$3::jsonb)""",
+            user_id,
+            "canonical@example.test",
+            json.dumps(
+                {
+                    "id": user_id,
+                    "email": "canonical@example.test",
+                    "identityStatus": "approved",
+                }
+            ),
+        )
+        await self.store.pool.execute(
+            """INSERT INTO lug_uploads (url,user_id,kind,status,scan_status,storage_key,mime_type,size_bytes,payload)
+            VALUES ($1,$2,'achievement','clean','clean','uploads/canonical.png','image/png',12,$3::jsonb)""",
+            upload_url,
+            user_id,
+            json.dumps({"url": upload_url, "userId": user_id}),
+        )
+        achievement = {
+            "id": str(uuid4()),
+            "userId": user_id,
+            "direction": "science",
+            "points": 42,
+            "fileUrl": upload_url,
+            "status": "pending",
+        }
+        await self.store.create_achievement_atomic(achievement, user_id)
+        achievement_row = await self.store.pool.fetchrow(
+            "SELECT direction, points, file_url FROM lug_achievements WHERE id=$1",
+            achievement["id"],
+        )
+        self.assertEqual(
+            dict(achievement_row),
+            {"direction": "science", "points": 42, "file_url": upload_url},
+        )
+
+        team_id = str(uuid4())
+        team = {
+            "id": team_id,
+            "name": "Canonical",
+            "group": "CANONICAL",
+            "totalStudentsInGroup": 3,
+            "inviteCode": "CANONICAL-1",
+            "inviteStatus": "active",
+            "captainId": None,
+            "flagUrl": "",
+        }
+        await self.store.pool.execute(
+            "INSERT INTO lug_teams (id,group_name,invite_code,payload) VALUES ($1,$2,$3,$4::jsonb)",
+            team_id,
+            team["group"],
+            team["inviteCode"],
+            json.dumps(team),
+        )
+        await self.store.update_team_atomic(team_id, team, user_id)
+        team_row = await self.store.pool.fetchrow(
+            "SELECT name, member_limit FROM lug_teams WHERE id=$1", team_id
+        )
+        self.assertEqual(dict(team_row), {"name": "Canonical", "member_limit": 3})
+        await self.store.update_quota_atomic(team_id, True, user_id)
+        for field in ("name", "group", "flag", "description"):
+            await self.store.review_team_atomic(team_id, field, "approved", "", user_id)
+        workflow_row = await self.store.pool.fetchrow(
+            """SELECT quota_confirmed, review_name_status, review_group_status,
+            review_flag_status, review_description_status
+            FROM lug_teams WHERE id=$1""",
+            team_id,
+        )
+        self.assertEqual(
+            dict(workflow_row),
+            {
+                "quota_confirmed": True,
+                "review_name_status": "approved",
+                "review_group_status": "approved",
+                "review_flag_status": "approved",
+                "review_description_status": "approved",
+            },
+        )
+        team_search = await self.store.get_admin_collection("teams", query="Canonical")
+        achievement_search = await self.store.get_admin_collection(
+            "achievements", query="science"
+        )
+        self.assertEqual(team_search["total"], 1)
+        self.assertEqual(achievement_search["total"], 1)

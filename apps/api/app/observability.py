@@ -10,14 +10,42 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-TRACEPARENT_PATTERN = re.compile(
-    r"^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$"
-)
+TRACEPARENT_PATTERN = re.compile(r"^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$")
 _TRACER = None
+_REDACT_KEYS = {
+    "password",
+    "passwordhash",
+    "authorization",
+    "cookie",
+    "token",
+    "code",
+    "secret",
+    "smtp_password",
+    "smtpcredentials",
+    "dsn",
+}
 
 
 def _json_default(value: Any) -> str:
     return str(value)
+
+
+def _redact(value: Any, key: str = "", allow_code: bool = False) -> Any:
+    normalized = key.replace("_", "").replace("-", "").lower()
+    if (
+        (normalized in _REDACT_KEYS and not (allow_code and normalized == "code"))
+        or normalized.endswith("token")
+        or normalized.endswith("secret")
+    ):
+        return "[REDACTED]"
+    if isinstance(value, dict):
+        return {
+            str(item_key): _redact(item_value, str(item_key), allow_code)
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact(item, allow_code=allow_code) for item in value]
+    return value
 
 
 def normalize_traceparent(value: str | None) -> str:
@@ -66,9 +94,7 @@ def start_http_span(tracer: Any, method: str, path: str, traceparent: str):
     from opentelemetry.propagate import extract
 
     context = extract({"traceparent": traceparent})
-    with tracer.start_as_current_span(
-        f"{method} {path}", context=context
-    ) as span:
+    with tracer.start_as_current_span(f"{method} {path}", context=context) as span:
         span.set_attribute("http.request.method", method)
         span.set_attribute("url.path", path)
         yield span
@@ -97,6 +123,7 @@ class Metrics:
     service: str
     counters: Counter = field(default_factory=Counter)
     histograms: dict[str, Histogram] = field(default_factory=dict)
+    route_histograms: dict[tuple[str, str], Histogram] = field(default_factory=dict)
     histogram_buckets: tuple[float, ...] = (
         5,
         10,
@@ -115,7 +142,17 @@ class Metrics:
         self.counters[name] += 1
 
     def observe(self, name: str, value: float) -> None:
-        self.histograms.setdefault(name, Histogram(self.histogram_buckets)).observe(value)
+        self.histograms.setdefault(name, Histogram(self.histogram_buckets)).observe(
+            value
+        )
+
+    def observe_route(self, name: str, route: str, value: float) -> None:
+        """Observe a route template; callers must pass a framework template, not a raw URL."""
+        normalized = route.strip() or "unknown"
+        key = (name, normalized)
+        self.route_histograms.setdefault(
+            key, Histogram(self.histogram_buckets)
+        ).observe(value)
 
     def prometheus(self) -> str:
         lines = []
@@ -131,14 +168,35 @@ class Metrics:
             lines.append(
                 f'lug_{metric}_bucket{{le="+Inf",service="{self.service}"}} {histogram.count}'
             )
-            lines.append(f'lug_{metric}_count{{service="{self.service}"}} {histogram.count}')
-            lines.append(f'lug_{metric}_sum{{service="{self.service}"}} {histogram.total:.3f}')
+            lines.append(
+                f'lug_{metric}_count{{service="{self.service}"}} {histogram.count}'
+            )
+            lines.append(
+                f'lug_{metric}_sum{{service="{self.service}"}} {histogram.total:.3f}'
+            )
+        for (name, route), histogram in sorted(self.route_histograms.items()):
+            metric = name.replace(".", "_")
+            label = route.replace("\\", "\\\\").replace('"', '\\"')
+            for bucket, count in zip(histogram.buckets, histogram.counts):
+                lines.append(
+                    f'lug_{metric}_bucket{{route="{label}",le="{bucket:g}",service="{self.service}"}} {count}'
+                )
+            lines.append(
+                f'lug_{metric}_bucket{{route="{label}",le="+Inf",service="{self.service}"}} {histogram.count}'
+            )
+            lines.append(
+                f'lug_{metric}_count{{route="{label}",service="{self.service}"}} {histogram.count}'
+            )
+            lines.append(
+                f'lug_{metric}_sum{{route="{label}",service="{self.service}"}} {histogram.total:.3f}'
+            )
         return "\n".join(lines) + "\n"
 
 
 class Logger:
-    def __init__(self, service: str) -> None:
+    def __init__(self, service: str, allow_sensitive_codes: bool = False) -> None:
         self.service = service
+        self.allow_sensitive_codes = allow_sensitive_codes
         self._logger = logging.getLogger(service)
 
     def _write(self, level: str, event: str, fields: dict[str, Any]) -> None:
@@ -147,7 +205,7 @@ class Logger:
             "level": level,
             "service": self.service,
             "event": event,
-            **fields,
+            **_redact(fields, allow_code=self.allow_sensitive_codes),
         }
         self._logger.log(
             getattr(logging, level.upper(), logging.INFO),

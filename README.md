@@ -176,7 +176,7 @@ apps/
    │  └─ main.py           FastAPI composition root
    └─ requirements.txt
 packages/
-├─ contracts/              OpenAPI JSON/YAML
+├─ contracts/              OpenAPI JSON contract (single source of truth)
 └─ shared/                 общие JS transport helpers
 tests/                     smoke и SMTP checks
 scripts/                   quality, backup, restore и локальный Mailpit
@@ -221,10 +221,20 @@ npm run quality            # лимиты размеров и архитекту
 npm run check              # quality + синтаксические проверки
 npm run test:smoke         # auth, CSRF, uploads, API и UI smoke
 npm run test:smtp-local    # SMTP delivery через локальный Mailpit
-npm run backup             # gzip-backup JSON state с retention
+npm run backup             # gzip-backup JSON state (только development)
+npm run backup:postgres    # PostgreSQL custom-format backup
+npm run backup:postgres:verify # проверка backup без восстановления production
 ```
 
-Для восстановления JSON-backup:
+JSON-backup предназначен только для development-адаптера. Production backup
+выполняется средствами PostgreSQL:
+
+```powershell
+npm run backup:postgres -- backup/postgres/latest.dump
+npm run backup:postgres:verify -- backup/postgres/latest.dump
+```
+
+Для восстановления JSON-backup в development:
 
 ```powershell
 $env:LUG_DATA_DIR = 'data'
@@ -238,12 +248,14 @@ npm run restore:json -- data/lug-20260828T120000Z.json.gz
 | Переменная | Назначение |
 | --- | --- |
 | `LUG_DATA_DIR` / `LUG_UPLOAD_DIR` | JSON state и локальные файлы |
+| `LUG_ENV` | Каноническая среда API: `development`, `test`, `staging` или `production` |
 | `LUG_DATABASE_PROVIDER=postgres` | Явно включает PostgreSQL adapter; в production обязателен |
 | `LUG_DATABASE_URL` / `DATABASE_URL` | DSN PostgreSQL; в production отсутствие DSN останавливает запуск |
 | `LUG_DATABASE_SSL_MODE` / `LUG_DATABASE_SSL_ROOT_CERT` | TLS PostgreSQL; в production только `verify-full` |
 | `LUG_DATABASE_POOL_MIN_SIZE` / `LUG_DATABASE_POOL_MAX_SIZE` | Размер async-пула PostgreSQL между запросами |
 | `REDIS_URL` | Общий rate limiter между API-инстансами |
 | `LUG_FILE_STORAGE_PROVIDER=local\|s3` | Backend файлов; в production — `s3` |
+| `PUBLIC_BASE_URL` / `LUG_PUBLIC_BASE_URL` | Абсолютный HTTPS URL сайта для canonical и OpenGraph metadata |
 | `LUG_S3_*` | Private bucket, endpoint, credentials и prefix |
 | `LUG_S3_SERVER_SIDE_ENCRYPTION` / `LUG_S3_KMS_KEY_ID` | Обязательное SSE для S3 (`AES256` или `aws:kms`) |
 | `LUG_UPLOAD_SCAN_COMMAND` / `LUG_UPLOAD_SCAN_REQUIRED` | ClamAV/совместимый сканер и fail-closed режим |
@@ -278,15 +290,14 @@ python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_b
 
 ## API и контракты
 
-Контракт API хранится в двух форматах:
+Контракт API хранится в `packages/contracts/openapi.json`, единственном источнике истины:
 
 - [`packages/contracts/openapi.json`](packages/contracts/openapi.json)
-- [`packages/contracts/openapi.yaml`](packages/contracts/openapi.yaml)
 
 В запущенном приложении доступны:
 
 - `/api.html` — локальный API portal;
-- `/api/openapi.json` и `/api/openapi.yaml` — runtime-контракт;
+- `/api/openapi.json` — runtime-контракт;
 - `/healthz` — быстрый health-check web gateway;
 - `/livez` — liveness API;
 - `/readyz` — readiness с operations-token или loopback policy;
@@ -331,7 +342,8 @@ Smoke-тест поднимает или использует локальные
 Минимальный production-контур описан в [`DEPLOYMENT.md`](DEPLOYMENT.md). Архитектурные границы и модель хранения — в [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 Временный staging развёрнут в Yandex Cloud и после обновления до коммита
-`e2ead36` доступен по адресу [`https://51.250.102.106`](https://51.250.102.106).
+Адрес staging/production задаётся через `PUBLIC_BASE_URL`; IP-адреса не должны
+попадать в OpenGraph, canonical URL или публичную документацию.
 На одной VM работают web/API, PostgreSQL, Redis и ClamAV. Nginx принимает HTTPS
 на `:443` и перенаправляет HTTP с `:80`; для IP используется временный
 самоподписанный сертификат, поэтому браузер может показать предупреждение.
@@ -359,6 +371,6 @@ Nginx :443 → web gateway :4173 → FastAPI :4174
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — границы модулей, persistence, security controls и доменные статусы;
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — single-host и масштабируемый production runbook;
 - [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) — проверенные контроли, найденные риски и условия запуска;
-- [`packages/contracts/openapi.yaml`](packages/contracts/openapi.yaml) — API contract;
+- [`packages/contracts/openapi.json`](packages/contracts/openapi.json) — API contract;
 - [`docs/screenshots/`](docs/screenshots/) — изображения интерфейса для документации.
 

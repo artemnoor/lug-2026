@@ -1,0 +1,32 @@
+@import url('./tokens.css');
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--page);
+  font-family: var(--font-body);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button { font: inherit; }
+
+/* Базовый полноэкранный блок секции */
+.stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  min-height: 600px;
+  background: transparent;
+}

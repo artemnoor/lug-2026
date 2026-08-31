@@ -7,8 +7,9 @@ from time import time
 
 from ..security.auth import hash_token
 from ..shared import domain
+from .persistence_errors import PersistenceError
 from .postgres_queries import payload
-from .postgres_writes import PersistenceError, PostgresWriteMixin
+from .postgres_writes import PostgresWriteMixin
 
 
 class PostgresRegistrationMixin(PostgresWriteMixin):
@@ -22,7 +23,6 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                     WHERE id = $1""",
                     verification_id,
                 )
-                await self._bump_revision(connection)
 
     async def replace_email_verification(
         self, pending: dict, email_message: dict | None = None
@@ -42,17 +42,25 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                 if existing:
                     old = payload(existing["payload"])
                     old_card = (old.get("studentCard") or {}).get("url", "")
-                    if old_card and old_card != (pending.get("studentCard") or {}).get("url", ""):
+                    if old_card and old_card != (pending.get("studentCard") or {}).get(
+                        "url", ""
+                    ):
                         old_urls.append(old_card)
                     pending["id"] = existing["id"]
                     await connection.execute(
                         "UPDATE lug_email_verifications SET email=$2, expires_at_ms=$3, payload=$4::jsonb, updated_at=now() WHERE id=$1",
-                        pending["id"], pending["email"], int(pending["expiresAtMs"]), json.dumps(pending, ensure_ascii=False),
+                        pending["id"],
+                        pending["email"],
+                        int(pending["expiresAtMs"]),
+                        json.dumps(pending, ensure_ascii=False),
                     )
                 else:
                     await connection.execute(
                         "INSERT INTO lug_email_verifications (id,email,expires_at_ms,payload) VALUES ($1,$2,$3,$4::jsonb)",
-                        pending["id"], pending["email"], int(pending["expiresAtMs"]), json.dumps(pending, ensure_ascii=False),
+                        pending["id"],
+                        pending["email"],
+                        int(pending["expiresAtMs"]),
+                        json.dumps(pending, ensure_ascii=False),
                     )
                 if email_message:
                     await connection.execute(
@@ -62,12 +70,15 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                     await self._enqueue_email(
                         connection, pending["email"], "verification", email_message
                     )
-                await self._bump_revision(connection)
         return old_urls
 
     async def resend_email_verification_atomic(
-        self, verification_id: str, fields: dict, email_message: dict,
-        now_ms: int, cooldown_ms: int,
+        self,
+        verification_id: str,
+        fields: dict,
+        email_message: dict,
+        now_ms: int,
+        cooldown_ms: int,
     ) -> dict:
         async with self.pool.acquire() as connection:
             async with connection.transaction():
@@ -76,31 +87,45 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                     verification_id,
                 )
                 if not email:
-                    raise PersistenceError("Заявка на подтверждение не найдена или уже обработана.", 404)
+                    raise PersistenceError(
+                        "Заявка на подтверждение не найдена или уже обработана.", 404
+                    )
                 await connection.fetchval(
-                    "SELECT pg_advisory_xact_lock(hashtextextended(lower($1), 0))", email
+                    "SELECT pg_advisory_xact_lock(hashtextextended(lower($1), 0))",
+                    email,
                 )
                 row = await connection.fetchrow(
                     "SELECT payload FROM lug_email_verifications WHERE id = $1 FOR UPDATE",
                     verification_id,
                 )
                 if not row:
-                    raise PersistenceError("Заявка на подтверждение не найдена или уже обработана.", 404)
+                    raise PersistenceError(
+                        "Заявка на подтверждение не найдена или уже обработана.", 404
+                    )
                 pending = payload(row["payload"])
                 if now_ms - int(pending.get("lastSentAtMs", 0)) < cooldown_ms:
-                    retry = max(1, (cooldown_ms - (now_ms - int(pending.get("lastSentAtMs", 0)))) // 1000)
-                    raise PersistenceError(f"Новый код можно запросить через {retry} сек.", 429)
+                    retry = max(
+                        1,
+                        (cooldown_ms - (now_ms - int(pending.get("lastSentAtMs", 0))))
+                        // 1000,
+                    )
+                    raise PersistenceError(
+                        f"Новый код можно запросить через {retry} сек.", 429
+                    )
                 pending.update(fields)
                 await connection.execute(
                     "UPDATE lug_email_verifications SET expires_at_ms=$2, payload=$3::jsonb, updated_at=now() WHERE id=$1",
-                    verification_id, int(pending["expiresAtMs"]), json.dumps(pending, ensure_ascii=False),
+                    verification_id,
+                    int(pending["expiresAtMs"]),
+                    json.dumps(pending, ensure_ascii=False),
                 )
                 await connection.execute(
                     "DELETE FROM lug_email_outbox WHERE recipient = $1 AND purpose = 'verification' AND status IN ('pending', 'failed')",
                     email,
                 )
-                await self._enqueue_email(connection, email, "verification", email_message)
-                await self._bump_revision(connection)
+                await self._enqueue_email(
+                    connection, email, "verification", email_message
+                )
         return pending
 
     async def commit_pending_atomic(
@@ -119,7 +144,9 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                     verification_id,
                 )
                 if not pending_email:
-                    raise PersistenceError("Заявка на подтверждение не найдена или уже обработана.", 404)
+                    raise PersistenceError(
+                        "Заявка на подтверждение не найдена или уже обработана.", 404
+                    )
                 await connection.fetchval(
                     "SELECT pg_advisory_xact_lock(hashtextextended(lower($1), 0))",
                     pending_email,
@@ -129,88 +156,188 @@ class PostgresRegistrationMixin(PostgresWriteMixin):
                     verification_id,
                 )
                 if not pending_row:
-                    raise PersistenceError("Заявка на подтверждение не найдена или уже обработана.", 404)
+                    raise PersistenceError(
+                        "Заявка на подтверждение не найдена или уже обработана.", 404
+                    )
                 pending = payload(pending_row["payload"])
                 now_ms = int(time() * 1000)
                 if int(pending.get("expiresAtMs", 0)) <= now_ms:
-                    raise PersistenceError("Заявка на подтверждение не найдена или уже обработана.", 404)
+                    raise PersistenceError(
+                        "Заявка на подтверждение не найдена или уже обработана.", 404
+                    )
                 attempts = int(pending.get("attempts", 0))
                 if max_attempts is not None and attempts >= max_attempts:
-                    raise PersistenceError("Лимит попыток исчерпан. Начните регистрацию заново.", 422)
+                    raise PersistenceError(
+                        "Лимит попыток исчерпан. Начните регистрацию заново.", 422
+                    )
                 if expected_code_hash is not None and not compare_digest(
                     expected_code_hash, str(pending.get("codeHash") or "")
                 ):
-                    pending["attempts"] = min(max_attempts or attempts + 1, attempts + 1)
+                    pending["attempts"] = min(
+                        max_attempts or attempts + 1, attempts + 1
+                    )
                     await connection.execute(
                         "UPDATE lug_email_verifications SET payload=$2::jsonb, updated_at=now() WHERE id=$1",
-                        verification_id, json.dumps(pending, ensure_ascii=False),
+                        verification_id,
+                        json.dumps(pending, ensure_ascii=False),
                     )
-                    await self._bump_revision(connection)
                     raise PersistenceError("Неверный код подтверждения.", 422)
-                settings = payload(await connection.fetchval("SELECT payload FROM lug_settings WHERE id = 1"))
+                settings = payload(
+                    await connection.fetchval(
+                        "SELECT payload FROM lug_settings WHERE id = 1"
+                    )
+                )
                 if not domain.registration_open(settings):
-                    raise PersistenceError("Регистрация завершена или ещё не началась.", 403)
+                    raise PersistenceError(
+                        "Регистрация завершена или ещё не началась.", 403
+                    )
                 request_payload = dict(pending.get("payload") or {})
                 email = domain.normalize_email(request_payload.get("email"))
-                if await connection.fetchval("SELECT 1 FROM lug_users WHERE lower(email) = lower($1) LIMIT 1", email):
-                    raise PersistenceError("Этот адрес электронной почты уже зарегистрирован.", 409)
+                if await connection.fetchval(
+                    "SELECT 1 FROM lug_users WHERE lower(email) = lower($1) LIMIT 1",
+                    email,
+                ):
+                    raise PersistenceError(
+                        "Этот адрес электронной почты уже зарегистрирован.", 409
+                    )
                 is_team = pending.get("kind") == "team"
                 if is_team:
                     group = str(request_payload.get("group") or "").strip().upper()
                     await connection.fetchval(
                         "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", group
                     )
-                    if await connection.fetchval("SELECT 1 FROM lug_teams WHERE group_name = $1 LIMIT 1", group):
-                        raise PersistenceError("Для этой учебной группы уже создана команда.", 409)
+                    if await connection.fetchval(
+                        "SELECT 1 FROM lug_teams WHERE group_name = $1 LIMIT 1", group
+                    ):
+                        raise PersistenceError(
+                            "Для этой учебной группы уже создана команда.", 409
+                        )
                     team = make_team(request_payload, {"settings": settings})
                 else:
                     code = str(request_payload.get("inviteCode") or "").strip().upper()
                     team_row = await connection.fetchrow(
-                        "SELECT payload FROM lug_teams WHERE invite_code = $1 AND invite_status = 'active' FOR UPDATE", code
+                        "SELECT payload FROM lug_teams WHERE invite_code = $1 AND invite_status = 'active' FOR UPDATE",
+                        code,
                     )
                     if not team_row:
                         raise PersistenceError("Приглашение неактивно.", 404)
                     team = payload(team_row["payload"])
                     if domain.timestamp(team.get("inviteExpiresAt")) < time() * 1000:
                         raise PersistenceError("Приглашение неактивно.", 404)
-                    count = await connection.fetchval("SELECT count(*) FROM lug_users WHERE team_id = $1", team["id"])
-                    if int(count or 0) >= int(team.get("totalStudentsInGroup") or 0):
-                        raise PersistenceError("В команде уже достигнута заявленная вместимость.", 409)
+                    count = await connection.fetchval(
+                        "SELECT count(*) FROM lug_users WHERE team_id = $1", team["id"]
+                    )
+                    capacity = await connection.fetchval(
+                        "SELECT member_limit FROM lug_teams WHERE id = $1",
+                        team["id"],
+                    )
+                    if int(count or 0) >= int(capacity or 0):
+                        raise PersistenceError(
+                            "В команде уже достигнута заявленная вместимость.",
+                            409,
+                            "TEAM_CAPACITY_REACHED",
+                        )
                 card = pending.get("studentCard") or {}
-                user = make_user(request_payload, team, card, "captain" if is_team else "participant")
+                user = make_user(
+                    request_payload, team, card, "captain" if is_team else "participant"
+                )
                 if is_team:
                     team["captainId"] = user["id"]
                     await connection.execute(
-                        "INSERT INTO lug_teams (id,group_name,invite_code,captain_id,invite_status,payload) VALUES ($1,$2,$3,$4,$5,$6::jsonb)",
-                        team["id"], team["group"], team["inviteCode"], None,
-                        team.get("inviteStatus", "active"), json.dumps(team, ensure_ascii=False),
+                        """INSERT INTO lug_teams
+                        (id,name,group_name,member_limit,invite_code,captain_id,invite_status,flag_url,payload)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)""",
+                        team["id"],
+                        team.get("name", ""),
+                        team["group"],
+                        int(team.get("totalStudentsInGroup") or 1),
+                        team["inviteCode"],
+                        None,
+                        team.get("inviteStatus", "active"),
+                        team.get("flagUrl", ""),
+                        json.dumps(team, ensure_ascii=False),
                     )
                 await connection.execute(
-                    "INSERT INTO lug_users (id,email,phone,role,team_id,email_verified,payload) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)",
-                    user["id"], user["email"], user.get("phone", ""), user["role"], user["teamId"],
-                    user.get("emailVerified") is True, json.dumps(user, ensure_ascii=False),
+                    """INSERT INTO lug_users
+                        (id,email,phone,role,team_id,email_verified,fio,identity_status,avatar_url,student_card_file,payload)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)""",
+                    user["id"],
+                    user["email"],
+                    user.get("phone", ""),
+                    user["role"],
+                    user["teamId"],
+                    user.get("emailVerified") is True,
+                    user.get("fio", ""),
+                    user.get("identityStatus", ""),
+                    user.get("avatarUrl", ""),
+                    user.get("studentCardFile", ""),
+                    json.dumps(user, ensure_ascii=False),
                 )
                 if is_team:
                     await connection.execute(
                         "UPDATE lug_teams SET captain_id = $2 WHERE id = $1",
-                        team["id"], user["id"],
+                        team["id"],
+                        user["id"],
                     )
                 await connection.execute(
-                    "INSERT INTO lug_uploads (url,user_id,kind,payload) VALUES ($1,$2,'student-card',$3::jsonb)",
-                    card["url"], user["id"], json.dumps({**card, "url": card["url"], "userId": user["id"], "kind": "student-card", "createdAt": _now_iso()}, ensure_ascii=False),
+                    """INSERT INTO lug_uploads
+                    (url,user_id,kind,status,scan_status,storage_key,mime_type,size_bytes,payload)
+                    VALUES ($1,$2,'student-card','uploaded','pending',$3,$4,$5,$6::jsonb)""",
+                    card["url"],
+                    user["id"],
+                    card.get("storageKey", ""),
+                    card.get("type", ""),
+                    int(card.get("size", 0) or 0),
+                    json.dumps(
+                        {
+                            **card,
+                            "url": card["url"],
+                            "userId": user["id"],
+                            "kind": "student-card",
+                            "createdAt": _now_iso(),
+                        },
+                        ensure_ascii=False,
+                    ),
                 )
-                await connection.execute("DELETE FROM lug_email_verifications WHERE id = $1", verification_id)
-                await self._audit(connection, user["id"], "team.created" if is_team else "team.joined", "team", team["id"])
-                await self._notification(connection, user["id"], "Заявка принята", "Команда создана. Оргкомитет проверит данные капитана." if is_team else "Вы добавлены в состав команды и ожидаете проверки личности.")
+                await connection.execute(
+                    "DELETE FROM lug_email_verifications WHERE id = $1", verification_id
+                )
+                await self._audit(
+                    connection,
+                    user["id"],
+                    "team.created" if is_team else "team.joined",
+                    "team",
+                    team["id"],
+                )
+                await self._notification(
+                    connection,
+                    user["id"],
+                    "Заявка принята",
+                    "Команда создана. Оргкомитет проверит данные капитана."
+                    if is_team
+                    else "Вы добавлены в состав команды и ожидаете проверки личности.",
+                )
                 token = _new_session_token()
                 expires_at = int(time() * 1000) + session_ttl_ms
-                await connection.execute("DELETE FROM lug_sessions WHERE expires_at_ms < $1", int(time() * 1000))
+                await connection.execute(
+                    "DELETE FROM lug_sessions WHERE expires_at_ms < $1",
+                    int(time() * 1000),
+                )
                 await connection.execute(
                     "INSERT INTO lug_sessions (id,token_hash,user_id,expires_at_ms,payload) VALUES ($1,$2,$3,$4,$5::jsonb)",
-                    hash_token(token), hash_token(token), user["id"], expires_at,
-                    json.dumps({"tokenHash": hash_token(token), "userId": user["id"], "expiresAt": expires_at}, ensure_ascii=False),
+                    hash_token(token),
+                    hash_token(token),
+                    user["id"],
+                    expires_at,
+                    json.dumps(
+                        {
+                            "tokenHash": hash_token(token),
+                            "userId": user["id"],
+                            "expiresAt": expires_at,
+                        },
+                        ensure_ascii=False,
+                    ),
                 )
-                await self._bump_revision(connection)
         return user, token
 
 
@@ -221,4 +348,8 @@ def _new_session_token() -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )

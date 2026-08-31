@@ -89,7 +89,8 @@ apps/web/
 
 apps/api/
   app/main.py              FastAPI composition root, lifecycle и middleware
-  app/routes/               auth, registration, password reset, profile, notifications и admin
+  app/application/         use-case services: authentication, profile, uploads, participant and admin review flows
+  app/routes/               тонкий HTTP boundary: auth, registration, profile, notifications и admin
   app/shared/               доменные правила и organizer projections
   app/security/             cookies, CSRF, password/session, RBAC, rate limiting
   app/infrastructure/       JSON/PostgreSQL stores и local/S3 file storage adapters
@@ -98,7 +99,7 @@ apps/api/
   requirements.txt          runtime-зависимости FastAPI/asyncpg/Redis/S3/OTel
 
 packages/shared/           transport helpers без привязки к конкретному приложению
-packages/contracts/        OpenAPI JSON/YAML и API portal contract
+packages/contracts/        OpenAPI JSON single source of truth и API portal contract
 tests/smoke.mjs            сквозная проверка основных сценариев
 ```
 
@@ -116,10 +117,10 @@ tests/smoke.mjs            сквозная проверка основных с
 
 Для production:
 
-1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications, password-resets и аудита имеют отдельные строки, индексы по ключевым связям и миграцию legacy `lug_state` при первом запуске. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API.
+1. `LUG_DATABASE_PROVIDER=postgres` + `LUG_DATABASE_URL` переключают API на нормализованный async PostgreSQL adapter. Таблицы пользователей, команд, достижений, уведомлений, сессий, загрузок, email-verifications, password-resets и аудита имеют отдельные строки и индексы по ключевым связям. Ключевые поля сущностей (идентификаторы, связи, статусы, поисковые поля, размеры и timestamps) читаются из canonical SQL columns; `payload` оставлен только как compatibility/extension JSONB. Текущий release schema head — Alembic `0012_achievement_upload_fk`; схема подготавливается отдельным migration job до запуска API, runtime только проверяет её наличие. Запись изменяет только затронутые сущности, поэтому независимые мутации не блокируют весь API. HTTP routes вызывают repository/use-case boundaries и не загружают глобальный `DatabaseState`.
 2. Сессии и данные должны жить в общем PostgreSQL/Redis-контуре, а rate limiting при наличии `REDIS_URL` автоматически использует Redis. При включённом trust proxy требуется явно задать `LUG_TRUSTED_PROXY_IPS`.
-3. `LUG_FILE_STORAGE_PROVIDER=s3` включает private S3-compatible adapter: файл проходит те же MIME/magic/AV-проверки, загружается в bucket с непредсказуемым ключом, а после BOLA-проверки API выдаёт presigned GET URL на 5 минут. `LUG_S3_ENDPOINT_URL` поддерживает MinIO, Cloudflare R2 и другие S3-compatible providers. В production local adapter запрещён.
-4. При создании PostgreSQL адаптер применяет идемпотентную bootstrap-схему; retention audit log составляет 730 дней, а операции backup/restore должны выполняться отдельным release/operations-процессом.
+3. `LUG_FILE_STORAGE_PROVIDER=s3` включает private S3-compatible adapter: файл проходит те же MIME/magic/AV-проверки, загружается в bucket с непредсказуемым ключом, а после BOLA-проверки API выдаёт presigned GET URL на 5 минут. Multipart intents хранятся в Redis с TTL, поэтому complete-запрос может попасть на другую API-реплику или пережить рестарт процесса. `LUG_S3_ENDPOINT_URL` поддерживает MinIO, Cloudflare R2 и другие S3-compatible providers. В production local adapter запрещён.
+4. При создании PostgreSQL адаптер не выполняет DDL и миграции; retention audit log составляет 730 дней, а операции migration и backup/restore выполняются отдельным release/operations-процессом.
 
 В development/test глобальный `DATABASE_URL` намеренно не выбирается автоматически:
 нужен явный `LUG_DATABASE_PROVIDER=postgres` или `LUG_DATABASE_URL`. В production
@@ -142,7 +143,7 @@ PostgreSQL обязателен, поэтому `DATABASE_URL` допускае�
 
 ## Quality gates
 
-- Python-модули API ограничены 350 строками, composition root — 300 строками, web-модули — 220 строками, root launcher — 140 строками.
+- Для Python-модулей API warning-порог составляет 350 строк, hard limit — 500; transitional JSON compatibility command явно исключён до его удаления. Composition root ограничен 300 строками, web-модули — 220 строками, root launcher — 140 строками.
 - `apps/web/public` не содержит HTML и шрифты вперемешку: страницы находятся в `pages/`, шрифты — в `fonts/`, доступ к статике идёт через allowlist.
 - `npm run check` включает `npm run quality`; форматирование и lint API выполняются командами `ruff format apps/api/app` и `ruff check apps/api/app`.
 - CSS/JS страниц конкурса остаются отдельными статическими дизайн-артефактами: их размер не смешан с серверной архитектурой, чтобы сохранить визуальную совместимость.
@@ -159,7 +160,7 @@ PostgreSQL обязателен, поэтому `DATABASE_URL` допускае�
 - `content`: редактируемые организатором сроки, тексты и публичные результаты.
 - `admin`: overview, audit, quota, team/member/identity/achievement/video review, settings и broadcast.
 
-Полный список текущих методов и paths — в `packages/contracts/openapi.json` / `packages/contracts/openapi.yaml`.
+Полный список текущих методов и paths — в `packages/contracts/openapi.json`, единственном источнике API-контракта.
 
 ## Совместимость интерфейса
 

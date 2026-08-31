@@ -9,6 +9,11 @@ uploads/*
 .tmp-*/
 .playwright-cli/
 output/
+apps/web/dist/
+.playwright-data/
+.playwright-uploads/
+test-results/
+playwright-report/
 graphify-out/
 .codeslicer/
 .impact_engine/

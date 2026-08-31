@@ -131,13 +131,16 @@ def admin_team_workflow(
 
 
 def admin_snapshot(state: dict) -> dict:
+    counts = state.get("_counts", {})
     users_by_team: dict[str, list[dict]] = {}
     users_by_id = {user.get("id"): user for user in state.get("users", [])}
     achievements_by_user: dict[str, list[dict]] = {}
     for user in state.get("users", []):
         users_by_team.setdefault(user.get("teamId"), []).append(user)
     for achievement in state.get("achievements", []):
-        achievements_by_user.setdefault(achievement.get("userId"), []).append(achievement)
+        achievements_by_user.setdefault(achievement.get("userId"), []).append(
+            achievement
+        )
     users = [
         domain.public_user(user)
         for user in state.get("users", [])
@@ -145,7 +148,10 @@ def admin_snapshot(state: dict) -> dict:
     ]
     teams = []
     for team in state.get("teams", []):
-        members = [domain.public_user(member) for member in users_by_team.get(team.get("id"), [])]
+        members = [
+            domain.public_user(member)
+            for member in users_by_team.get(team.get("id"), [])
+        ]
         member_ids = {member.get("id") for member in members}
         captain = next(
             (member for member in members if member.get("id") == team.get("captainId")),
@@ -197,19 +203,24 @@ def admin_snapshot(state: dict) -> dict:
     return {
         "settings": state["settings"],
         "summary": {
-            "teams": len(state.get("teams", [])),
-            "users": len(users),
-            "achievements": len(achievements),
-            "notifications": len(state.get("notifications", [])),
+            "teams": counts.get("teams", len(state.get("teams", []))),
+            "users": counts.get("users", len(users)),
+            "achievements": counts.get("achievements", len(achievements)),
+            "notifications": counts.get(
+                "notifications", len(state.get("notifications", []))
+            ),
             "adminNotifications": len(admin_notifications),
-            "pendingAchievements": sum(
-                item.get("status") == "pending" for item in achievements
+            "pendingAchievements": counts.get(
+                "pendingAchievements",
+                sum(item.get("status") == "pending" for item in achievements),
             ),
-            "pendingIdentity": sum(
-                item.get("identityStatus") == "pending" for item in users
+            "pendingIdentity": counts.get(
+                "pendingIdentity",
+                sum(item.get("identityStatus") == "pending" for item in users),
             ),
-            "pendingVideos": sum(
-                item["videoCard"].get("status") == "pending" for item in videos
+            "pendingVideos": counts.get(
+                "pendingVideos",
+                sum(item["videoCard"].get("status") == "pending" for item in videos),
             ),
             "unreadNotifications": sum(team["unreadNotifications"] for team in teams),
         },
@@ -227,7 +238,11 @@ def _achievement_with_user(
     state: dict, achievement: dict, users_by_id: dict | None = None
 ) -> dict:
     owner = (users_by_id or {}).get(achievement.get("userId")) or next(
-        (user for user in state.get("users", []) if user.get("id") == achievement.get("userId")),
+        (
+            user
+            for user in state.get("users", [])
+            if user.get("id") == achievement.get("userId")
+        ),
         {"id": achievement.get("userId"), "fio": "Удалённый пользователь"},
     )
     return {**achievement, "user": domain.public_user(owner)}

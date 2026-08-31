@@ -93,6 +93,17 @@ try {
   await waitForServer();
   const client = createClient();
   await client.request('/index.html');
+  const upload = await client.request('/api/auth/student-card/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'image/png',
+      'X-Upload-Name': 'student-card.png',
+      'X-CSRF-Token': client.csrf(),
+    },
+    body: Buffer.from(pngData.split(',')[1], 'base64'),
+  });
+  await expectStatus(upload, 201, 'SMTP registration upload');
+  const uploadPayload = await json(upload);
   const body = JSON.stringify({
     fio: 'SMTP Test',
     group: `SMTP-${Date.now()}`,
@@ -103,7 +114,10 @@ try {
     messenger: 'telegram',
     messengerContact: '@smtp_test',
     telegramAccount: '@smtp_test',
-    studentCardFile: pngData,
+    studentCardFile: uploadPayload.url,
+    studentCardUploadToken: uploadPayload.registrationToken,
+    studentCardSize: uploadPayload.size,
+    studentCardType: uploadPayload.type,
     studentCardFileName: 'student-card.png',
     consent: true,
   });

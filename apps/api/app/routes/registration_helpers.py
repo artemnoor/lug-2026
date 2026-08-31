@@ -16,23 +16,33 @@ def validate_registration(payload: dict[str, Any], state: dict, is_team: bool) -
         if is_team
         else ["fio", "email", "password", "studentCardFile"]
     )
-    if any(not str(payload.get(field) or "").strip() for field in required) or payload.get("consent") is not True:
+    if (
+        any(not str(payload.get(field) or "").strip() for field in required)
+        or payload.get("consent") is not True
+    ):
         raise ApiError(422, "Заполните все обязательные поля и подтвердите согласие.")
     if not domain.valid_email(payload.get("email")):
         raise ApiError(422, "Укажите корректный адрес электронной почты.")
     if payload.get("phone") and not domain.valid_phone(payload.get("phone")):
         raise ApiError(422, "Если указываете телефон, проверьте его формат.")
     if not domain.strong_password(payload.get("password")):
-        raise ApiError(422, "Пароль должен содержать минимум 8 символов, строчную и прописную букву, цифру и спецсимвол.")
+        raise ApiError(
+            422,
+            "Пароль должен содержать минимум 8 символов, строчную и прописную букву, цифру и спецсимвол.",
+        )
     contacts = domain.normalize_messenger_contacts(payload)
     if not domain.validate_messenger_contacts(contacts):
-        raise ApiError(422, "Выберите хотя бы один мессенджер и укажите корректный контакт.")
+        raise ApiError(
+            422, "Выберите хотя бы один мессенджер и укажите корректный контакт."
+        )
     if is_team:
         total = int(payload.get("totalStudentsInGroup") or 0)
         if total < 1 or total > 1000:
             raise ApiError(422, "Укажите количество студентов в группе от 1 до 1000.")
     email = domain.normalize_email(payload.get("email"))
-    if any(domain.normalize_email(user.get("email")) == email for user in state["users"]):
+    if any(
+        domain.normalize_email(user.get("email")) == email for user in state["users"]
+    ):
         raise ApiError(409, "Этот адрес электронной почты уже зарегистрирован.")
     if is_team and any(
         team.get("group") == str(payload.get("group")).strip().upper()
@@ -83,9 +93,15 @@ async def commit_pending(context, state: dict, pending: dict) -> dict:
         if sum(user.get("teamId") == team.get("id") for user in state["users"]) >= int(
             team.get("totalStudentsInGroup") or 0
         ):
-            raise ApiError(409, "В команде уже достигнута заявленная вместимость.")
+            raise ApiError(
+                409,
+                "В команде уже достигнута заявленная вместимость.",
+                "TEAM_CAPACITY_REACHED",
+            )
     student_card = pending.get("studentCard") or {}
-    user = make_user(payload, team, student_card, "captain" if is_team else "participant")
+    user = make_user(
+        payload, team, student_card, "captain" if is_team else "participant"
+    )
     state["uploads"].append(
         {
             "url": student_card["url"],
@@ -126,9 +142,13 @@ async def commit_pending(context, state: dict, pending: dict) -> dict:
 def make_team(payload: dict[str, Any], state: dict) -> dict:
     group = str(payload["group"]).strip().upper()
     expires_at = (
-        datetime.now(timezone.utc)
-        + timedelta(days=state["settings"]["inviteLifetimeDays"])
-    ).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        (
+            datetime.now(timezone.utc)
+            + timedelta(days=state["settings"]["inviteLifetimeDays"])
+        )
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
     return {
         "id": str(uuid4()),
         "name": str(payload["teamName"]).strip(),

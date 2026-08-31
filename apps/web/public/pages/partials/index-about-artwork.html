@@ -1,0 +1,106 @@
+    <rect x="438" y="486" width="0" height="175" fill="#fff">
+      <animate attributeName="width" from="0" to="555" dur="2.4s" begin="6.0s" fill="freeze"/>
+    </rect>
+    <rect x="430" y="655" width="0" height="170" fill="#fff">
+      <animate attributeName="width" from="0" to="575" dur="2.6s" begin="7.1s" fill="freeze"/>
+    </rect>
+
+    <!-- 6. Side facade details: left and right like separate artist passes -->
+    <rect x="0" y="390" width="0" height="225" fill="#fff">
+      <animate attributeName="width" from="0" to="455" dur="2.5s" begin="6.6s" fill="freeze"/>
+    </rect>
+    <rect x="1402" y="390" width="0" height="225" fill="#fff">
+      <animate attributeName="x" from="1402" to="970" dur="2.5s" begin="6.9s" fill="freeze"/>
+      <animate attributeName="width" from="0" to="432" dur="2.5s" begin="6.9s" fill="freeze"/>
+    </rect>
+    <rect x="0" y="605" width="0" height="215" fill="#fff">
+      <animate attributeName="width" from="0" to="455" dur="2.5s" begin="8.1s" fill="freeze"/>
+    </rect>
+    <rect x="1402" y="605" width="0" height="215" fill="#fff">
+      <animate attributeName="x" from="1402" to="970" dur="2.5s" begin="8.4s" fill="freeze"/>
+      <animate attributeName="width" from="0" to="432" dur="2.5s" begin="8.4s" fill="freeze"/>
+    </rect>
+
+    <!-- 7. Statues: six individual drawing zones, one after another -->
+    <g fill="#fff">
+      <circle cx="486" cy="621" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="8.7s" fill="freeze"/></circle>
+      <circle cx="570" cy="618" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="9.05s" fill="freeze"/></circle>
+      <circle cx="655" cy="618" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="9.4s" fill="freeze"/></circle>
+      <circle cx="768" cy="618" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="9.75s" fill="freeze"/></circle>
+      <circle cx="861" cy="618" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="10.1s" fill="freeze"/></circle>
+      <circle cx="947" cy="618" r="0"><animate attributeName="r" from="0" to="42" dur="0.9s" begin="10.45s" fill="freeze"/></circle>
+    </g>
+
+    <!-- 8. Trees / landscaping as localized soft sketch passes -->
+    <path d="M118 810 C86 765 79 700 111 638 C142 580 170 609 183 662 C194 708 171 770 139 812
+             M906 813 C875 770 877 704 906 654 C935 604 959 642 959 694 C959 747 940 790 917 813
+             M1124 813 C1084 767 1091 685 1120 631 C1149 579 1179 620 1177 681 C1175 743 1151 786 1129 813
+             M1300 811 C1266 768 1275 692 1302 644 C1330 595 1360 628 1358 688 C1356 745 1332 786 1308 811"
+          fill="none" stroke="#fff" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"
+          pathLength="1" stroke-dasharray="1" stroke-dashoffset="1">
+      <animate attributeName="stroke-dashoffset" from="1" to="0" dur="3.0s" begin="9.0s" fill="freeze"/>
+    </path>
+
+    <!-- 9. Lower foreground / railing -->
+    <path d="M0 835 C240 833 420 833 700 834 C980 835 1190 834 1402 835
+             M0 895 H1402 M0 960 H1402"
+          fill="none" stroke="#fff" stroke-width="42" stroke-linecap="round"
+          pathLength="1" stroke-dasharray="1" stroke-dashoffset="1">
+      <animate attributeName="stroke-dashoffset" from="1" to="0" dur="3.2s" begin="10.6s" fill="freeze"/>
+    </path>
+    <rect x="0" y="815" width="0" height="155" fill="#fff">
+      <animate attributeName="width" from="0" to="1402" dur="3.0s" begin="11.5s" fill="freeze"/>
+    </rect>
+
+    <!-- 10. Water / bottom plane -->
+    <rect x="0" y="960" width="0" height="162" fill="#fff">
+      <animate attributeName="width" from="0" to="1402" dur="2.8s" begin="13.1s" fill="freeze"/>
+    </rect>
+
+    <!-- Final invisible-to-the-eye cleanup: guarantees every original vector is 100% present -->
+    <rect x="0" y="0" width="1402" height="1122" fill="#fff" opacity="0">
+      <animate attributeName="opacity" from="0" to="1" dur="2.2s" begin="14.4s" fill="freeze"/>
+    </rect>
+  </mask>
+</defs>
+      <!-- @include: partials/index-about-artwork-path.html -->
+      </svg>
+
+      <!-- CANVAS FRAME OVERLAY (THICK FRAMES OVER ARTWORK) -->
+      <g id="canvasFrameOverlay" pointer-events="none">
+        <rect x="167" y="140" width="920" height="920" fill="none" stroke="#2a2a2a" stroke-width="5.5" rx="2" />
+        <rect x="163" y="136" width="928" height="928" fill="none" stroke="#444444" stroke-width="4" rx="4" />
+        <line x1="170" y1="143" x2="1084" y2="143" stroke="#d5d5d5" stroke-width="2.5"/>
+        <line x1="170" y1="143" x2="170" y2="1057" stroke="#d5d5d5" stroke-width="2.5"/>
+        <line x1="170" y1="1057" x2="1084" y2="1057" stroke="#d5d5d5" stroke-width="2.5"/>
+        <line x1="1084" y1="143" x2="1084" y2="1057" stroke="#b0b0b0" stroke-width="2.5"/>
+      </g>
+
+      <!-- TOOLS -->
+      <g id="tools">
+        <use href="#pencil" transform="translate(150 1075) rotate(-2) scale(.93 1.06)"/>
+        <g transform="translate(680 1135) rotate(178) scale(.94 1.06)">
+          <use href="#pencil"/>
+        </g>
+      </g>
+    </svg>
+</div>
+          </div>
+        </div>
+
+        <div class="orbit-copy">
+          <div class="orbit-copy-inner" id="orbitCopyBlock" aria-live="polite">
+            <h2 class="orbit-copy-title" id="orbitCopyTitle">НАУЧНАЯ<br>ДЕЯТЕЛЬНОСТЬ</h2>
+            <div class="orbit-copy-line" id="orbitCopyLine" aria-hidden="true"></div>
+            <p class="orbit-copy-desc" id="orbitCopyDescription"></p>
+            <a href="rules.html" class="orbit-copy-btn" id="orbitCopyBtn">
+              <span>Подробнее</span>
+              <svg class="orbit-copy-btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="m12 5 7 7-7 7"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>

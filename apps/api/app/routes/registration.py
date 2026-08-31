@@ -1,30 +1,36 @@
 """Team registration, email verification and invite joining endpoints."""
 
+import secrets
 from datetime import datetime, timezone
-from hmac import compare_digest
 from typing import Any
-from uuid import uuid4
 
 from fastapi import APIRouter, Request
 
+from ..application.registration import (
+    RegistrationRuleViolation,
+    RegistrationService,
+)
+from ..application.uploads import UploadRuleViolation, UploadService
 from ..http.errors import ApiError
 from ..http.utils import json_response, read_json, set_session_cookie
-from ..infrastructure.postgres_writes import PersistenceError
+from ..infrastructure.persistence_errors import PersistenceError
 from ..models import (
     EmailVerificationPayload,
     JoinTeamPayload,
     RegisterTeamPayload,
     ResendEmailVerificationPayload,
+    UploadCompletePayload,
+    UploadIntentPayload,
     model_payload,
 )
 from ..security.auth import (
-    new_session,
-    password_hash,
+    issue_registration_upload_claim,
     verification_code,
     verification_code_hash,
+    verify_registration_upload_claim,
 )
 from ..shared import domain
-from .registration_helpers import active_team, commit_pending, validate_registration
+from .registration_helpers import validate_registration
 
 router = APIRouter(prefix="/api")
 
@@ -42,37 +48,16 @@ async def _validated(request: Request, model: type, limit: int) -> dict[str, Any
 
 
 def _verification_expiry(context) -> tuple[int, str]:
-    expires_at_ms = int(datetime.now(timezone.utc).timestamp() * 1000) + context.config.email_verification_ttl_ms
-    expires_at = datetime.fromtimestamp(expires_at_ms / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-    return expires_at_ms, expires_at
-
-
-async def _prune_expired(context, state: dict) -> None:
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    active = []
-    removed = False
-    for item in state.get("emailVerifications", []):
-        if int(item.get("expiresAtMs", 0)) > now_ms:
-            active.append(item)
-            continue
-        student_card = item.get("studentCard") or {}
-        await context.file_storage.delete(student_card.get("url", ""))
-        removed = True
-    if removed:
-        state["emailVerifications"] = active
-        await context.store.save(state)
-
-
-def _pending_for_email(state: dict, email: str) -> dict | None:
-    normalized = domain.normalize_email(email)
-    return next(
-        (
-            item
-            for item in state.get("emailVerifications", [])
-            if domain.normalize_email(item.get("email")) == normalized
-        ),
-        None,
+    expires_at_ms = (
+        int(datetime.now(timezone.utc).timestamp() * 1000)
+        + context.config.email_verification_ttl_ms
     )
+    expires_at = (
+        datetime.fromtimestamp(expires_at_ms / 1000, timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+    return expires_at_ms, expires_at
 
 
 def _pending_response(pending: dict) -> dict[str, Any]:
@@ -85,80 +70,95 @@ def _pending_response(pending: dict) -> dict[str, Any]:
     }
 
 
-async def _create_pending_verification(
-    request: Request, state: dict, payload: dict[str, Any], kind: str
-) -> dict[str, Any]:
-    context = _context(request)
-    email = domain.normalize_email(payload.get("email"))
-    existing = _pending_for_email(state, email)
-    student_card = await context.file_storage.save(
-        payload["studentCardFile"], payload.get("studentCardFileName", "student-card")
+def _upload_owner(context) -> tuple[str, str]:
+    owner = secrets.token_urlsafe(24)
+    return owner, issue_registration_upload_claim(
+        context.config.email_verification_secret, owner
     )
-    expires_at_ms, expires_at = _verification_expiry(context)
-    stored_payload = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"password", "studentCardFile"}
-    }
-    stored_payload["passwordHash"] = password_hash(payload["password"])
-    code = verification_code()
-    pending = {
-        # Повторная отправка формы обновляет незавершённую заявку, не создавая
-        # второй конкурирующий код и не ломая уже открытый экран подтверждения.
-        "id": existing.get("id") if existing else str(uuid4()),
-        "kind": kind,
-        "email": email,
-        "codeHash": verification_code_hash(
-            code, context.config.email_verification_secret
-        ),
-        "attempts": 0,
-        "lastSentAtMs": int(datetime.now(timezone.utc).timestamp() * 1000),
-        "expiresAtMs": expires_at_ms,
-        "expiresAt": expires_at,
-        "payload": stored_payload,
-        "studentCard": student_card,
-        "createdAt": domain.now(),
-    }
-    expires_minutes = max(1, context.config.email_verification_ttl_ms // 60_000)
-    email_message = {"code": code, "expiresMinutes": expires_minutes}
-    if not hasattr(context.store, "replace_email_verification"):
-        try:
-            await context.email_service.send_verification_code(email, code, expires_minutes)
-        except Exception:
-            await context.file_storage.delete(student_card["url"])
-            raise
-    old_student_card = (existing or {}).get("studentCard") or {}
-    replaced = False
-    stale_cards = []
-    verifications = []
-    for item in state.setdefault("emailVerifications", []):
-        if domain.normalize_email(item.get("email")) != email:
-            verifications.append(item)
-            continue
-        if not replaced:
-            verifications.append(pending)
-            replaced = True
-        else:
-            stale_cards.append((item.get("studentCard") or {}).get("url", ""))
-    if not replaced:
-        verifications.append(pending)
-    state["emailVerifications"] = verifications
-    old_urls: list[str] = []
-    if hasattr(context.store, "replace_email_verification"):
-        try:
-            old_urls = await context.store.replace_email_verification(
-                pending, email_message
+
+
+@router.post("/auth/student-card/stream")
+async def registration_card_stream(request: Request):
+    context = _context(request)
+    result = await context.rate_limiter.check(request, "registration-upload", 10)
+    if not result["allowed"]:
+        raise ApiError(429, "Слишком много загрузок. Повторите позже.")
+    name = request.headers.get("x-upload-name", "").strip()
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+    if not name or not content_type:
+        raise ApiError(422, "Не указаны имя и тип файла.")
+    owner, _ = _upload_owner(context)
+    try:
+        uploaded = await UploadService(
+            context.store, context.file_storage, context.config
+        ).registration_stream(request.stream(), name, content_type, owner)
+    except UploadRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
+    token = issue_registration_upload_claim(
+        context.config.email_verification_secret, owner, uploaded["url"]
+    )
+    return json_response({**uploaded, "registrationToken": token}, 201, request)
+
+
+@router.post("/auth/student-card/intent")
+async def registration_card_intent(request: Request):
+    context = _context(request)
+    result = await context.rate_limiter.check(request, "registration-upload", 10)
+    if not result["allowed"]:
+        raise ApiError(429, "Слишком много загрузок. Повторите позже.")
+    try:
+        payload = model_payload(
+            UploadIntentPayload.model_validate(
+                await read_json(request, context.config.max_json_body)
             )
-        except Exception:
-            await context.file_storage.delete(student_card["url"])
-            raise
-    else:
-        await context.store.save(state)
-    if old_student_card.get("url") and old_student_card.get("url") != student_card.get("url"):
-        await context.file_storage.delete(old_student_card.get("url", ""))
-    for stale_card in set(stale_cards + old_urls):
-        await context.file_storage.delete(stale_card)
-    return pending
+        )
+    except ValueError as exc:
+        raise ApiError(422, "Некорректные параметры загрузки.") from exc
+    owner, _ = _upload_owner(context)
+    try:
+        intent = await UploadService(
+            context.store, context.file_storage, context.config
+        ).registration_intent(payload, owner)
+    except UploadRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
+    token = issue_registration_upload_claim(
+        context.config.email_verification_secret, owner, key=intent["key"]
+    )
+    return json_response({**intent, "registrationToken": token}, 201, request)
+
+
+@router.post("/auth/student-card/complete")
+async def registration_card_complete(request: Request):
+    context = _context(request)
+    result = await context.rate_limiter.check(request, "registration-upload", 10)
+    if not result["allowed"]:
+        raise ApiError(429, "Слишком много загрузок. Повторите позже.")
+    try:
+        payload = model_payload(
+            UploadCompletePayload.model_validate(
+                await read_json(request, context.config.max_json_body)
+            )
+        )
+    except ValueError as exc:
+        raise ApiError(422, "Некорректные параметры завершения загрузки.") from exc
+    claim = verify_registration_upload_claim(
+        payload.get("registrationToken", ""), context.config.email_verification_secret
+    )
+    if not claim or claim.get("key") != payload["key"]:
+        raise ApiError(403, "Временная загрузка документа недействительна или истекла.")
+    try:
+        uploaded = await UploadService(
+            context.store, context.file_storage, context.config
+        ).registration_complete(payload, claim["owner"])
+    except UploadRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
+    token = issue_registration_upload_claim(
+        context.config.email_verification_secret,
+        claim["owner"],
+        uploaded["url"],
+        payload["key"],
+    )
+    return json_response({**uploaded, "registrationToken": token}, 201, request)
 
 
 @router.post("/auth/register-team")
@@ -167,13 +167,24 @@ async def register_team(request: Request):
     result = await context.rate_limiter.check(request, "register", 5)
     if not result["allowed"]:
         raise ApiError(429, "Слишком много заявок с этого адреса. Повторите позже.")
-    state = await context.store.load()
-    await _prune_expired(context, state)
-    if not domain.registration_open(state["settings"]):
+    settings = await context.store.get_settings()
+    state = {"settings": settings, "users": [], "teams": []}
+    if not domain.registration_open(settings):
         raise ApiError(403, "Регистрация завершена или ещё не началась.")
     payload = await _validated(request, RegisterTeamPayload, 12 * 1024 * 1024)
+    existing_user = await context.store.get_user_by_email(
+        domain.normalize_email(payload.get("email"))
+    )
+    existing_team = await context.store.get_team_by_group(payload.get("group"))
+    state["users"] = [existing_user] if existing_user else []
+    state["teams"] = [existing_team] if existing_team else []
     validate_registration(payload, state, is_team=True)
-    pending = await _create_pending_verification(request, state, payload, "team")
+    try:
+        pending = await RegistrationService(context).create_pending_verification(
+            payload, "team"
+        )
+    except RegistrationRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(_pending_response(pending), 202, request)
 
 
@@ -183,18 +194,37 @@ async def join_team(request: Request):
     result = await context.rate_limiter.check(request, "register", 10)
     if not result["allowed"]:
         raise ApiError(429, "Слишком много заявок с этого адреса. Повторите позже.")
-    state = await context.store.load()
-    await _prune_expired(context, state)
-    if not domain.registration_open(state["settings"]):
+    settings = await context.store.get_settings()
+    state = {"settings": settings, "users": [], "teams": []}
+    if not domain.registration_open(settings):
         raise ApiError(403, "Регистрация завершена или ещё не началась.")
     payload = await _validated(request, JoinTeamPayload, 12 * 1024 * 1024)
-    team = active_team(state, payload.get("inviteCode"))
+    team = await context.store.get_invite(payload.get("inviteCode"))
     if not team:
         raise ApiError(404, "Приглашение неактивно.")
+    snapshot = await context.store.get_team_snapshot(team["id"])
+    state["teams"] = [team]
+    state["users"] = snapshot[1] if snapshot else []
+    existing_user = await context.store.get_user_by_email(
+        domain.normalize_email(payload.get("email"))
+    )
+    if existing_user:
+        state["users"].append(existing_user)
     validate_registration(payload, state, is_team=False)
-    if sum(user.get("teamId") == team.get("id") for user in state["users"]) >= int(team.get("totalStudentsInGroup") or 0):
-        raise ApiError(409, "В команде уже достигнута заявленная вместимость.")
-    pending = await _create_pending_verification(request, state, payload, "participant")
+    if sum(user.get("teamId") == team.get("id") for user in state["users"]) >= int(
+        team.get("totalStudentsInGroup") or 0
+    ):
+        raise ApiError(
+            409,
+            "В команде уже достигнута заявленная вместимость.",
+            "TEAM_CAPACITY_REACHED",
+        )
+    try:
+        pending = await RegistrationService(context).create_pending_verification(
+            payload, "participant"
+        )
+    except RegistrationRuleViolation as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     return json_response(_pending_response(pending), 202, request)
 
 
@@ -207,47 +237,18 @@ async def verify_email(request: Request):
     payload = await _validated(
         request, EmailVerificationPayload, context.config.max_json_body
     )
-    if hasattr(context.store, "get_email_verification"):
-        expected = verification_code_hash(
-            payload.get("code", ""), context.config.email_verification_secret
-        )
-        try:
-            user, token = await context.store.commit_pending_atomic(
-                payload.get("verificationId"),
-                context.config.session_ttl_ms,
-                expected,
-                context.config.email_verification_max_attempts,
-            )
-        except PersistenceError as exc:
-            raise ApiError(exc.status_code, exc.message) from exc
-        response = json_response({"user": domain.public_user(user)}, 201, request)
-        set_session_cookie(response, token, context.config)
-        return response
-    state = await context.store.load()
-    await _prune_expired(context, state)
-    pending = next(
-        (
-            item
-            for item in state.get("emailVerifications", [])
-            if item.get("id") == payload.get("verificationId")
-        ),
-        None,
-    )
-    if not pending:
-        raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
-    if int(pending.get("attempts", 0)) >= context.config.email_verification_max_attempts:
-        await _discard_pending(context, state, pending)
-        raise ApiError(422, "Лимит попыток исчерпан. Начните регистрацию заново.")
     expected = verification_code_hash(
         payload.get("code", ""), context.config.email_verification_secret
     )
-    if not compare_digest(expected, str(pending.get("codeHash") or "")):
-        pending["attempts"] = int(pending.get("attempts", 0)) + 1
-        await context.store.save(state)
-        raise ApiError(422, "Неверный код подтверждения.")
-    user = await commit_pending(context, state, pending)
-    token = new_session(state, user, context.config.session_ttl_ms)
-    await context.store.save(state)
+    try:
+        user, token = await context.store.commit_pending_atomic(
+            payload.get("verificationId"),
+            context.config.session_ttl_ms,
+            expected,
+            context.config.email_verification_max_attempts,
+        )
+    except PersistenceError as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
     response = json_response({"user": domain.public_user(user)}, 201, request)
     set_session_cookie(response, token, context.config)
     return response
@@ -262,37 +263,7 @@ async def resend_email_code(request: Request):
     payload = await _validated(
         request, ResendEmailVerificationPayload, context.config.max_json_body
     )
-    if hasattr(context.store, "resend_email_verification_atomic"):
-        pending = await context.store.get_email_verification(payload.get("verificationId"))
-        if not pending:
-            raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
-        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-        if int(pending.get("expiresAtMs", 0)) <= now_ms:
-            raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
-        code = verification_code()
-        expires_at_ms, expires_at = _verification_expiry(context)
-        try:
-            pending = await context.store.resend_email_verification_atomic(
-                pending["id"],
-                {"codeHash": verification_code_hash(code, context.config.email_verification_secret),
-                 "attempts": 0, "lastSentAtMs": now_ms, "expiresAtMs": expires_at_ms,
-                 "expiresAt": expires_at},
-                {"code": code, "expiresMinutes": max(1, context.config.email_verification_ttl_ms // 60_000)},
-                now_ms, context.config.email_verification_cooldown_ms,
-            )
-        except PersistenceError as exc:
-            raise ApiError(exc.status_code, exc.message) from exc
-        return json_response(_pending_response(pending), 200, request)
-    state = await context.store.load()
-    await _prune_expired(context, state)
-    pending = next(
-        (
-            item
-            for item in state.get("emailVerifications", [])
-            if item.get("id") == payload.get("verificationId")
-        ),
-        None,
-    )
+    pending = await context.store.get_email_verification(payload.get("verificationId"))
     if not pending:
         raise ApiError(404, "Заявка на подтверждение не найдена или уже обработана.")
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -300,39 +271,38 @@ async def resend_email_code(request: Request):
         now_ms - int(pending.get("lastSentAtMs", 0))
     )
     if retry_ms > 0:
-        raise ApiError(429, f"Новый код можно запросить через {max(1, retry_ms // 1000)} сек.")
-    old_values = {
-        key: pending.get(key)
-        for key in ("codeHash", "attempts", "lastSentAtMs", "expiresAtMs", "expiresAt")
-    }
+        raise ApiError(
+            429, f"Новый код можно запросить через {max(1, retry_ms // 1000)} сек."
+        )
     code = verification_code()
     expires_at_ms, expires_at = _verification_expiry(context)
-    pending.update(
-        {
-            "codeHash": verification_code_hash(
-                code, context.config.email_verification_secret
-            ),
-            "attempts": 0,
-            "lastSentAtMs": now_ms,
-            "expiresAtMs": expires_at_ms,
-            "expiresAt": expires_at,
-        }
-    )
     try:
+        pending = await context.store.resend_email_verification_atomic(
+            pending["id"],
+            {
+                "codeHash": verification_code_hash(
+                    code, context.config.email_verification_secret
+                ),
+                "attempts": 0,
+                "lastSentAtMs": now_ms,
+                "expiresAtMs": expires_at_ms,
+                "expiresAt": expires_at,
+            },
+            {
+                "code": code,
+                "expiresMinutes": max(
+                    1, context.config.email_verification_ttl_ms // 60_000
+                ),
+            },
+            now_ms,
+            context.config.email_verification_cooldown_ms,
+        )
+    except PersistenceError as exc:
+        raise ApiError(exc.status_code, exc.message, exc.code) from exc
+    if not context.store.queues_email:
         await context.email_service.send_verification_code(
             pending["email"],
             code,
             max(1, context.config.email_verification_ttl_ms // 60_000),
         )
-    except Exception:
-        pending.update(old_values)
-        raise
-    await context.store.save(state)
     return json_response(_pending_response(pending), 200, request)
-
-
-async def _discard_pending(context, state: dict, pending: dict) -> None:
-    state["emailVerifications"] = [item for item in state.get("emailVerifications", []) if item.get("id") != pending.get("id")]
-    student_card = pending.get("studentCard") or {}
-    await context.file_storage.delete(student_card.get("url", ""))
-    await context.store.save(state)

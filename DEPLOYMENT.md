@@ -44,7 +44,7 @@ FastAPI             auth, RBAC, domain, uploads, notifications
 | Private object storage | Файлы вне локального диска и публичной статики | S3-compatible adapter, credentials и bucket policy |
 | AV scanner | Проверка пользовательских файлов | Hook ClamAV есть; production без scanner fail-closed |
 | SMTP provider | Коды подтверждения, восстановление пароля и уведомления | На текущем staging настроен Mail.ru SMTP по SSL/465; для финального production нужны secret manager и проверка доставляемости |
-| Process manager | Restart, logs, graceful stop | Выбрать systemd или Docker Compose |
+| Process manager | Restart, logs, graceful stop | Docker Compose split profile |
 
 ## Что рекомендуется дополнительно
 
@@ -64,7 +64,7 @@ FastAPI             auth, RBAC, domain, uploads, notifications
 1. Nginx принимает `80/443`; HTTP делает `308` на HTTPS, а API и Node слушают только `127.0.0.1`.
 2. systemd или Docker Compose управляет Node gateway и FastAPI.
 3. PostgreSQL и Redis работают как отдельные сервисы с backup policy.
-4. Задать `LUG_FILE_STORAGE_PROVIDER=s3`, private bucket, `LUG_S3_BUCKET`, при необходимости endpoint/credentials и lifecycle policy; scanner обязателен. API выдаёт только короткие presigned GET URLs после проверки прав.
+4. Задать `LUG_FILE_STORAGE_PROVIDER=s3`, private bucket, `LUG_S3_BUCKET`, при необходимости endpoint/credentials и lifecycle policy; scanner обязателен. API выдаёт только короткие presigned GET URLs после проверки прав. Состояние multipart intent хранится в Redis, поэтому Redis должен быть доступен всем API-репликам.
 5. `/metrics` и `/readyz` разрешены только monitoring network, `/healthz` можно
    оставить публичным как минимальный liveness endpoint.
 6. Firewall закрывает прямой внешний доступ к `4173`, `4174`, PostgreSQL и Redis.
@@ -85,14 +85,14 @@ CSRF и ограничения web gateway.
 - ClamAV `1.5.4` работает с базой сигнатур, встроенной в официальный образ;
 - `NODE_ENV=staging`, PostgreSQL, Redis, S3 и обязательное сканирование загрузок включены;
 - SMTP Mail.ru настроен по SSL на порту `465` для кодов, восстановления пароля и уведомлений;
-- временный staging сейчас доступен через Nginx по HTTPS на IP
-  `51.250.102.106`; HTTP `:80` делает redirect на HTTPS `:443`;
+- staging должен быть доступен через Nginx по HTTPS на доменном имени из
+  `PUBLIC_BASE_URL`; HTTP edge должен делать redirect на HTTPS;
 - на IP установлен временный самоподписанный сертификат, поэтому браузер может
   показывать предупреждение; для production нужен доверенный сертификат на
   реальном домене;
-- актуальный образ `lug-app:e2ead36` запущен за Nginx на loopback-порту `4175`,
-  PostgreSQL принимает TLS, а `LUG_REQUIRE_HTTPS=true`,
-  `LUG_TRUST_PROXY=true` и точный `LUG_TRUSTED_PROXY_IPS` заданы в staging;
+- API и web должны быть запущены за Nginx на loopback-порту, PostgreSQL должен
+  принимать TLS, а `LUG_REQUIRE_HTTPS=true`, `LUG_TRUST_PROXY=true` и точный
+  `LUG_TRUSTED_PROXY_IPS` должны быть заданы в staging;
 - перед production нужно заменить временный IP-сертификат на доменный TLS edge,
   закрыть origin и проверить все обязательные секреты через secret manager.
 
@@ -126,8 +126,9 @@ docker compose --env-file .env.production ps
 
 ```bash
 cd /opt/lug
-docker compose --env-file .env.production build app
-docker compose --env-file .env.production up -d app
+docker compose --env-file .env.production -f docker-compose.split.yml build web api worker
+docker compose --env-file .env.production -f docker-compose.split.yml --profile migration run --rm migrate
+docker compose --env-file .env.production -f docker-compose.split.yml up -d api worker web
 curl -fsS http://127.0.0.1/readyz
 ```
 
@@ -150,6 +151,17 @@ curl -fsS http://127.0.0.1/readyz
 
 ## Масштабирование
 
+Перед запуском новой версии PostgreSQL-схема обновляется отдельной migration job:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.split.yml --profile migration run --rm migrate
+docker compose --env-file .env.production -f docker-compose.split.yml up -d api worker web
+```
+
+API и worker не выполняют DDL при старте. При несовместимой или неготовой схеме
+процесс завершается с явной ошибкой; миграцию нужно повторить до запуска новой
+версии приложения.
+
 При нескольких экземплярах Node/API нужны общий PostgreSQL, Redis и object
 storage. PostgreSQL-адаптер хранит сущности отдельными строками и не использует
 глобальный process-local mutation lock; pool настраивается через
@@ -159,11 +171,9 @@ storage. PostgreSQL-адаптер хранит сущности отдельн�
 `LUG_TRUST_PROXY=true` допустим только вместе с точным списком
 `LUG_TRUSTED_PROXY_IPS`.
 
-Письма уведомлений отправляются с ограниченной конкурентностью и изоляцией
-ошибок по адресатам, поэтому один недоступный ящик не отменяет остальные
-отправки. Для больших рассылок это защитный промежуточный режим; при заметном
-росте аудитории отправку следует вынести в durable queue/worker, чтобы HTTP-
-запрос админки не зависел от продолжительности SMTP-доставки.
+В PostgreSQL уведомления отправляются через durable outbox worker, поэтому
+HTTP-запрос админки не зависит от продолжительности SMTP-доставки. JSON-store
+остаётся development-only адаптером и доставляет такие письма напрямую.
 
 После перехода на PostgreSQL уведомления и коды складываются в durable
 `lug_email_outbox`. Для нескольких app-инстансов используйте
@@ -208,4 +218,11 @@ docker compose --env-file .env.production -f docker-compose.split.yml run --rm a
 - [ ] `LUG_EMAIL_VERIFICATION_SECRET` задан отдельным случайным секретом; коды не пишутся в production-лог.
 - [ ] backup/restore и ротация секретов проверены вручную.
 - [ ] Smoke, dependency audit и внешний security scan пройдены после deployment.
+
+Для backup PostgreSQL используйте custom-format dump и проверяйте его отдельно:
+
+```bash
+npm run backup:postgres
+npm run backup:postgres:verify
+```
 

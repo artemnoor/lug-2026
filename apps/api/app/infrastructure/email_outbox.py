@@ -22,7 +22,11 @@ class EmailOutboxWorker:
                     pass
 
     async def run_once(self) -> bool:
-        message = await self.store.claim_email()
+        try:
+            message = await self.store.claim_email()
+        except Exception as error:
+            self.logger.error("email.outbox_claim_failed", {"error": str(error)[:1000]})
+            return False
         if not message:
             return False
         try:
@@ -40,7 +44,10 @@ class EmailOutboxWorker:
                     message["recipient"], payload["title"], payload["message"]
                 )
         except Exception as error:
-            self.logger.error("email.outbox_failed", {"messageId": str(message["id"]), "error": error})
+            self.logger.error(
+                "email.outbox_failed",
+                {"messageId": str(message["id"]), "error": str(error)[:1000]},
+            )
             await self.store.finish_email(message["id"], str(error))
         else:
             await self.store.finish_email(message["id"])

@@ -47,6 +47,25 @@ server {
     proxy_request_buffering on;
     proxy_buffering on;
 
+    # Serve build-generated .gz assets at the edge instead of compressing in
+    # the Node process for every request. Keep upload bodies streaming.
+    gzip_static on;
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    location ^~ /api/uploads/stream {
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_pass http://lug_web;
+    }
+
+    location ~* \.[a-f0-9]{12}\.(?:css|js|svg|png|jpe?g|webp|avif|woff2?|ttf|otf)$ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        proxy_pass http://lug_web;
+    }
+
     # Keep liveness public if the load balancer needs it.
     location = /healthz {
         proxy_pass http://lug_web;

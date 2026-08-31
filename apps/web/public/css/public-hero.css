@@ -1,0 +1,626 @@
+
+  /* ==========================================================================
+     1. ГЛАВНЫЙ ЭКРАН (HERO)
+     ========================================================================== */
+  .stage-hero{
+    height:135vh;
+    overflow:visible;
+    z-index:1;
+    background:linear-gradient(to bottom, rgba(220,238,255,.42) 0%, rgba(220,238,255,0) 18%), url('../assets/hero/bmstu-modern-sky.webp?v=20260829-assets-01') center center / cover no-repeat;
+  }
+  /* Дымчатое растворение изображения в фон следующего экрана. */
+.stage-hero::after{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:76vh;
+  z-index:4;
+  content:"";
+  pointer-events:none;
+  background:linear-gradient(to bottom,
+    rgba(220,238,255,0) 0%,
+    rgba(220,238,255,.01) 12%,
+    rgba(220,238,255,.04) 24%,
+    rgba(220,238,255,.10) 38%,
+    rgba(220,238,255,.22) 52%,
+    rgba(220,238,255,.42) 66%,
+    rgba(220,238,255,.68) 80%,
+    rgba(220,238,255,.90) 92%,
+    var(--page) 100%);
+}
+
+  /* Слои первого экрана: небо → движущиеся облака → здание. */
+  .hero-sky-light{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    display:none;
+  }
+  .hero-clouds{
+    position:absolute;
+    inset:0;
+    z-index:2;
+    overflow:hidden;
+    pointer-events:none;
+    display:block;
+  }
+  .hero-cloud{
+    position:absolute;
+    left:0;
+    width:clamp(390px,42vw,690px);
+    height:auto;
+    opacity:0;
+    filter:brightness(1.06) saturate(1.02);
+    will-change:transform,opacity;
+    animation:hero-cloud-drift var(--cloud-duration) linear infinite;
+    animation-delay:var(--cloud-delay);
+  }
+  .hero-cloud--one{
+    top:-4%;
+    width:clamp(260px,30vw,480px);
+    --cloud-duration:94s;
+    --cloud-delay:-6s;
+    --cloud-opacity:.36;
+    animation-name:hero-cloud-arc-high;
+  }
+  .hero-cloud--two{
+    top:44%;
+    width:clamp(280px,33vw,510px);
+    --cloud-duration:112s;
+    --cloud-delay:-44s;
+    --cloud-opacity:.65;
+    animation-name:hero-cloud-arc-low;
+  }
+  .hero-cloud--three{
+    top:6%;
+    width:clamp(220px,24vw,390px);
+    --cloud-duration:98s;
+    --cloud-delay:-72s;
+    --cloud-opacity:.45;
+    animation-name:hero-cloud-arc-mid;
+  }
+  .hero-cloud--four{
+    top:50%;
+    width:clamp(260px,29vw,470px);
+    --cloud-duration:116s;
+    --cloud-delay:-24s;
+    --cloud-opacity:.65;
+    animation-name:hero-cloud-arc-near;
+  }
+  .hero-cloud--five{
+    top:20%;
+    width:clamp(270px,30vw,490px);
+    --cloud-duration:102s;
+    --cloud-delay:-58s;
+    --cloud-opacity:.50;
+    animation-name:hero-cloud-arc-mid;
+  }
+  .hero-cloud--six{
+    top:35%;
+    width:clamp(240px,27vw,430px);
+    --cloud-duration:108s;
+    --cloud-delay:-88s;
+    --cloud-opacity:.58;
+    animation-name:hero-cloud-arc-low;
+  }
+  .hero-cloud--seven{
+    top:2%;
+    width:clamp(250px,29vw,460px);
+    --cloud-duration:96s;
+    --cloud-delay:-50s;
+    --cloud-opacity:.35;
+    animation-name:hero-cloud-arc-high;
+  }
+  .hero-cloud--eight{
+    top:38%;
+    width:clamp(270px,31vw,490px);
+    --cloud-duration:106s;
+    --cloud-delay:-16s;
+    --cloud-opacity:.60;
+    animation-name:hero-cloud-arc-low;
+  }
+  .hero-cloud--nine{
+    top:15%;
+    width:clamp(230px,26vw,410px);
+    --cloud-duration:95s;
+    --cloud-delay:-82s;
+    --cloud-opacity:.44;
+    animation-name:hero-cloud-arc-mid;
+  }
+  .hero-cloud--ten{
+    top:47%;
+    width:clamp(260px,29vw,470px);
+    --cloud-duration:114s;
+    --cloud-delay:-62s;
+    --cloud-opacity:.62;
+    animation-name:hero-cloud-arc-near;
+  }
+  .hero-cloud--eleven{
+    top:25%;
+    width:clamp(260px,28vw,450px);
+    --cloud-duration:100s;
+    --cloud-delay:-10s;
+    --cloud-opacity:.48;
+    animation-name:hero-cloud-arc-mid;
+  }
+  .hero-cloud--twelve{
+    top:-2%;
+    width:clamp(240px,27vw,430px);
+    --cloud-duration:92s;
+    --cloud-delay:-38s;
+    --cloud-opacity:.34;
+    animation-name:hero-cloud-arc-high;
+  }
+  .hero-cloud-static,
+  .hero-cloud-streaks{
+    position:absolute;
+    left:0;
+    height:auto;
+    pointer-events:none;
+    filter:brightness(1.04) saturate(1.02);
+    will-change:transform,opacity;
+  }
+  .hero-cloud-static--right{
+    display:block;
+    top:12%;
+    width:clamp(250px,30vw,480px);
+    --cloud-duration:100s;
+    --cloud-delay:-34s;
+    --cloud-opacity:.42;
+    animation:hero-cloud-drift 100s linear -34s infinite;
+  }
+  .hero-cloud-streaks{
+    display:block;
+    top:28%;
+    width:clamp(240px,28vw,450px);
+    --cloud-duration:95s;
+    --cloud-delay:-66s;
+    --cloud-opacity:.38;
+    animation:hero-cloud-drift 95s linear -66s infinite;
+  }
+  @keyframes hero-cloud-drift{
+    0%{transform:translate3d(-50vw,var(--cloud-y,0),0);opacity:0;}
+    6%{opacity:var(--cloud-opacity,.5);}
+    94%{opacity:var(--cloud-opacity,.5);}
+    100%{transform:translate3d(105vw,var(--cloud-y,0),0);opacity:0;}
+  }
+  @keyframes hero-cloud-arc-near{
+    0%{transform:translate3d(-56vw,3vh,0);opacity:0;}
+    6%{transform:translate3d(-42vw,2vh,0);opacity:var(--cloud-opacity);}
+    44%{transform:translate3d(19vw,-1vh,0);opacity:var(--cloud-opacity);}
+    78%{transform:translate3d(80vw,2vh,0);opacity:var(--cloud-opacity);}
+    97%{transform:translate3d(111vw,4vh,0);opacity:var(--cloud-opacity);}
+    100%{transform:translate3d(118vw,4.5vh,0);opacity:0;}
+  }
+  @keyframes hero-cloud-arc-high{
+    0%{transform:translate3d(-44vw,-4vh,0);opacity:0;}
+    9%{transform:translate3d(-30vw,-3vh,0);opacity:var(--cloud-opacity);}
+    45%{transform:translate3d(23vw,1vh,0);opacity:var(--cloud-opacity);}
+    82%{transform:translate3d(77vw,-2vh,0);opacity:var(--cloud-opacity);}
+    97%{transform:translate3d(101vw,-4vh,0);opacity:var(--cloud-opacity);}
+    100%{transform:translate3d(108vw,-4vh,0);opacity:0;}
+  }
+  @keyframes hero-cloud-arc-mid{
+    0%{transform:translate3d(-48vw,1vh,0);opacity:0;}
+    7%{transform:translate3d(-35vw,2vh,0);opacity:var(--cloud-opacity);}
+    48%{transform:translate3d(30vw,-2vh,0);opacity:var(--cloud-opacity);}
+    96%{transform:translate3d(106vw,1vh,0);opacity:var(--cloud-opacity);}
+    100%{transform:translate3d(113vw,2vh,0);opacity:0;}
+  }
+  @keyframes hero-cloud-arc-low{
+    0%{transform:translate3d(-38vw,-1vh,0);opacity:0;}
+    8%{transform:translate3d(-27vw,-2vh,0);opacity:var(--cloud-opacity);}
+    51%{transform:translate3d(29vw,2vh,0);opacity:var(--cloud-opacity);}
+    96%{transform:translate3d(88vw,-1vh,0);opacity:var(--cloud-opacity);}
+    100%{transform:translate3d(96vw,-2vh,0);opacity:0;}
+  }
+  .hero-building{
+    position:absolute;
+    inset:0;
+    z-index:3;
+    pointer-events:none;
+    display:block;
+    background:url('../assets/hero/bmstu-modern-campus-cutout.webp?v=20260829-assets-01') center calc(100% - 9vh) / 100% auto no-repeat;
+    filter:brightness(.92) saturate(.96);
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
+    mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
+  }
+  .hero-image-shade{
+    display:none;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .hero-cloud{animation:none;opacity:.35;transform:translate3d(18vw,var(--cloud-y),0);}
+    .hero-cloud--two,.hero-cloud--four{display:none;}
+  }
+  .stage-hero .star-left{opacity:1;}
+  .stage-hero .star-purple{opacity:1;}
+  .stage-hero .star-left path{fill:var(--star-blue);}
+  .stage-hero .star-purple path{fill:#006cdc;}
+
+  /* Звезды на главном экране */
+  .star-decor{
+    position:absolute;
+    height:auto;
+    aspect-ratio:1448/1086;
+    z-index:4;
+    pointer-events:none;
+  }
+
+  .star-left{
+    left:-16vw;
+    bottom:4vh;
+    width:38vw;
+  }
+
+  .star-purple{
+    right:-12vw;
+    top:7vh;
+    width:31vw;
+    transform:rotate(-16deg);
+    opacity:0.95;
+  }
+
+  .hero-word{
+    position:absolute;
+    z-index:1;
+    margin:0;
+    color:var(--ink);
+    font-family:var(--font-display);
+    font-weight:var(--hero-weight);
+    text-transform:uppercase;
+    text-shadow:0 5px 24px rgba(7,18,62,.30);
+    white-space:nowrap;
+    line-height:var(--hero-line-height);
+    letter-spacing:var(--hero-letter-spacing);
+    transform-origin:left top;
+  }
+
+  .best{
+    left:3.0%;
+    top:23.5%;
+    font-size:11.6vw;
+  }
+  .study{
+    left:3.25%;
+    top:47.0%;
+    font-size:11.4vw;
+  }
+  .group{
+    left:46.1%;
+    top:68.8%;
+    font-size:11.2vw;
+    letter-spacing:var(--hero-letter-spacing);
+  }
+
+  /* Анимация резкого выезда заголовка первого экрана сверху вниз по очереди */
+  @keyframes heroTitleDrop{
+    0%{
+      opacity:0;
+      transform:translate3d(0, -90px, 0);
+    }
+    30%{
+      opacity:1;
+    }
+    100%{
+      opacity:1;
+      transform:translate3d(0, 0, 0);
+    }
+  }
+
+  /* Заголовок первого экрана: ступенчатая композиция с самостоятельным годом. */
+  .hero-title{
+    position:absolute;
+    z-index:5;
+    left:9.5%;
+    top:23.5%;
+    width:66%;
+    margin:0;
+    color:#fff;
+    font-family:var(--font-display);
+    font-weight:var(--hero-weight);
+    line-height:.81;
+    letter-spacing:var(--hero-letter-spacing);
+    text-transform:uppercase;
+    text-shadow:0 5px 24px rgba(7,18,62,.30);
+  }
+  .hero-title-line{
+    display:block;
+    white-space:nowrap;
+    opacity:0;
+    transform:translate3d(0, -90px, 0);
+    will-change:transform, opacity;
+  }
+  .hero-title-line:nth-child(1){
+    font-size:10.9vw;
+    animation:heroTitleDrop 0.65s cubic-bezier(0.12, 0.98, 0.24, 1) 0.12s both;
+  }
+  .hero-title-line:nth-child(2){
+    margin-left:9.4vw;
+    font-size:10.5vw;
+    animation:heroTitleDrop 0.65s cubic-bezier(0.12, 0.98, 0.24, 1) 0.28s both;
+  }
+  .hero-title-line:nth-child(3){
+    margin-left:19.1vw;
+    font-size:10.15vw;
+    animation:heroTitleDrop 0.65s cubic-bezier(0.12, 0.98, 0.24, 1) 0.44s both;
+  }
+  .hero-title-year{
+    display:block;
+    margin:0.13em 0 0 33.4vw;
+    color:inherit;
+    font-size:6.15vw;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.36em;
+    line-height:1;
+    opacity:0;
+    transform:translate3d(0, -90px, 0);
+    will-change:transform, opacity;
+    animation:heroTitleDrop 0.65s cubic-bezier(0.12, 0.98, 0.24, 1) 0.60s both;
+  }
+
+  .hero-cta{
+    position:absolute;
+    z-index:7;
+    top:76%;
+    left:50%;
+    width:min(500px, 43vw);
+    transform:translateX(-50%);
+    text-align:center;
+  }
+  .hero-timer{
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    gap:14px;
+    padding:24px 30px 21px;
+    border:1px solid rgba(163,200,253,.68);
+    border-radius:22px;
+    background:linear-gradient(135deg, rgba(0,108,220,.38), rgba(22,79,232,.22) 48%, rgba(0,108,220,.32));
+    box-shadow:0 24px 45px rgba(0,40,100,.32), inset 0 1px 0 rgba(255,255,255,.62), inset 0 -1px 0 rgba(0,108,220,.24);
+    backdrop-filter:blur(24px) saturate(135%);
+  }
+  .hero-timer::before{
+    position:absolute;
+    top:-90%;
+    left:8%;
+    width:58%;
+    height:135%;
+    border-radius:50%;
+    background:radial-gradient(ellipse, rgba(140,205,255,.52), rgba(0,108,220,0) 67%);
+    content:"";
+    pointer-events:none;
+  }
+  .timer-unit{position:relative;z-index:1;min-width:72px;}
+  .timer-value{
+    display:block;
+    color:#fff;
+    font-size:clamp(34px,3vw,51px);
+    font-variant-numeric:tabular-nums;
+    font-weight:400;
+    letter-spacing:.08em;
+    line-height:1;
+    text-shadow:0 2px 16px rgba(0,60,150,.45);
+  }
+  .timer-label{
+    display:block;
+    margin-top:10px;
+    color:rgba(220,238,255,.82);
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  .timer-separator{position:relative;z-index:1;color:rgba(163,200,253,.85);font-size:34px;line-height:.9;}
+  .hero-apply{
+    display:flex;
+    min-height:84px;
+    align-items:center;
+    justify-content:center;
+    margin-top:26px;
+    border:1px solid rgba(255,255,255,.72);
+    border-radius:18px;
+    background:linear-gradient(135deg, rgba(0,108,220,.82), rgba(22,79,232,.68) 52%, rgba(0,108,220,.88));
+    box-shadow:0 18px 36px rgba(0,45,120,.32), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -1px 0 rgba(0,70,160,.3);
+    backdrop-filter:blur(22px) saturate(135%);
+    color:#fff;
+    font-size:clamp(18px,1.7vw,25px);
+    font-weight:500;
+    letter-spacing:-.02em;
+    text-shadow:0 2px 12px rgba(0,40,110,.35);
+    transition:background .2s ease, transform .2s ease, box-shadow .2s ease;
+  }
+  .hero-apply:hover{background:linear-gradient(135deg, rgba(0,120,240,.92), rgba(30,95,245,.82) 52%, rgba(0,120,240,.96));box-shadow:0 22px 42px rgba(0,45,120,.42), inset 0 1px 0 rgba(255,255,255,.8);transform:translateY(-2px);}
+  .hero-apply:active{transform:scale(.96);}
+  .hero-deadline{margin:14px 0 0;color:#000;font-size:14px;}
+
+  /* Бейдж-звезда вокруг текста описания (пустая внутри) */
+  .copy-badge{
+    position:absolute;
+    left:74.0%;
+    top:48.5%;
+    transform:translateY(-50%);
+    width:23.5vw;
+    height:18.5vw;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    z-index:6;
+    filter:drop-shadow(0 8px 18px rgba(255,255,255,.36));
+  }
+
+  .copy-star-svg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .copy-text{
+    position:relative;
+    z-index:2;
+    color:#fff;
+    font-family:var(--font-mono);
+    font-weight:700;
+    font-size:clamp(11px, 0.85vw, 15px);
+    line-height:1.64;
+    letter-spacing:0.035em;
+    text-transform:uppercase;
+    max-width:82%;
+    text-shadow:0 2px 12px rgba(7,18,62,.48);
+  }
+
+  /* Экран-манифест после главного: масштабный тезис о конкурсе. */
+  .stage-manifesto{
+    min-height:640px;
+    height:auto;
+    position:relative;
+    overflow:visible;
+    background:var(--page);
+    padding-bottom:20px;
+  }
+  @keyframes manifestoStarRollIn{
+    0%{
+      opacity:0;
+      transform:translate3d(38vw, 4vh, 0) rotate(80deg) scale(0.88);
+    }
+    30%{
+      opacity:0.95;
+    }
+    100%{
+      opacity:0.95;
+      transform:translate3d(0, 0, 0) rotate(-14deg) scale(1);
+    }
+  }
+
+  .manifesto-star{
+    position:absolute;
+    right:-16vw;
+    top:-6%;
+    width:66vw;
+    max-width:1150px;
+    height:auto;
+    aspect-ratio:1448/1086;
+    z-index:0;
+    pointer-events:none;
+    opacity:0;
+    transform:translate3d(38vw, 4vh, 0) rotate(80deg) scale(0.88);
+    transform-origin:center center;
+    filter:drop-shadow(0 12px 28px rgba(0,108,220,.22));
+    will-change:transform, opacity;
+  }
+  .manifesto-star.is-visible{
+    animation:manifestoStarRollIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .manifesto-star .manifesto-star-main{
+    fill:#006cdc;
+  }
+  .manifesto-star .manifesto-star-dashed{
+    fill:none;
+    stroke:#006cdc;
+    stroke-width:6;
+    stroke-dasharray:16 12;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    opacity:0.75;
+  }
+/* Декоративные линии и окружности скрыты: фокус остаётся на заголовке. */
+.stage-manifesto::before,
+.stage-manifesto::after{display:none;}
+  .manifesto-content{
+    position:relative;
+    z-index:1;
+    left:12%;
+    top:auto;
+    padding-top:72px;
+    width:min(76vw,1100px);
+  }
+  .manifesto-kicker{
+    margin:0 0 2.2em;
+    color:rgba(7,18,62,.56);
+    font-size:clamp(11px,1vw,15px);
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+  }
+  .manifesto-title{
+    margin:0;
+    color:var(--ink);
+    font-family:var(--font-display);
+    font-size:clamp(46px,5.6vw,90px);
+    font-weight:700;
+    letter-spacing:-.035em;
+    word-spacing:0.18em;
+    line-height:.96;
+    text-transform:uppercase;
+  }
+  .manifesto-title-line{display:block;}
+  .manifesto-title-accent{color:#006CDC;}
+  .highlight-marker{
+    position:relative;
+    display:inline-block;
+    color:inherit;
+  }
+  .marker-underline-svg{
+    position:absolute;
+    left:-3%;
+    bottom:-0.18em;
+    width:106%;
+    height:0.32em;
+    min-height:18px;
+    pointer-events:none;
+    overflow:visible;
+    z-index:2;
+  }
+  .marker-path{
+    fill:none;
+    stroke:#006CDC;
+    stroke-width:9.5;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    stroke-dasharray:360;
+    stroke-dashoffset:360;
+    filter:drop-shadow(0 2px 6px rgba(0,108,220,.26));
+  }
+  .stage-manifesto.is-visible .marker-path,
+  .manifesto-star.is-visible ~ .manifesto-content .marker-path{
+    animation:markerStrokeDraw 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
+  }
+  @keyframes markerStrokeDraw{
+    to{stroke-dashoffset:0;}
+  }
+  .manifesto-lead{
+    max-width:530px;
+    margin:1.1em 0 0;
+    color:var(--ink-secondary);
+    font-size:clamp(17px,1.55vw,24px);
+    font-weight:500;
+    line-height:1.35;
+    letter-spacing:-.02em;
+  }
+  .manifesto-note{
+    max-width:870px;
+    margin:2.0em 0 0;
+    color:var(--ink-muted);
+    font-size:clamp(13px,1.1vw,17px);
+    line-height:1.55;
+  }
+  .manifesto-detail{
+    max-width:680px;
+    margin:1.35em 0 0;
+    color:var(--ink-secondary);
+    font-size:clamp(14px,1.15vw,18px);
+    line-height:1.5;
+    letter-spacing:-.006em;
+    text-wrap:pretty;
+  }
+  .manifesto-detail strong{
+    color:var(--ink);
+    font-weight:700;
+  }

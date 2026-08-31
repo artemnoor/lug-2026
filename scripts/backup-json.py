@@ -26,7 +26,11 @@ def _atomic_write(path: Path, content: bytes) -> None:
     temporary = None
     try:
         with NamedTemporaryFile(
-            mode="wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
         ) as handle:
             temporary = Path(handle.name)
             handle.write(content)
@@ -82,12 +86,20 @@ def main() -> None:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     backup_parser = commands.add_parser("backup")
-    backup_parser.add_argument("--data-dir", dest="data_dir_after", default=argparse.SUPPRESS)
-    backup_parser.add_argument("--retention-days", dest="retention_after", type=int, default=argparse.SUPPRESS)
+    backup_parser.add_argument(
+        "--data-dir", dest="data_dir_after", default=argparse.SUPPRESS
+    )
+    backup_parser.add_argument(
+        "--retention-days", dest="retention_after", type=int, default=argparse.SUPPRESS
+    )
     restore_parser = commands.add_parser("restore")
     restore_parser.add_argument("archive", type=Path)
-    restore_parser.add_argument("--data-dir", dest="data_dir_after", default=argparse.SUPPRESS)
-    restore_parser.add_argument("--retention-days", dest="retention_after", type=int, default=argparse.SUPPRESS)
+    restore_parser.add_argument(
+        "--data-dir", dest="data_dir_after", default=argparse.SUPPRESS
+    )
+    restore_parser.add_argument(
+        "--retention-days", dest="retention_after", type=int, default=argparse.SUPPRESS
+    )
     args = parser.parse_args()
     data_dir = _data_dir(getattr(args, "data_dir_after", None) or args.data_dir)
     retention_days = getattr(args, "retention_after", None) or args.retention_days

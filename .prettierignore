@@ -1,0 +1,6 @@
+node_modules
+output
+graphify-out
+apps/web/public/pages/index.html
+apps/web/public/css
+apps/web/public/js

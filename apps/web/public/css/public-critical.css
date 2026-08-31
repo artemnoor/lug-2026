@@ -1,0 +1,89 @@
+/* Critical public shell rules kept separate from the page markup. */
+html.auth-entry-pending .public-page > :not(.site-nav):not(.site-auth-dialog) {
+  visibility: hidden;
+}
+
+html.auth-entry-pending .public-page {
+  overflow: hidden;
+}
+
+dialog.site-auth-dialog {
+  background: rgba(7, 18, 62, .58);
+  border: 0;
+  box-sizing: border-box;
+  contain: paint;
+  height: 100vh;
+  inset: 0;
+  isolation: isolate;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  padding: 14px;
+  position: fixed;
+  transform: translateZ(0);
+  width: 100vw;
+  z-index: 2147483647;
+}
+
+dialog.site-auth-dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
+dialog.site-auth-dialog:not([open]) {
+  display: none;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+dialog.site-auth-dialog::backdrop {
+  background: transparent;
+}
+
+.site-auth-dialog__card {
+  background: #dceeff;
+  border-radius: 22px;
+  box-sizing: border-box;
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  width: min(100%, 680px);
+}
+
+body.is-auth-dialog-open > :not(.site-auth-dialog) {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+@media (max-width: 560px) {
+  dialog.site-auth-dialog[open] {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .site-auth-dialog__card {
+    min-height: calc(100vh - 28px);
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .stage-manifesto .manifesto-content {
+    width: calc(100% - 48px);
+    padding-right: 0;
+    box-sizing: border-box;
+  }
+
+  .stage-manifesto .manifesto-title {
+    width: 100%;
+    max-width: 12ch;
+    text-align: left;
+  }
+
+  .stage-about .orbit-stage[data-orbit-id="science"] .orbit-art .microscope-svg {
+    width: 44% !important;
+    height: 92% !important;
+    transform: rotate(0deg) scale(1) !important;
+    transform-origin: center center;
+  }
+}

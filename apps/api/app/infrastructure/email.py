@@ -25,7 +25,9 @@ def _masked_email(value: str) -> str:
     return f"{local[:2]}***@{domain}"
 
 
-def _verification_html(code: str, expires_minutes: int, purpose: str = "verification") -> str:
+def _verification_html(
+    code: str, expires_minutes: int, purpose: str = "verification"
+) -> str:
     safe_code = escape(code)
     reset = purpose == "password-reset"
     preheader = (
@@ -34,13 +36,21 @@ def _verification_html(code: str, expires_minutes: int, purpose: str = "verifica
         else "Код подтверждения для регистрации в конкурсе «Лучшая учебная группа»."
     )
     title = "Восстановите<br>пароль" if reset else "Подтвердите<br>почту"
-    lead = "Код для восстановления доступа к личному кабинету." if reset else "Финальный шаг перед входом в конкурс."
+    lead = (
+        "Код для восстановления доступа к личному кабинету."
+        if reset
+        else "Финальный шаг перед входом в конкурс."
+    )
     description = (
         "Вы запросили восстановление пароля для личного кабинета конкурса «Лучшая учебная группа»."
         if reset
         else "Вы указали этот адрес для регистрации в конкурсе «Лучшая учебная группа»."
     )
-    instruction = "Введите код на странице восстановления пароля:" if reset else "Введите код подтверждения на странице регистрации:"
+    instruction = (
+        "Введите код на странице восстановления пароля:"
+        if reset
+        else "Введите код подтверждения на странице регистрации:"
+    )
     expired_note = (
         "Если вы не запрашивали восстановление, просто проигнорируйте это письмо."
         if reset
@@ -178,14 +188,15 @@ class EmailService:
     ) -> None:
         await self._send_code(recipient, code, expires_minutes, "password-reset")
 
-    async def send_notification(
-        self, recipient: str, title: str, body: str
-    ) -> None:
+    async def send_notification(self, recipient: str, title: str, body: str) -> None:
         email_message = self._notification_message(recipient, title, body)
         if self.mode == "log":
             self.logger.info(
                 "email.notification",
-                {"recipient": _masked_email(recipient), "purpose": "participant-notification"},
+                {
+                    "recipient": _masked_email(recipient),
+                    "purpose": "participant-notification",
+                },
             )
             return
         if self.mode != "smtp":
@@ -197,12 +208,21 @@ class EmailService:
         except (OSError, smtplib.SMTPException) as exc:
             self.logger.error(
                 "email.delivery_failed",
-                {"recipient": _masked_email(recipient), "purpose": "participant-notification", "error": exc},
+                {
+                    "recipient": _masked_email(recipient),
+                    "purpose": "participant-notification",
+                    "error": exc,
+                },
             )
-            raise ApiError(503, "Не удалось отправить письмо. Повторите попытку позже.") from exc
+            raise ApiError(
+                503, "Не удалось отправить письмо. Повторите попытку позже."
+            ) from exc
         self.logger.info(
             "email.delivered",
-            {"recipient": _masked_email(recipient), "purpose": "participant-notification"},
+            {
+                "recipient": _masked_email(recipient),
+                "purpose": "participant-notification",
+            },
         )
 
     async def send_captain_notification(
@@ -216,7 +236,11 @@ class EmailService:
     ) -> None:
         message = self._message(recipient, code, expires_minutes, purpose)
         if self.mode == "log":
-            fields = {"recipient": _masked_email(recipient), "expiresMinutes": expires_minutes, "purpose": purpose}
+            fields = {
+                "recipient": _masked_email(recipient),
+                "expiresMinutes": expires_minutes,
+                "purpose": purpose,
+            }
             if self.log_code:
                 fields["code"] = code
             self.logger.info("email.verification_code", fields)
@@ -229,27 +253,53 @@ class EmailService:
             await asyncio.to_thread(self._send_sync, message)
         except (OSError, smtplib.SMTPException) as exc:
             self.logger.error(
-                "email.delivery_failed", {"recipient": _masked_email(recipient), "error": exc}
+                "email.delivery_failed",
+                {"recipient": _masked_email(recipient), "error": exc},
             )
-            raise ApiError(503, "Не удалось отправить письмо. Повторите попытку позже.") from exc
-        self.logger.info("email.delivered", {"recipient": _masked_email(recipient), "purpose": purpose})
+            raise ApiError(
+                503, "Не удалось отправить письмо. Повторите попытку позже."
+            ) from exc
+        self.logger.info(
+            "email.delivered",
+            {"recipient": _masked_email(recipient), "purpose": purpose},
+        )
 
-    def _message(self, recipient: str, code: str, expires_minutes: int, purpose: str = "verification") -> EmailMessage:
+    def _message(
+        self,
+        recipient: str,
+        code: str,
+        expires_minutes: int,
+        purpose: str = "verification",
+    ) -> EmailMessage:
         message = EmailMessage()
         sender = self.smtp_from or self.smtp_user
         message["From"] = formataddr((self.smtp_from_name, sender))
         message["To"] = recipient
-        message["Subject"] = "Код восстановления пароля — ЛУГ 2026" if purpose == "password-reset" else "Код подтверждения — ЛУГ 2026"
+        message["Subject"] = (
+            "Код восстановления пароля — ЛУГ 2026"
+            if purpose == "password-reset"
+            else "Код подтверждения — ЛУГ 2026"
+        )
         message.set_content(
-            ("Ваш код восстановления пароля для ЛУГ 2026: " if purpose == "password-reset" else "Ваш код подтверждения для регистрации в ЛУГ 2026: ")
+            (
+                "Ваш код восстановления пароля для ЛУГ 2026: "
+                if purpose == "password-reset"
+                else "Ваш код подтверждения для регистрации в ЛУГ 2026: "
+            )
             + f"{code}\n\nКод действует {expires_minutes} мин."
         )
-        message.add_alternative(_verification_html(code, expires_minutes, purpose), subtype="html")
+        message.add_alternative(
+            _verification_html(code, expires_minutes, purpose), subtype="html"
+        )
         return message
 
-    def _notification_message(self, recipient: str, title: str, body: str) -> EmailMessage:
+    def _notification_message(
+        self, recipient: str, title: str, body: str
+    ) -> EmailMessage:
         message = EmailMessage()
-        message["From"] = formataddr((self.smtp_from_name, self.smtp_from or self.smtp_user))
+        message["From"] = formataddr(
+            (self.smtp_from_name, self.smtp_from or self.smtp_user)
+        )
         message["To"] = recipient
         subject = " ".join(str(title).split())
         message["Subject"] = f"ЛУГ 2026 · {subject}"
@@ -262,7 +312,10 @@ class EmailService:
     def _send_sync(self, message: EmailMessage) -> None:
         if self.smtp_ssl:
             with smtplib.SMTP_SSL(
-                self.smtp_host, self.smtp_port, timeout=15, context=ssl.create_default_context()
+                self.smtp_host,
+                self.smtp_port,
+                timeout=15,
+                context=ssl.create_default_context(),
             ) as client:
                 self._authenticate(client)
                 client.send_message(message)

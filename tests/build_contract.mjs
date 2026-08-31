@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const root = join(import.meta.dirname, '..');
+const dist = join(root, 'apps', 'web', 'dist');
+const sourceIndex = join(root, 'apps', 'web', 'public', 'pages', 'index.html');
+assert.ok(readFileSync(sourceIndex, 'utf8').length < 10000, 'Source landing page must stay partialized.');
+assert.ok(existsSync(dist), 'Run npm run build:web before the build contract test.');
+
+const page = (name) => readFileSync(join(dist, 'pages', name), 'utf8');
+const index = page('index.html');
+const admin = page('admin.html');
+const cabinet = page('cabinet.html');
+const styleAsset = readdirSync(join(dist, 'css')).find((name) => /^style\.[a-f0-9]{12}\.css$/.test(name));
+assert.ok(styleAsset, 'Hashed style bundle is required.');
+assert.ok(existsSync(join(dist, 'css', `${styleAsset}.br`)), 'CSS Brotli asset is required.');
+assert.ok(existsSync(join(dist, 'css', `${styleAsset}.gz`)), 'CSS gzip asset is required.');
+const style = readFileSync(join(dist, 'css', styleAsset), 'utf8');
+const baseImport = style.match(/@import url\('\.\/(base\.[a-f0-9]{12}\.css)'\)/);
+assert.ok(baseImport && existsSync(join(dist, 'css', baseImport[1])), 'Hashed base CSS import must resolve.');
+const base = readFileSync(join(dist, 'css', baseImport[1]), 'utf8');
+const tokenImport = base.match(/@import url\('\.\/(tokens\.[a-f0-9]{12}\.css)'\)/);
+assert.ok(tokenImport && existsSync(join(dist, 'css', tokenImport[1])), 'Hashed token CSS import must resolve.');
+assert.doesNotMatch(index, /(?:admin|cabinet)\.[a-f0-9]{12}\.js/);
+assert.doesNotMatch(index, /@include:/);
+assert.match(admin, /js\/admin\.[a-f0-9]{12}\.js/);
+assert.match(cabinet, /js\/cabinet\.[a-f0-9]{12}\.js/);
+assert.ok(readdirSync(join(dist, 'js')).some((name) => /^site-shell\.[a-f0-9]{12}\.js$/.test(name)));
+assert.ok(readdirSync(join(dist, 'css')).every((name) => !/^.+\.css\?/.test(name)));
+console.log('build-contract: ok');

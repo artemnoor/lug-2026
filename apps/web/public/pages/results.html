@@ -1,55 +1,59 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Итоги конкурса «Лучшая учебная группа» МГТУ им. Н. Э. Баумана.">
-  <title>Результаты | ЛУГ 2026</title>
-  <link rel="icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml" sizes="any">
-  <link rel="shortcut icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=20260825-37">
-  <link rel="stylesheet" href="css/platform.css?v=20260824-21">
-  <link rel="stylesheet" href="css/privacy.css?v=20260824-01">
-  <style>
-    .results-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
-    .results-row { align-items: center; background: #fff; border: 1px solid rgba(7, 18, 62, .1); border-radius: 18px; display: grid; gap: 16px; grid-template-columns: 54px 1fr auto; padding: 18px 22px; }
-    .results-row__place { color: #006cdc; font: 800 24px/1 var(--font-display, sans-serif); }
-    .results-row__name { font: 800 20px/1.05 var(--font-display, sans-serif); text-transform: uppercase; }
-    .results-row__group { color: #66728d; display: block; font-size: 13px; margin-top: 5px; }
-    .results-row__score { color: #006cdc; font: 800 24px/1 var(--font-display, sans-serif); white-space: nowrap; }
-    .results-row__score small { color: #66728d; display: block; font: 600 11px/1.2 var(--font-body, sans-serif); text-align: right; }
-    .results-empty { background: rgba(220, 238, 255, .7); border-radius: 20px; padding: 25px; }
-    @media (max-width: 560px) { .results-row { grid-template-columns: 40px 1fr; } .results-row__score { grid-column: 2; } .results-row__score small { text-align: left; } }
-  </style>
-</head>
-<body class="privacy-page rules-document-page">
-  <header class="site-nav site-nav--public is-scrolled">
-    <a class="skip-link" href="#main-content">Перейти к содержанию</a>
-    <a class="site-nav__brand" href="index.html" aria-label="Лучшая учебная группа — главная"><span class="site-nav__mark"><img src="assets/group-icon.svg" alt=""></span></a>
-    <nav class="site-nav__links" aria-label="Основная навигация"><a href="index.html#about">О конкурсе</a><a href="index.html#process">Этапы</a><a href="index.html#gallery">История</a><a href="rules.html">Правила</a><a href="index.html#registration">Участие</a></nav>
-    <a class="site-nav__account" href="index.html#registration">Войти</a>
-  </header>
-  <main id="main-content" class="privacy-shell">
-    <section class="privacy-hero" aria-labelledby="results-title"><p class="privacy-kicker">ЛУГ 2026 · ИТОГИ</p><h1 id="results-title">РЕЗУЛЬТАТЫ<br><span>КОНКУРСА</span></h1><p class="privacy-lead" id="resultsLead">Загружаем итоговую таблицу.</p></section>
-    <section class="privacy-layout"><div class="privacy-content"><ol class="results-list" id="resultsList" aria-live="polite"></ol></div></section>
-  </main>
-  <script>
-    (async () => {
-      const lead = document.getElementById('resultsLead');
-      const list = document.getElementById('resultsList');
-      const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
-      try {
-        const response = await fetch('/api/results', { credentials: 'same-origin' });
-        const result = await response.json();
-        if (!result.published) {
-          lead.textContent = `Итоги будут опубликованы ${new Date(result.availableFrom).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`;
-          list.innerHTML = '<li class="results-empty">Таблица появится после завершения проверки заявок.</li>';
-          return;
-        }
-        lead.textContent = 'Команды отсортированы по сумме подтверждённых баллов портфолио и видео-визитки.';
-        list.innerHTML = result.teams.length ? result.teams.map((team, index) => `<li class="results-row"><span class="results-row__place">${String(index + 1).padStart(2, '0')}</span><span><strong class="results-row__name">${esc(team.name)}</strong><span class="results-row__group">${esc(team.group)}</span></span><span class="results-row__score">${team.score}<small>баллов</small></span></li>`).join('') : '<li class="results-empty">Пока нет опубликованных результатов.</li>';
-      } catch { lead.textContent = 'Не удалось загрузить результаты. Попробуйте обновить страницу.'; list.innerHTML = '<li class="results-empty">Сервис временно недоступен.</li>'; }
-    })();
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Итоги конкурса «Лучшая учебная группа» МГТУ им. Н. Э. Баумана."
+    />
+    <title>Результаты | ЛУГ 2026</title>
+    <link
+      rel="icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+      sizes="any"
+    />
+    <link
+      rel="shortcut icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+    />
+    <link rel="stylesheet" href="css/style.css?v=20260825-37" />
+    <link rel="stylesheet" href="css/platform.css?v=20260824-21" />
+    <link rel="stylesheet" href="css/privacy.css?v=20260824-01" />
+    <link rel="stylesheet" href="css/results.css" />
+  </head>
+  <body class="privacy-page rules-document-page">
+    <header class="site-nav site-nav--public is-scrolled">
+      <a class="skip-link" href="#main-content">Перейти к содержанию</a>
+      <a
+        class="site-nav__brand"
+        href="index.html"
+        aria-label="Лучшая учебная группа — главная"
+        ><span class="site-nav__mark"
+          ><img src="assets/group-icon.svg" alt="" /></span
+      ></a>
+      <nav class="site-nav__links" aria-label="Основная навигация">
+        <a href="index.html#about">О конкурсе</a
+        ><a href="index.html#process">Этапы</a
+        ><a href="index.html#gallery">История</a><a href="rules.html">Правила</a
+        ><a href="index.html#registration">Участие</a>
+      </nav>
+      <a class="site-nav__account" href="index.html#registration">Войти</a>
+    </header>
+    <main id="main-content" class="privacy-shell">
+      <section class="privacy-hero" aria-labelledby="results-title">
+        <p class="privacy-kicker">ЛУГ 2026 · ИТОГИ</p>
+        <h1 id="results-title">РЕЗУЛЬТАТЫ<br /><span>КОНКУРСА</span></h1>
+        <p class="privacy-lead" id="resultsLead">Загружаем итоговую таблицу.</p>
+      </section>
+      <section class="privacy-layout">
+        <div class="privacy-content">
+          <ol class="results-list" id="resultsList" aria-live="polite"></ol>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="js/results-page.js"></script>
+  </body>
 </html>

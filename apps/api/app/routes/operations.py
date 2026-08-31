@@ -1,6 +1,7 @@
 """Operational endpoints and authorized private object delivery."""
 
 import json
+import os
 from hmac import compare_digest
 from pathlib import Path
 
@@ -9,9 +10,16 @@ from fastapi.responses import PlainTextResponse, Response
 
 from ..http.errors import ApiError
 from ..http.utils import json_response
-from ..security.auth import current_user
+from ..security.auth import SESSION_COOKIE, hash_token, parse_cookies
 
 router = APIRouter()
+
+
+def _build_metadata() -> dict[str, str]:
+    return {
+        "version": os.getenv("LUG_BUILD_VERSION", "dev"),
+        "sha": os.getenv("LUG_BUILD_SHA", "unknown"),
+    }
 
 
 @router.get("/healthz")
@@ -21,6 +29,7 @@ async def healthz(request: Request):
         {
             "status": "ok",
             "service": "lug-api",
+            **_build_metadata(),
             "persistence": context.store.provider,
             "storage": context.file_storage.provider,
             "rateLimitStore": context.rate_limiter.store_name,
@@ -31,7 +40,14 @@ async def healthz(request: Request):
 
 @router.get("/livez")
 async def livez(request: Request):
-    return json_response({"status": "ok", "service": "lug-api"}, request=request)
+    return json_response(
+        {"status": "ok", "service": "lug-api", **_build_metadata()}, request=request
+    )
+
+
+@router.get("/version")
+async def version(request: Request):
+    return json_response({"service": "lug-api", **_build_metadata()}, request=request)
 
 
 @router.get("/readyz")
@@ -39,15 +55,22 @@ async def readyz(request: Request):
     _require_operations_access(request)
     context = request.app.state.context
     try:
-        await context.store.load()
+        await context.store.get_settings()
         await context.file_storage.ready()
         await context.rate_limiter.ready()
     except Exception as error:
-        context.logger.warning("readiness.failed", {"error": error})
-        return json_response(
-            {"status": "not_ready", "service": "lug-api"}, 503, request
+        context.logger.warning(
+            "readiness.failed",
+            {"errorType": type(error).__name__, "errorMessage": str(error)[:500]},
         )
-    return json_response({"status": "ready", "service": "lug-api"}, request=request)
+        return json_response(
+            {"status": "not_ready", "service": "lug-api", **_build_metadata()},
+            503,
+            request,
+        )
+    return json_response(
+        {"status": "ready", "service": "lug-api", **_build_metadata()}, request=request
+    )
 
 
 @router.get("/metrics")
@@ -67,34 +90,59 @@ async def openapi_json(request: Request):
     return _contract_response(request, "openapi.json", "application/json")
 
 
-@router.get("/api/openapi.yaml")
-async def openapi_yaml(request: Request):
-    return _contract_response(request, "openapi.yaml", "application/yaml")
-
-
 @router.api_route("/uploads/{filename:path}", methods=["GET", "HEAD"])
 async def private_upload(filename: str, request: Request):
     context = request.app.state.context
-    state = await context.store.load()
-    user = current_user(request, state)
+    token = parse_cookies(request).get(SESSION_COOKIE, "")
+    user = await context.store.get_user_by_session(hash_token(token)) if token else None
     if not user:
         raise ApiError(401, "Требуется вход для доступа к файлу.")
     upload = context.file_storage.resolve(f"/uploads/{filename}")
     if not upload or not await context.file_storage.exists(upload):
         raise ApiError(404, "Файл не найден.")
-    if not _can_read_upload(state, user, upload["url"]):
+    if not await context.store.can_user_read_upload(user["id"], upload["url"]):
         raise ApiError(403, "Недостаточно прав для доступа к файлу.")
     suffix = Path(upload["url"]).suffix.lower()
     media = {
-        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-        ".webp": "image/webp", ".gif": "image/gif", ".avif": "image/avif",
-        ".heic": "image/heic", ".heif": "image/heif", ".tif": "image/tiff",
-        ".tiff": "image/tiff", ".bmp": "image/bmp", ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".avif": "image/avif",
+        ".heic": "image/heic",
+        ".heif": "image/heif",
+        ".tif": "image/tiff",
+        ".tiff": "image/tiff",
+        ".bmp": "image/bmp",
+        ".pdf": "application/pdf",
         ".doc": "application/msword",
         ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mov": "video/quicktime",
     }
-    disposition = "inline" if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".heic", ".heif", ".tif", ".tiff", ".bmp", ".mp4", ".webm", ".mov"} else "attachment"
+    disposition = (
+        "inline"
+        if suffix
+        in {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".gif",
+            ".avif",
+            ".heic",
+            ".heif",
+            ".tif",
+            ".tiff",
+            ".bmp",
+            ".mp4",
+            ".webm",
+            ".mov",
+        }
+        else "attachment"
+    )
     signed_url = await context.file_storage.signed_url(upload)
     headers = {
         "Cache-Control": "private, no-store",
@@ -113,7 +161,12 @@ async def private_upload(filename: str, request: Request):
 
 
 def _contract_response(request: Request, filename: str, media_type: str) -> Response:
-    path = Path(request.app.state.context.config.root) / "packages" / "contracts" / filename
+    path = (
+        Path(request.app.state.context.config.root)
+        / "packages"
+        / "contracts"
+        / filename
+    )
     if not path.exists():
         raise ApiError(404, "Контракт API не найден.")
     content = path.read_text(encoding="utf-8")
@@ -123,17 +176,6 @@ def _contract_response(request: Request, filename: str, media_type: str) -> Resp
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Request-Id"] = request.state.request_id
     return response
-
-
-def _can_read_upload(state: dict, user: dict, url: str) -> bool:
-    if user.get("role") == "admin" or user.get("studentCardFile") == url:
-        return True
-    if any(item.get("userId") == user.get("id") and item.get("fileUrl") == url for item in state["achievements"]):
-        return True
-    if any(item.get("userId") == user.get("id") and item.get("url") == url for item in state["uploads"]):
-        return True
-    team = next((team for team in state["teams"] if team.get("id") == user.get("teamId")), None)
-    return bool(team and team.get("flagUrl") == url)
 
 
 def _require_operations_access(request: Request) -> None:

@@ -60,7 +60,7 @@ async def send_notification_emails(
     if not recipients:
         return {"eligible": 0, "sent": 0, "failed": 0}
 
-    if hasattr(context.store, "enqueue_email"):
+    if context.store.queues_email:
         queued = 0
         for recipient in recipients:
             try:
@@ -73,7 +73,11 @@ async def send_notification_emails(
                     "email.notification_queue_failed",
                     {"recipient": _masked_email(recipient), "error": exc},
                 )
-        return {"eligible": len(recipients), "sent": 0, "failed": len(recipients) - queued}
+        return {
+            "eligible": len(recipients),
+            "sent": 0,
+            "failed": len(recipients) - queued,
+        }
 
     semaphore = asyncio.Semaphore(max(1, min(max_concurrency, len(recipients))))
 
@@ -107,4 +111,6 @@ async def notify_user_with_email(
         for user in state.get("users", [])
         if user.get("id") == user_id and user.get("role") != "admin"
     ]
-    return await send_notification_emails(context, users, title, message, max_concurrency=1)
+    return await send_notification_emails(
+        context, users, title, message, max_concurrency=1
+    )

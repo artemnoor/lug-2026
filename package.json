@@ -12,12 +12,39 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:smtp-local": "node tests/smtp-local.mjs",
     "test:web-security": "node tests/web_security.mjs",
+    "test:web-modules": "node tests/web_modules.mjs",
+    "test:web-store-errors": "node tests/web_store_errors.mjs",
+    "test:build-contract": "node tests/build_contract.mjs",
+    "test:browser": "playwright test",
+    "test:python": "python -m pytest -q",
     "backup": "python scripts/backup-json.py backup",
+    "backup:postgres": "python scripts/backup-postgres.py backup backups/postgres/latest.dump",
+    "backup:postgres:verify": "python scripts/backup-postgres.py verify backups/postgres/latest.dump",
+    "backup:postgres:restore-test": "python scripts/backup-postgres.py restore-test backups/postgres/latest.dump",
+    "db:migrate": "python scripts/migrate.py",
+    "check:openapi": "python scripts/check-openapi.py",
+    "audit:npm": "npm audit --omit=dev --audit-level=high",
+    "build:web": "node scripts/build-web.mjs",
+    "start:web:dist": "node scripts/start-web-dist.mjs",
     "restore:json": "python scripts/backup-json.py restore",
+    "lint:js": "eslint server.js apps/web/src apps/web/public/js scripts --max-warnings 0",
+    "lint:css": "stylelint \"apps/web/src/**/*.css\" \"apps/web/public/css/**/*.css\" --allow-empty-input",
+    "format:check": "prettier --check \"server.js\" \"apps/web/src/**/*.js\" \"apps/web/public/js/**/*.js\" \"apps/web/public/css/**/*.css\" \"apps/web/public/pages/*.html\" \"apps/web/public/pages/partials/site-auth-dialog.html\" \"*.json\"",
+    "test:quality": "npm run lint:js && npm run lint:css && npm run format:check && npm run build:web",
     "check": "node --check server.js && node --check apps/web/src/config.js && node --check apps/web/src/http.js && node --check apps/web/src/observability.js && node --check apps/web/src/server.js && node --check apps/web/src/static.js && node --check apps/web/public/js/store.js && node --check apps/web/public/js/auth.js && node --check apps/web/public/js/cabinet.js && node --check apps/web/public/js/onboarding.js && node --check apps/web/public/js/site-shell.js && node --check apps/web/public/js/admin.js && node --check apps/web/public/js/about-orbit.js && node --check apps/web/public/js/timer.js && node --check apps/web/public/js/scroll-reset.js && node --check apps/web/public/js/demo-login.js && python -B -c \"import ast,pathlib; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('apps/api/app').rglob('*.py')]; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('scripts').glob('*.py')]\" && npm run quality",
-    "quality": "node scripts/check-quality.mjs"
+    "quality": "node scripts/check-quality.mjs && npm run test:quality"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.62.1",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.39.5",
+    "globals": "^16.0.0",
+    "prettier": "^3.6.2",
+    "stylelint": "^16.24.0",
+    "stylelint-config-standard": "^38.0.0"
   }
 }

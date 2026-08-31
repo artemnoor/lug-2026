@@ -59,12 +59,15 @@ async function handleCreateTeamSubmit(event) {
   const password = document.getElementById('capPassword').value;
   if (password !== document.getElementById('capPasswordConfirm').value) return showError(errorId, 'Введённые пароли не совпадают.');
   try {
+    const card = await window.lugStore.uploadRegistrationCard(capFile);
     const result = await window.lugStore.registerCaptain({
       fio: document.getElementById('capFio').value, group: document.getElementById('capGroup').value,
       teamName: document.getElementById('capTeamName').value, totalStudentsInGroup: document.getElementById('capGroupSize').value,
       email: document.getElementById('capEmail').value, messenger: document.getElementById('capMessenger').value,
       messengerContact: document.getElementById('capMessengerContact').value, telegramAccount: document.getElementById('capTelegram').value,
-      password, studentCardFile: await window.lugStore.fileToDataUrl(capFile), studentCardFileName: capFile.name, consent: document.getElementById('capConsent').checked
+      password, studentCardFile: card.url, studentCardFileName: capFile.name,
+      studentCardUploadToken: card.registrationToken, studentCardSize: card.size,
+      studentCardType: card.type, consent: document.getElementById('capConsent').checked
     });
     sessionStorage.setItem('lug-welcome-guide', result.user.role);
     window.location.href = 'cabinet.html?welcome=1';
@@ -79,11 +82,14 @@ async function handleJoinTeamSubmit(event) {
   const password = document.getElementById('joinPassword').value;
   if (password !== document.getElementById('joinPasswordConfirm').value) return showError(errorId, 'Введённые пароли не совпадают.');
   try {
+    const card = await window.lugStore.uploadRegistrationCard(joinFile);
     const result = await window.lugStore.registerParticipant({
       inviteCode: document.getElementById('joinInviteCode').value, fio: document.getElementById('joinFio').value,
       email: document.getElementById('joinEmail').value, messenger: document.getElementById('joinMessenger').value,
       messengerContact: document.getElementById('joinMessengerContact').value, telegramAccount: document.getElementById('joinTelegram').value,
-      password, studentCardFile: await window.lugStore.fileToDataUrl(joinFile), studentCardFileName: joinFile.name, consent: document.getElementById('joinConsent').checked
+      password, studentCardFile: card.url, studentCardFileName: joinFile.name,
+      studentCardUploadToken: card.registrationToken, studentCardSize: card.size,
+      studentCardType: card.type, consent: document.getElementById('joinConsent').checked
     });
     sessionStorage.setItem('lug-welcome-guide', result.user.role);
     window.location.href = 'cabinet.html?welcome=1';

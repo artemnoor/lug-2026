@@ -1,4 +1,14 @@
 import { escapeHtml as esc } from './modules/dom.js';
+import { createFeedback } from './modules/feedback.js';
+import { createRatingRows } from './modules/rating.js';
+import { dateLabel, initials, localDateValue, plural, rangeLabel, shortDateLabel } from './modules/admin-utils.js';
+import { phaseKeys, phaseState, pendingForTeam, teamMatches, workflow, workflowPresentation } from './modules/admin-workflow.js';
+import { directionIcons, directionLabels, statusLabel, viewTitles, workflowMeta } from './modules/admin-constants.js';
+import { adminApi } from './modules/admin-api.js';
+import { bindAdminEvents } from './modules/admin-events.js';
+import { createAdminActions } from './modules/admin-actions.js';
+import { achievementStatusChip, renderAchievementRow, renderRating as renderRatingView, renderTeamRow, renderUserRow } from './modules/admin-renderers.js';
+import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfileReview as renderTeamProfileReviewCard, renderTeamStage as renderTeamStageCard, renderUserDetail as renderUserDetailCard } from './modules/admin-detail-renderers.js';
 
 /* Панель оргкомитета: команды — источник правды для проверки, связи и статусов.
    Рендер полностью перестроен под сплит-вью и дизайн-систему сайта. */
@@ -11,137 +21,11 @@ import { escapeHtml as esc } from './modules/dom.js';
   let selectedAchievementId = null;
   let adminNotificationsInitialized = false;
   let knownAdminNotificationIds = new Set();
+  const collectionPageSize = 100;
   const filters = { teams: '', teamStatus: 'all', users: '', userStatus: 'all', achievements: '', achievementStatus: 'all', achievementDirection: 'all', achievementTeamId: '', achievementUserId: '' };
   const $ = (id) => document.getElementById(id);
-  const dateLabel = (value) => value ? new Date(value).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-  const shortDateLabel = (value) => value ? new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '—';
-  const rangeLabel = (start, end) => {
-    const s = start ? new Date(start).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
-    const e = end ? new Date(end).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
-    return s || e ? `${s || '?'} — ${e || '?'}` : 'Сроки не заданы';
-  };
-  const statusLabel = { pending: 'На проверке', approved: 'Принято', rejected: 'Доработка', none: 'Не отправлено' };
-  const directionLabels = { science: 'Наука', public: 'Общество', sport: 'Спорт', culture: 'Творчество' };
-  const directionIcons = {
-    science: '<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L4.2 18a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3L14 8.5V3"/><path d="M7 14h10"/></svg>',
-    public: '<svg viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4Z"/></svg>',
-    sport: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18"/><path d="M3.5 9h17M3.5 15h17"/></svg>',
-    culture: '<svg viewBox="0 0 24 24"><path d="m12 3 2.4 5.4 5.6.6-4.2 3.9 1.2 5.6L12 15.6l-5 2.9 1.2-5.6L4 9l5.6-.6L12 3Z"/></svg>'
-  };
-  const workflowMeta = {
-    new: { label: 'Новая заявка', className: 'admin-status--new', note: 'Заявка ещё не рассматривалась' },
-    review: { label: 'На проверке', className: 'admin-status--pending', note: 'Есть решения в очереди' },
-    'needs-work': { label: 'Доработка', className: 'admin-status--danger', note: 'Есть материалы с замечаниями' },
-    ready: { label: 'Готово', className: 'admin-status--ready', note: 'Все данные и участники подтверждены' }
-  };
-  const viewTitles = { overview: 'Обзор', teams: 'Команды', users: 'Участники', achievements: 'Достижения', rating: 'Рейтинг групп', deadlines: 'Сроки', broadcast: 'Рассылка' };
-  const localDateValue = (value) => {
-    const date = new Date(value || '');
-    if (!Number.isFinite(date.getTime())) return '';
-    const offset = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-  };
-  const isoDateValue = (value) => value ? new Date(value).toISOString() : undefined;
-  const initials = (fio) => String(fio || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
-
-  function plural(value, one, few, many = `${one}ов`) {
-    const number = Math.abs(Number(value)) % 100;
-    if (number >= 11 && number <= 19) return many;
-    const last = number % 10;
-    if (last === 1) return one;
-    if (last >= 2 && last <= 4) return few;
-    return many;
-  }
-
-  /* ---------- Тосты вместо статичного баннера ошибок ---------- */
-  function showToast(title, text, type = 'info', timeout = 5000) {
-    const stack = $('adminToastStack');
-    if (!stack) return;
-    while (stack.children.length >= 4) stack.firstElementChild.remove();
-    const toast = document.createElement('div');
-    toast.className = `admin-toast admin-toast--${type}`;
-    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
-    toast.innerHTML = `<div class="admin-toast__body"><span class="admin-toast__title">${esc(title)}</span>${text ? `<p class="admin-toast__text">${esc(text)}</p>` : ''}</div><button class="admin-toast__close" type="button" aria-label="Закрыть уведомление"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>`;
-    const remove = () => {
-      if (!toast.isConnected) return;
-      toast.classList.add('is-hiding');
-      setTimeout(() => toast.remove(), 200);
-    };
-    toast.querySelector('.admin-toast__close').addEventListener('click', remove);
-    stack.append(toast);
-    if (timeout) setTimeout(remove, timeout);
-  }
-
-  function showError(message) {
-    showToast('Ошибка', message || 'Не удалось выполнить действие.', 'error');
-  }
-
-  async function run(action) {
-    try {
-      return await action();
-    } catch (error) {
-      showError(error.message);
-      throw error;
-    }
-  }
-
-  async function busy(button, action) {
-    if (button) {
-      if (button.disabled) return;
-      button.disabled = true;
-    }
-    try {
-      return await action();
-    } finally {
-      if (button) button.disabled = false;
-    }
-  }
-
+  const { showToast, showError, run, busy } = createFeedback({ getNode: $, escapeHtml: esc });
   /* ---------- Доменные помощники ---------- */
-  function workflow(team) {
-    return team?.workflow || { key: 'new', label: 'Новая заявка', reason: 'Состав ещё не подтверждён' };
-  }
-
-  function workflowPresentation(team) {
-    const current = workflow(team);
-    return { ...current, ...(workflowMeta[current.key] || workflowMeta.new) };
-  }
-
-  function teamSearchText(team) {
-    const notifications = (team.notifications || []).map((item) => `${item.title} ${item.message}`).join(' ');
-    const members = (team.members || []).map((member) => `${member.fio} ${member.phone}`).join(' ');
-    return `${team.name || ''} ${team.group || ''} ${members} ${notifications}`.toLowerCase();
-  }
-
-  function teamMatches(team, query, status = 'all') {
-    const textMatches = !query || teamSearchText(team).includes(query.trim().toLowerCase());
-    const statusMatches = status === 'all' || workflow(team).key === status;
-    return textMatches && statusMatches;
-  }
-
-  function pendingForTeam(team) {
-    const identity = (team.members || []).filter((member) => member.identityStatus === 'pending').length;
-    const achievements = (team.achievements || []).filter((item) => item.status === 'pending').length;
-    const video = team.videoCard?.status === 'pending' ? 1 : 0;
-    return { identity, achievements, video, total: identity + achievements + video };
-  }
-
-  function phaseState(settings, startKey, endKey) {
-    const start = new Date(settings?.[startKey] || '').getTime();
-    const end = new Date(settings?.[endKey] || '').getTime();
-    const now = Date.now();
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return 'none';
-    if (now > end) return 'done';
-    if (now < start) return 'upcoming';
-    return 'active';
-  }
-
-  const phaseKeys = [
-    { key: 'registration', start: 'registrationStart', end: 'registrationDeadline', label: 'Регистрация' },
-    { key: 'portfolio', start: 'portfolioStart', end: 'portfolioDeadline', label: 'Портфолио' },
-    { key: 'video', start: 'videoStart', end: 'videoDeadline', label: 'Видео' },
-    { key: 'results', start: 'resultsStart', end: 'resultsDeadline', label: 'Результаты' }
-  ];
 
   /* ---------- Навигация ---------- */
   function switchAdminTab(view) {
@@ -251,29 +135,6 @@ import { escapeHtml as esc } from './modules/dom.js';
     }
   }
 
-  /* ---------- Список команд ---------- */
-  function renderTeamRow(team, index) {
-    const current = workflowPresentation(team);
-    const selected = selectedTeamId === team.id;
-    const pending = pendingForTeam(team);
-    const unread = team.unreadNotifications || 0;
-    return `<button class="admin-team-row${selected ? ' is-selected' : ''}" type="button" data-select-team="${esc(team.id)}" aria-pressed="${selected}">
-      <span class="admin-team-row__number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
-      <span class="admin-team-row__copy">
-        <small>${esc(team.group || 'Группа не указана')}</small>
-        <strong>${esc(team.name)}</strong>
-        <span class="admin-team-row__meta">${team.members?.length || 0} ${plural(team.members?.length || 0, 'участник', 'участника', 'участников')} · капитан ${esc(team.captain?.fio || 'не назначен')}</span>
-      </span>
-      <span class="admin-team-row__side">
-        <span class="admin-status ${current.className}">${esc(current.label)}</span>
-        <span class="admin-team-row__badges">
-          <span class="admin-team-row__pending${pending.total ? '' : ' is-zero'}">${pending.total ? `${pending.total} ${plural(pending.total, 'решение', 'решения', 'решений')}` : 'Чисто'}</span>
-          ${unread ? `<span class="admin-status admin-status--new">${unread} новых</span>` : ''}
-        </span>
-      </span>
-    </button>`;
-  }
-
   /* ---------- Список участников ---------- */
   function userMatches(user) {
     const team = state?.teams?.find((item) => item.id === user.teamId);
@@ -285,70 +146,16 @@ import { escapeHtml as esc } from './modules/dom.js';
     return state?.teams?.some((team) => team.id === user.teamId && team.captainId === user.id) || user.role === 'captain';
   }
 
-  function renderUserRow(user) {
-    const team = state?.teams?.find((item) => item.id === user.teamId);
-    const status = user.identityStatus || 'pending';
-    const label = status === 'approved' ? 'Подтверждён' : status === 'rejected' ? 'Доработка' : 'На проверке';
-    const chip = status === 'approved' ? 'admin-status--ready' : status === 'rejected' ? 'admin-status--danger' : 'admin-status--pending';
-    return `<button class="admin-user-row${selectedUserId === user.id ? ' is-selected' : ''}" type="button" data-select-user="${esc(user.id)}" aria-pressed="${selectedUserId === user.id}">
-      <span class="admin-user-row__avatar" aria-hidden="true">${esc(initials(user.fio))}</span>
-      <span class="admin-user-row__copy">
-        <small>${esc(team?.name || 'Без команды')}${user.id === team?.captainId ? ' · капитан' : ''}</small>
-        <strong>${esc(user.fio)}</strong>
-        <span>${esc(user.phone || 'Телефон не указан')}</span>
-      </span>
-      <span class="admin-status ${chip}">${label}</span>
-    </button>`;
-  }
-
   /* ---------- Карточка участника ---------- */
   function renderUserDetail(user) {
-    if (!user) return '<div class="admin-detail__placeholder"><span class="admin-empty-state__mark" aria-hidden="true">✦</span><h2>Выберите участника</h2><p>Откройте карточку, чтобы проверить документ и принять решение по личности.</p></div>';
-    const team = state.teams.find((item) => item.id === user.teamId);
-    const status = user.identityStatus || 'pending';
-    const documentUrl = String(user.studentCardFile || '');
-    const documentExtension = documentUrl.split('?')[0].split('.').pop()?.toLowerCase() || '';
-    const documentName = esc(user.studentCardFileName || (documentExtension ? `Документ участника.${documentExtension}` : 'Документ участника'));
-    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(documentExtension);
-    const isPdf = documentExtension === 'pdf';
-    const documentPreview = documentUrl ? (isImage
-      ? `<figure class="admin-user-document__preview admin-user-document__preview--image"><img src="${esc(documentUrl)}" alt="Предпросмотр документа участника ${esc(user.fio)}" loading="lazy"></figure>`
-      : isPdf
-        ? `<div class="admin-user-document__preview admin-user-document__preview--pdf"><iframe src="${esc(documentUrl)}" title="Предпросмотр документа участника ${esc(user.fio)}" loading="lazy"></iframe></div>`
-        : '<div class="admin-user-document__preview admin-user-document__preview--unavailable"><span aria-hidden="true">↗</span><p>Для этого типа файла встроенный просмотр недоступен.</p><small>Откройте документ отдельной вкладкой.</small></div>')
-      : '<div class="admin-user-document__preview admin-user-document__preview--unavailable"><span aria-hidden="true">—</span><p>Документ участника не прикреплён.</p><small>Без документа решение по участнику принять нельзя.</small></div>';
-    const documentBlock = `<section class="admin-user-document" aria-labelledby="admin-user-document-title"><div class="admin-user-document__head"><div><p class="admin-card-kicker" id="admin-user-document-title">Документ участника</p><strong>${documentName}</strong></div>${documentUrl ? `<a class="admin-button admin-button--secondary" href="${esc(documentUrl)}" target="_blank" rel="noopener">Открыть документ ↗</a>` : ''}</div>${documentPreview}</section>`;
-    const decisionCommentId = `user-decision-comment-${esc(user.id)}`;
-    const decisionButtons = `<div class="admin-user-decision__choices" role="group" aria-label="Решение по участнику"><button class="admin-button admin-button--primary${status === 'approved' ? ' is-active' : ''}" type="submit" data-user-decision-action="approved" aria-pressed="${status === 'approved'}">Подтвердить участника</button><button class="admin-button admin-button--danger${status === 'rejected' ? ' is-active' : ''}" type="submit" data-user-decision-action="rejected" aria-pressed="${status === 'rejected'}" aria-controls="${decisionCommentId}">Отклонить участника</button></div>`;
-    const statusChip = `<span class="admin-status ${status === 'approved' ? 'admin-status--ready' : status === 'rejected' ? 'admin-status--danger' : 'admin-status--pending'}">${status === 'approved' ? 'Подтверждён' : status === 'rejected' ? 'Доработка' : 'На проверке'}</span>`;
-    const userAchievements = (state.achievements || []).filter((item) => item.userId === user.id);
-    const achievementsBlock = `<section class="admin-surface admin-user-achievements" aria-labelledby="admin-user-achievements-title">
-      <div class="admin-section-heading">
-        <div><p class="admin-eyebrow">Портфолио участника</p><h3 id="admin-user-achievements-title">Достижения</h3></div>
-        <span class="admin-section-heading__actions"><span class="admin-section-heading__count">${userAchievements.length}</span><button class="admin-text-button" type="button" data-open-achievements-user="${esc(user.id)}">Учёт достижений →</button></span>
-      </div>
-      ${userAchievements.length ? `<div class="admin-user-achievements__list">${userAchievements.map((item) => `
-        <button class="admin-user-achievement" type="button" data-select-achievement="${esc(item.id)}">
-          <span class="admin-user-achievement__icon admin-achievement-row__icon--${esc(item.direction || 'science')}" aria-hidden="true">${directionIcons[item.direction] || directionIcons.science}</span>
-          <span class="admin-user-achievement__copy"><small>${esc(directionLabels[item.direction] || 'Направление')} · ${esc(item.category || 'без категории')}</small><strong>${esc(item.title || 'Достижение без названия')}</strong></span>
-          <span class="admin-user-achievement__side">${item.points != null ? `<span class="admin-achievement-row__points">${Number(item.points)} б.</span>` : ''}${achievementStatusChip(item.status)}</span>
-        </button>`).join('')}</div>` : '<p class="admin-empty">Участник ещё не добавил достижений в портфолио.</p>'}
-    </section>`;
-    return `<div class="admin-detail__topbar"><button class="admin-user-back" type="button" data-user-back>← Все участники</button><span>Карточка участника</span></div>
-    <section class="admin-surface admin-user-card">
-      <header class="admin-user-card__header">
-        <div><p class="admin-card-kicker">${user.id === team?.captainId ? 'Капитан команды' : 'Участник'} · ${esc(team?.name || 'Без команды')}</p><h2>${esc(user.fio)}</h2><p>${esc(user.phone || 'Телефон не указан')} · ${esc(user.group || team?.group || 'Группа не указана')}</p></div>
-        <div class="admin-user-card__header__side">${statusChip}<span class="admin-user-card__header__links"><button class="admin-text-button" type="button" data-select-team="${esc(team?.id || '')}">Открыть команду →</button></span></div>
-      </header>
-      ${documentBlock}
-      <form class="admin-user-decision-form" data-user-decision="${esc(user.id)}">
-        <input type="hidden" data-user-decision-status value="${status}">
-        ${decisionButtons}
-        <label class="admin-field admin-user-decision-comment admin-comment-field" style="margin-top:12px"${status === 'rejected' ? '' : ' hidden'}><span>Почему отклоняете участника</span><textarea class="admin-control admin-control--roomy" id="${decisionCommentId}" rows="4" data-user-decision-comment placeholder="Например: приложите более чёткий документ с читаемыми данными."${status === 'rejected' ? ' required' : ''}>${esc(user.identityComment || '')}</textarea></label>
-        <p class="admin-user-decision-hint" data-user-decision-hint>Подтверждение отправится сразу. Для отклонения сначала укажите причину.</p>
-      </form>
-    </section>
-    ${achievementsBlock}`;
+    return renderUserDetailCard({
+      user,
+      state,
+      esc,
+      directionIcons,
+      directionLabels,
+      achievementStatusChip,
+    });
   }
 
   /* ---------- Синхронизация видимости комментариев ---------- */
@@ -396,14 +203,16 @@ import { escapeHtml as esc } from './modules/dom.js';
         list.innerHTML = '<div class="admin-empty-state"><span class="admin-empty-state__mark" aria-hidden="true">⌕</span><h3>Участники не найдены</h3><p>Измените запрос или фильтр статуса.</p></div>';
       } else {
         const heading = `<div class="admin-master__heading"><span>Список участников</span><span>${users.length} из ${state.users.length}</span></div>`;
-        const group = (title, id, rows, count) => `<p class="admin-master__heading" id="${id}" style="padding-top:6px"><span>${title}</span><span>${count}</span></p><div class="admin-master__list">${rows}</div>`;
-        const captainRows = captains.map(renderUserRow).join('');
-        const participantRows = participants.map(renderUserRow).join('');
+        const group = (title, id, rows, count) => `<p class="admin-master__heading admin-master__heading--compact" id="${id}"><span>${title}</span><span>${count}</span></p><div class="admin-master__list">${rows}</div>`;
+        const renderUser = (user) => renderUserRow({ user, state, selectedUserId, esc, initials });
+        const captainRows = captains.map(renderUser).join('');
+        const participantRows = participants.map(renderUser).join('');
         const body = captains.length
           ? `<section aria-labelledby="admin-captains-title">${group('Капитаны', 'admin-captains-title', captainRows, captains.length)}</section>${participants.length ? `<section aria-labelledby="admin-participants-title">${group('Участники', 'admin-participants-title', participantRows, participants.length)}</section>` : ''}`
           : `<div class="admin-master__list">${participantRows}</div>`;
         list.innerHTML = heading + body;
       }
+      appendLoadMore(list, 'users', state.users?.length || 0, state.summary?.users || 0);
     }
 
     const selected = state.users.find((user) => user.id === selectedUserId);
@@ -417,37 +226,18 @@ import { escapeHtml as esc } from './modules/dom.js';
   }
 
   /* ---------- Карточка команды ---------- */
+  /* ---------- Карточка команды ---------- */
   function renderTeamStage(team) {
-    const current = workflowPresentation(team);
-    const stageKey = current.key === 'needs-work' ? 'needs-work' : current.key === 'ready' ? 'ready' : current.key === 'review' ? 'review' : 'new';
-    const stageIcon = stageKey === 'ready' ? '✓' : stageKey === 'needs-work' ? '!' : stageKey === 'review' ? '…' : '○';
-    return `<section class="admin-team-stage admin-team-stage--${stageKey}" aria-labelledby="team-stage-title"><div class="admin-team-stage__icon" aria-hidden="true">${stageIcon}</div><div class="admin-team-stage__summary"><p class="admin-eyebrow">Текущая стадия команды</p><h3 id="team-stage-title">${esc(workflowMeta[stageKey].label)}</h3><p>${esc(current.reason || workflowMeta[stageKey].note)}</p></div></section>`;
+    return renderTeamStageCard({ team, esc, workflowPresentation, workflowMeta });
   }
 
   function renderTeamProfileReview(team) {
-    const labels = { name: 'Название команды', group: 'Учебная группа', flag: 'Флаг команды', description: 'Описание команды' };
-    const values = { name: team.name, group: team.group, flag: team.flagUrl ? 'Файл флага загружен' : 'Флаг не загружен', description: team.description || 'Описание не добавлено' };
-    return `<form class="admin-surface admin-team-profile-review" data-team-profile-review="${esc(team.id)}" aria-labelledby="team-profile-review-title">
-      <div class="admin-section-heading"><div><p class="admin-eyebrow">Проверка заявки</p><h3 id="team-profile-review-title">Данные команды</h3></div><span class="admin-team-profile-review__hint">Выберите решение и отправьте его</span></div>
-      <div class="admin-team-profile-review__list">${Object.entries(labels).map(([field, label]) => {
-        const review = team.review?.[field] || { status: 'pending', comment: '' };
-        const status = review.status === 'approved' || review.status === 'rejected' ? review.status : '';
-        return `<article class="admin-team-profile-item is-${status || 'pending'}" data-team-review-item="${field}" data-team-review-choice="${status}">
-          <div class="admin-team-profile-item__value"><span>${label}</span><strong>${esc(values[field])}</strong>${field === 'flag' && team.flagUrl ? `<a class="admin-inline-link" href="${esc(team.flagUrl)}" target="_blank" rel="noopener">Открыть флаг ↗</a>` : ''}</div>
-          <div class="admin-team-profile-item__decision">
-            <div class="admin-review-buttons" role="group" aria-label="Решение по полю ${label}"><button class="admin-review-choice admin-review-choice--approve${status === 'approved' ? ' is-active' : ''}" type="button" data-team-review-action="${field}" data-team-review-value="approved">Подтвердить</button><button class="admin-review-choice admin-review-choice--reject${status === 'rejected' ? ' is-active' : ''}" type="button" data-team-review-action="${field}" data-team-review-value="rejected">Отклонить</button></div>
-            <label class="admin-team-profile-item__comment admin-comment-field" data-team-review-comment-wrap="${field}"${status === 'rejected' ? '' : ' hidden'}><span>Почему отклонено</span><textarea class="admin-control admin-control--roomy" data-team-review-comment="${field}" rows="3" placeholder="Оставьте комментарий для команды — его увидят капитан и участники">${esc(review.comment || '')}</textarea></label>
-          </div>
-        </article>`;
-      }).join('')}</div>
-      <div class="admin-team-profile-review__footer"><p class="admin-team-profile-review__footnote">Решение отправится команде только после нажатия кнопки.</p><button class="admin-button admin-button--primary" type="submit">Отправить решение</button></div>
-    </form>`;
+    return renderTeamProfileReviewCard({ team, esc });
   }
 
-  /* ---------- Карточка команды ---------- */
   function renderTeamDetail(team) {
     if (!team) return '<div class="admin-detail__placeholder"><span class="admin-empty-state__mark" aria-hidden="true">✦</span><h2>Выберите команду</h2><p>Здесь появятся заявка, состав, портфолио и видео команды.</p></div>';
-    const current = workflowPresentation(team);
+    const current = workflowPresentation(team, workflowMeta);
     const pending = pendingForTeam(team);
     const approvedAchievements = (team.achievements || []).filter((item) => item.status === 'approved').length;
     const video = team.videoCard || { url: '', status: 'none', criteriaScores: {} };
@@ -528,7 +318,8 @@ import { escapeHtml as esc } from './modules/dom.js';
     if ($('adminTeamsCount')) $('adminTeamsCount').textContent = state.teams.length;
     if ($('adminTeamNotificationsCount')) $('adminTeamNotificationsCount').textContent = state.summary?.notifications || 0;
     if (selectedTeamId && !state.teams.some((team) => team.id === selectedTeamId)) selectedTeamId = null;
-    if (list) list.innerHTML = teams.length ? `<div class="admin-master__heading"><span>Список команд</span><span>${teams.length} из ${state.teams.length}</span></div><div class="admin-master__list">${teams.map((team, index) => renderTeamRow(team, index)).join('')}</div>` : '<div class="admin-empty-state"><span class="admin-empty-state__mark" aria-hidden="true">⌕</span><h3>Команды не найдены</h3><p>Измените запрос или фильтр статуса.</p></div>';
+    if (list) list.innerHTML = teams.length ? `<div class="admin-master__heading"><span>Список команд</span><span>${teams.length} из ${state.teams.length}</span></div><div class="admin-master__list">${teams.map((team, index) => renderTeamRow({ team, index, selectedTeamId, esc, plural, pendingForTeam, workflowPresentation, workflowMeta })).join('')}</div>` : '<div class="admin-empty-state"><span class="admin-empty-state__mark" aria-hidden="true">⌕</span><h3>Команды не найдены</h3><p>Измените запрос или фильтр статуса.</p></div>';
+    appendLoadMore(list, 'teams', state.teams.length, state.summary?.teams || 0);
     const selected = state.teams.find((team) => team.id === selectedTeamId);
     if (selected) {
       workspace?.classList.add('is-filled');
@@ -545,6 +336,22 @@ import { escapeHtml as esc } from './modules/dom.js';
     return state?.teams?.find((team) => team.id === teamId) || null;
   }
 
+  function renderAchievementDetail(achievement) {
+    const filterNote = filters.achievementTeamId || filters.achievementUserId
+      ? 'Фильтр по команде или участнику активен — сбросьте его, чтобы увидеть все материалы.'
+      : '';
+    return renderAchievementDetailCard({
+      achievement,
+      team: achievementTeam(achievement),
+      filterNote,
+      esc,
+      directionLabels,
+      achievementStatusChip,
+      shortDateLabel,
+      dateLabel,
+    });
+  }
+
   function achievementMatches(achievement) {
     const team = achievementTeam(achievement);
     const owner = achievement.user || {};
@@ -555,97 +362,6 @@ import { escapeHtml as esc } from './modules/dom.js';
     const teamMatches = !filters.achievementTeamId || (team?.id || '') === filters.achievementTeamId;
     const userMatches = !filters.achievementUserId || (achievement.userId || '') === filters.achievementUserId;
     return textMatches && statusMatches && directionMatches && teamMatches && userMatches;
-  }
-
-  function achievementStatusChip(status) {
-    const meta = { approved: ['Принято', 'admin-status--ready'], rejected: ['Доработка', 'admin-status--danger'] }[status] || ['На проверке', 'admin-status--pending'];
-    return `<span class="admin-status ${meta[1]}">${meta[0]}</span>`;
-  }
-
-  function renderAchievementRow(achievement) {
-    const team = achievementTeam(achievement);
-    const status = achievement.status || 'pending';
-    const selected = selectedAchievementId === achievement.id;
-    return `<button class="admin-achievement-row${selected ? ' is-selected' : ''}" type="button" data-select-achievement="${esc(achievement.id)}" aria-pressed="${selected}">
-      <span class="admin-achievement-row__icon admin-achievement-row__icon--${esc(achievement.direction || 'science')}" aria-hidden="true">${directionIcons[achievement.direction] || directionIcons.science}</span>
-      <span class="admin-achievement-row__copy">
-        <small>${esc(directionLabels[achievement.direction] || 'Направление')} · ${esc(achievement.category || 'без категории')}</small>
-        <strong>${esc(achievement.title || 'Достижение без названия')}</strong>
-        <span class="admin-achievement-row__meta">${esc(achievement.user?.fio || 'Удалённый пользователь')}${team ? ` · ${esc(team.name)}` : ' · без команды'}</span>
-      </span>
-      <span class="admin-achievement-row__side">
-        ${achievement.points != null ? `<span class="admin-achievement-row__points">${Number(achievement.points)} б.</span>` : ''}
-        ${achievementStatusChip(status)}
-      </span>
-    </button>`;
-  }
-
-  function renderAchievementDetail(achievement) {
-    if (!achievement) {
-      const filterNote = filters.achievementTeamId || filters.achievementUserId
-        ? 'Фильтр по команде или участнику активен — сбросьте его, чтобы увидеть все материалы.'
-        : 'Откройте материал, чтобы проверить документ, выставить баллы и принять решение.';
-      return `<div class="admin-detail__placeholder"><span class="admin-empty-state__mark" aria-hidden="true">✦</span><h2>Выберите достижение</h2><p>${esc(filterNote)}</p></div>`;
-    }
-    const team = achievementTeam(achievement);
-    const owner = achievement.user || {};
-    const status = achievement.status || 'pending';
-    const documentUrl = String(achievement.fileUrl || '');
-    const extension = documentUrl.split('?')[0].split('.').pop()?.toLowerCase() || '';
-    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(extension);
-    const isPdf = extension === 'pdf';
-    const documentBlock = documentUrl ? (isImage
-      ? `<figure class="admin-user-document__preview admin-user-document__preview--image"><img src="${esc(documentUrl)}" alt="Подтверждение достижения ${esc(achievement.title || '')}" loading="lazy"></figure>`
-      : isPdf
-        ? `<div class="admin-user-document__preview admin-user-document__preview--pdf"><iframe src="${esc(documentUrl)}" title="Подтверждение достижения" loading="lazy"></iframe></div>`
-        : '<div class="admin-user-document__preview admin-user-document__preview--unavailable"><span aria-hidden="true">↗</span><p>Для этого типа файла встроенный просмотр недоступен.</p><small>Откройте документ отдельной вкладкой.</small></div>')
-      : '<p class="admin-empty">Подтверждающий документ не прикреплён.</p>';
-
-    return `<div class="admin-detail__topbar"><button class="admin-team-back" type="button" data-achievement-back>← Все достижения</button><span>Карточка решения</span></div>
-    <section class="admin-surface admin-achievement-detail-card">
-      <header class="admin-team-head">
-        <div>
-          <p class="admin-card-kicker">${esc(directionLabels[achievement.direction] || 'Направление')} · ${esc(achievement.category || 'без категории')}</p>
-          <h2>${esc(achievement.title || 'Достижение без названия')}</h2>
-          <p>${esc(achievement.details || 'Описание не добавлено.')}</p>
-        </div>
-        <div class="admin-team-head__side">${achievementStatusChip(status)}</div>
-      </header>
-      <div class="admin-achievement-detail__links">
-        <button class="admin-text-button" type="button" data-select-user="${esc(owner.id || '')}">Открыть участника: ${esc(owner.fio || '—')} →</button>
-        ${team ? `<button class="admin-text-button" type="button" data-select-team="${esc(team.id)}">Открыть команду: ${esc(team.name)} →</button>` : '<span class="admin-muted-text">Участник без команды</span>'}
-        ${documentUrl ? `<a class="admin-inline-link" href="${esc(documentUrl)}" target="_blank" rel="noopener">Документ: ${esc(achievement.fileName || 'подтверждение')} ↗</a>` : ''}
-      </div>
-      <div class="admin-achievement-detail__meta">
-        <div><span>Добавлено</span><strong>${shortDateLabel(achievement.createdAt)}</strong></div>
-        <div><span>Рассмотрено</span><strong>${achievement.reviewedAt ? dateLabel(achievement.reviewedAt) : '—'}</strong></div>
-        <div><span>Баллы</span><strong>${achievement.points != null ? `${Number(achievement.points)} б.` : 'не выставлены'}</strong></div>
-      </div>
-      ${achievement.reviewComment ? `<blockquote class="admin-achievement-detail__comment"><span>Комментарий проверки</span><p>${esc(achievement.reviewComment)}</p></blockquote>` : ''}
-      <div class="admin-achievement-detail__document">
-        <p class="admin-eyebrow">Подтверждающий документ</p>
-        ${documentBlock}
-      </div>
-    </section>
-    <section class="admin-surface admin-team-section" aria-labelledby="achievement-review-title">
-      <div class="admin-section-heading">
-        <div><p class="admin-eyebrow">Решение оргкомитета</p><h3 id="achievement-review-title">Принять достижение</h3></div>
-        <span class="admin-soft-mark">★</span>
-      </div>
-      <div class="admin-achievement-review-form" data-achievement-review-item="${esc(achievement.id)}" data-achievement-review-choice="${status === 'approved' || status === 'rejected' ? status : ''}">
-        <div class="admin-review-buttons" role="group" aria-label="Решение по достижению">
-          <button class="admin-review-choice admin-review-choice--approve${status === 'approved' ? ' is-active' : ''}" type="button" data-achievement-review-action="${esc(achievement.id)}" data-achievement-review-value="approved">Принять</button>
-          <button class="admin-review-choice admin-review-choice--reject${status === 'rejected' ? ' is-active' : ''}" type="button" data-achievement-review-action="${esc(achievement.id)}" data-achievement-review-value="rejected">Отклонить</button>
-        </div>
-        <label class="admin-score-field admin-achievement-review__points"><span>Баллы за достижение · 0–100</span><input class="admin-control" data-achievement-points="${esc(achievement.id)}" type="number" min="0" max="100" value="${achievement.points ?? ''}" placeholder="Например, 10"></label>
-        <label class="admin-achievement-review__comment admin-comment-field"${status === 'rejected' ? '' : ' hidden'}><span>Почему отклонено</span><textarea class="admin-control admin-control--roomy" data-achievement-comment="${esc(achievement.id)}" rows="4" placeholder="Что нужно исправить участнику?">${esc(achievement.reviewComment || '')}</textarea></label>
-        <div class="admin-video-card__actions">
-          <button class="admin-button admin-button--primary" type="button" data-review-achievement="${esc(achievement.id)}">Сохранить решение</button>
-          <button class="admin-button admin-button--secondary" type="button" data-achievement-reset>Сбросить выбор</button>
-        </div>
-        <p class="admin-team-profile-review__footnote">Баллы учитываются в рейтинге группы только после принятия. Отклонение требует комментария.</p>
-      </div>
-    </section>`;
   }
 
   function renderAchievements() {
@@ -666,8 +382,9 @@ import { escapeHtml as esc } from './modules/dom.js';
       const scopeNote = team ? `Команда «${team.name}»` : owner ? `Участник ${owner.fio}` : '';
       const scopeChip = scopeNote ? `<div class="admin-filter-scope">${scopeNote}<button type="button" data-achievement-scope-reset aria-label="Сбросить фильтр">Сбросить ✕</button></div>` : '';
       list.innerHTML = achievements.length
-        ? `<div class="admin-master__heading"><span>${scopeNote ? 'Материалы в фильтре' : 'Все достижения'}</span><span>${achievements.length} из ${all.length}</span></div>${scopeChip}<div class="admin-master__list">${achievements.map(renderAchievementRow).join('')}</div>`
+        ? `<div class="admin-master__heading"><span>${scopeNote ? 'Материалы в фильтре' : 'Все достижения'}</span><span>${achievements.length} из ${all.length}</span></div>${scopeChip}<div class="admin-master__list">${achievements.map((achievement) => renderAchievementRow({ achievement, team: achievementTeam(achievement), selectedAchievementId, esc, directionIcons, directionLabels })).join('')}</div>`
         : `<div class="admin-empty-state"><span class="admin-empty-state__mark" aria-hidden="true">⌕</span><h3>Достижения не найдены</h3><p>Измените запрос, статус или направление.</p></div>`;
+      appendLoadMore(list, 'achievements', all.length, state.summary?.achievements || 0);
     }
 
     const selected = all.find((item) => item.id === selectedAchievementId);
@@ -680,6 +397,33 @@ import { escapeHtml as esc } from './modules/dom.js';
     }
   }
 
+  function appendLoadMore(list, resource, loaded, total) {
+    if (!list) return;
+    list.querySelector('[data-admin-load-more]')?.remove();
+    if (loaded >= total) return;
+    const button = document.createElement('button');
+    button.className = 'admin-text-button';
+    button.type = 'button';
+    button.dataset.adminLoadMore = resource;
+    button.textContent = `Загрузить ещё (${Math.min(collectionPageSize, total - loaded)})`;
+    list.append(button);
+  }
+
+  async function loadMoreCollection(resource) {
+    if (!state) return;
+    const current = state[resource] || [];
+    const result = await adminApi.adminCollection(resource, {
+      limit: collectionPageSize,
+      offset: current.length,
+      status: resource === 'users' ? filters.userStatus : resource === 'teams' ? filters.teamStatus : filters.achievementStatus,
+    });
+    const existing = new Set(current.map((item) => item.id));
+    state[resource] = current.concat((result.items || []).filter((item) => !existing.has(item.id)));
+    if (resource === 'teams') renderTeams();
+    else if (resource === 'users') renderUsers();
+    else renderAchievements();
+  }
+
   function selectAchievement(achievementId) {
     if (!state?.achievements?.some((item) => item.id === achievementId)) return;
     selectedAchievementId = achievementId;
@@ -689,91 +433,8 @@ import { escapeHtml as esc } from './modules/dom.js';
     if (detail && window.innerWidth < 1024) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  /* ---------- Рейтинг групп ---------- */
-  function ratingRows() {
-    return (state?.teams || []).map((team) => {
-      const achievements = team.achievements || [];
-      const approved = achievements.filter((item) => item.status === 'approved');
-      const achievementPoints = approved.reduce((sum, item) => sum + Number(item.points || 0), 0);
-      const video = team.videoCard || { status: 'none', score: null };
-      const videoPoints = video.status === 'approved' ? Number(video.score || 0) : 0;
-      const byDirection = {};
-      approved.forEach((item) => { byDirection[item.direction] = (byDirection[item.direction] || 0) + Number(item.points || 0); });
-      return {
-        team,
-        admitted: team.isAdmitted === true,
-        approvedCount: approved.length,
-        totalCount: achievements.length,
-        pendingCount: achievements.filter((item) => item.status === 'pending').length,
-        achievementPoints,
-        videoPoints,
-        videoStatus: video.status,
-        total: achievementPoints + videoPoints,
-        byDirection
-      };
-    }).sort((left, right) => right.total - left.total || right.achievementPoints - left.achievementPoints || (left.team.name || '').localeCompare(right.team.name || '', 'ru'));
-  }
-
   function renderRating() {
-    const board = $('adminRatingBoard');
-    if (!board || !state) return;
-    const rows = ratingRows();
-    const inRace = rows.filter((row) => row.admitted);
-    if ($('adminRatingTeamsCount')) $('adminRatingTeamsCount').textContent = inRace.length;
-    const maxTotal = Math.max(1, ...rows.map((row) => row.total));
-
-    if (!rows.length) {
-      board.innerHTML = '<div class="admin-empty-state"><span class="admin-empty-state__mark" aria-hidden="true">★</span><h3>Рейтинг пока пуст</h3><p>Зарегистрируйте команды — баллы появятся после первых принятых достижений.</p></div>';
-      return;
-    }
-
-    const medals = ['gold', 'silver', 'bronze'];
-    const podiumOrder = [1, 0, 2];
-    const podium = rows.slice(0, 3);
-    const podiumHtml = podium.length ? `<div class="admin-podium" aria-label="Пьедестал лидеров">${podiumOrder.filter((index) => podium[index]).map((index) => {
-      const row = podium[index];
-      const place = index + 1;
-      return `<button class="admin-podium__place admin-podium__place--${medals[index]}${row.admitted ? '' : ' is-shadow'}" type="button" data-select-team="${esc(row.team.id)}">
-        <span class="admin-podium__medal" aria-hidden="true">${place}</span>
-        <strong class="admin-podium__name">${esc(row.team.name)}</strong>
-        <small class="admin-podium__group">${esc(row.team.group || 'Группа не указана')}</small>
-        <span class="admin-podium__score">${row.total}<small>баллов</small></span>
-        <span class="admin-podium__breakdown">${row.achievementPoints} б. достижения · ${row.videoPoints} б. видео</span>
-        ${row.admitted ? '' : '<span class="admin-podium__note">вне зачёта</span>'}
-      </button>`;
-    }).join('')}</div>` : '';
-
-    const tableRows = rows.map((row, index) => {
-      const place = index + 1;
-      const width = Math.round((row.total / maxTotal) * 100);
-      const workflowNow = workflowPresentation(row.team);
-      return `<button class="admin-rating-row${row.admitted ? '' : ' is-shadow'}" type="button" data-select-team="${esc(row.team.id)}" aria-label="Открыть команду ${esc(row.team.name)}">
-        <span class="admin-rating-row__place${place <= 3 ? ` admin-rating-row__place--${medals[place - 1]}` : ''}">${place}</span>
-        <span class="admin-rating-row__copy">
-          <small>${esc(row.team.group || 'Группа не указана')} · ${row.team.members?.length || 0} ${plural(row.team.members?.length || 0, 'участник', 'участника', 'участников')}</small>
-          <strong>${esc(row.team.name)}</strong>
-          <span class="admin-rating-row__bar" aria-hidden="true"><i style="width:${Math.max(4, width)}%"></i></span>
-          <span class="admin-rating-row__directions">${Object.entries(directionLabels).map(([key, label]) => row.byDirection[key] ? `<b>${label} ${row.byDirection[key]}</b>` : '').join('') || 'принятых достижений пока нет'}</span>
-        </span>
-        <span class="admin-rating-row__score">
-          <strong>${row.total}</strong>
-          <small>${row.achievementPoints} дост. + ${row.videoPoints} видео</small>
-          <small>${row.approvedCount} / ${row.totalCount} ${plural(row.totalCount, 'достижение', 'достижения', 'достижений')}${row.pendingCount ? ` · ${row.pendingCount} на проверке` : ''}</small>
-          <span class="admin-status ${row.admitted ? 'admin-status--ready' : 'admin-status--pending'}">${row.admitted ? 'В зачёте' : esc(workflowNow.label)}</span>
-        </span>
-      </button>`;
-    }).join('');
-
-    const notAdmittedNote = rows.length - inRace.length;
-    board.innerHTML = `${podiumHtml}
-    <section class="admin-surface admin-rating-table" aria-labelledby="admin-rating-table-title">
-      <div class="admin-section-heading">
-        <div><p class="admin-eyebrow">Полная таблица</p><h2 id="admin-rating-table-title">Баллы всех групп</h2></div>
-        <span class="admin-section-heading__count">${rows.length}</span>
-      </div>
-      <div class="admin-rating-table__rows">${tableRows}</div>
-      ${notAdmittedNote ? `<p class="admin-rating-note">Отмеченные как «вне зачёта» команды не прошли допуск: нажмите карточку, чтобы открыть проверку состава и заявки.</p>` : ''}
-    </section>`;
+    renderRatingView({ state, $, esc, createRatingRows, workflowPresentation, workflowMeta, directionLabels, plural });
   }
 
   /* ---------- Настройки и контент ---------- */
@@ -842,7 +503,7 @@ import { escapeHtml as esc } from './modules/dom.js';
     const button = $('adminRefreshBtn');
     button?.classList.add('is-loading');
     try {
-      const nextState = await window.lugStore.adminOverview();
+      const nextState = await adminApi.adminOverview();
       const incomingAdminNotifications = (nextState.adminNotifications || []).filter((item) => !knownAdminNotificationIds.has(item.id));
       if (adminNotificationsInitialized) {
         incomingAdminNotifications.slice(0, 3).forEach((item) => showToast('Новое уведомление', item.message || item.title, 'info', 7000));
@@ -875,144 +536,6 @@ import { escapeHtml as esc } from './modules/dom.js';
   }
 
   /* ---------- Действия ---------- */
-  async function reviewAchievement(achievementId) {
-    await run(async () => {
-      const item = document.querySelector(`[data-achievement-review-item="${CSS.escape(achievementId)}"]`);
-      const status = item?.dataset.achievementReviewChoice || '';
-      const points = document.querySelector(`[data-achievement-points="${CSS.escape(achievementId)}"]`)?.value;
-      const comment = document.querySelector(`[data-achievement-comment="${CSS.escape(achievementId)}"]`)?.value.trim() || '';
-      if (!status) { showError('Выберите: принять достижение или отклонить его.'); return; }
-      if (status === 'rejected' && !comment) { showError('Для отклонённого достижения укажите причину.'); document.querySelector(`[data-achievement-comment="${CSS.escape(achievementId)}"]`)?.focus(); return; }
-      await window.lugStore.adminReviewAchievement(achievementId, { status, points, comment });
-      showToast('Готово', 'Решение по достижению сохранено.', 'success');
-      await refreshAdmin();
-    });
-  }
-
-  async function reviewVideo(teamId, status) {
-    await run(async () => {
-      const scores = {};
-      document.querySelectorAll(`[data-video-score][data-team-id="${CSS.escape(teamId)}"]`).forEach((input) => { scores[input.dataset.videoScore] = input.value; });
-      const comment = document.querySelector(`[data-video-comment="${CSS.escape(teamId)}"]`)?.value || '';
-      await window.lugStore.adminReviewVideo(teamId, { status, criteriaScores: scores, comment });
-      showToast('Готово', status === 'approved' ? 'Видео принято, оценка сохранена.' : 'Видео возвращено на уточнение.', 'success');
-      await refreshAdmin();
-    });
-  }
-
-  async function submitTeamProfileReview(event) {
-    event.preventDefault();
-    const form = event.target;
-    const button = event.submitter || form.querySelector('[type="submit"]');
-    await busy(button, () => run(async () => {
-      const decisions = Array.from(form.querySelectorAll('[data-team-review-item]')).map((item) => ({
-        field: item.dataset.teamReviewItem,
-        status: item.dataset.teamReviewChoice || '',
-        comment: item.querySelector('[data-team-review-comment]')?.value.trim() || ''
-      }));
-      const missing = decisions.find((item) => !item.status);
-      if (missing) {
-        showError('Выберите решение по каждому полю заявки.');
-        form.querySelector(`[data-team-review-action="${CSS.escape(missing.field)}"]`)?.focus();
-        return;
-      }
-      const rejected = decisions.find((item) => item.status === 'rejected' && !item.comment);
-      if (rejected) {
-        showError('Для каждого пункта «Доработка» укажите комментарий.');
-        form.querySelector(`[data-team-review-comment="${CSS.escape(rejected.field)}"]`)?.focus();
-        return;
-      }
-      await Promise.all(decisions.map((item) => window.lugStore.adminReviewTeamField(selectedTeamId, item.field, item.status, item.comment)));
-      showToast('Готово', 'Решение по заявке отправлено команде.', 'success');
-      await refreshAdmin();
-    }));
-  }
-
-  async function submitMemberReview(event) {
-    event.preventDefault();
-    const form = event.target;
-    const button = event.submitter || form.querySelector('[type="submit"]');
-    await busy(button, () => run(async () => {
-      const decisions = Array.from(form.querySelectorAll('[data-member-review-item]')).map((item) => ({
-        userId: item.dataset.memberReviewItem,
-        status: item.dataset.memberReviewChoice || '',
-        comment: item.querySelector('[data-identity-comment]')?.value.trim() || ''
-      }));
-      const missing = decisions.find((item) => !item.status);
-      if (missing) {
-        showError('Выберите решение по каждому участнику.');
-        form.querySelector(`[data-member-review-action="${CSS.escape(missing.userId)}"]`)?.focus();
-        return;
-      }
-      const rejected = decisions.find((item) => item.status === 'rejected' && !item.comment);
-      if (rejected) {
-        showError('Для каждого участника со статусом «Доработка» укажите комментарий.');
-        form.querySelector(`[data-identity-comment="${CSS.escape(rejected.userId)}"]`)?.focus();
-        return;
-      }
-      await Promise.all(decisions.map((item) => window.lugStore.adminReviewIdentity(item.userId, item.status, item.comment)));
-      showToast('Готово', 'Решения по составу отправлены.', 'success');
-      await refreshAdmin();
-    }));
-  }
-
-  async function submitUserDecision(event) {
-    event.preventDefault();
-    const form = event.target;
-    const button = event.submitter || form.querySelector('[type="submit"]');
-    await busy(button, () => run(async () => {
-      const status = event.submitter?.dataset.userDecisionAction || form.querySelector('[data-user-decision-status]')?.value || 'pending';
-      const comment = form.querySelector('[data-user-decision-comment]')?.value.trim() || '';
-      if (!['approved', 'rejected'].includes(status)) {
-        showError('Выберите: подтвердить участника или отклонить его.');
-        return;
-      }
-      const statusInput = form.querySelector('[data-user-decision-status]');
-      if (statusInput) statusInput.value = status;
-      syncReviewCommentVisibility(form);
-      if (status === 'rejected' && !comment) {
-        showError('Для отклонения участника укажите причину.');
-        form.querySelector('[data-user-decision-comment]')?.focus();
-        return;
-      }
-      await window.lugStore.adminReviewIdentity(form.dataset.userDecision, status, status === 'rejected' ? comment : '');
-      showToast('Готово', status === 'approved' ? 'Участник подтверждён.' : 'Участник отправлен на доработку.', 'success');
-      await refreshAdmin();
-    }));
-  }
-
-  async function saveSettings() {
-    await busy($('saveAdminSettingsButton'), () => run(async () => {
-      const dateKeys = ['registrationStart', 'registrationDeadline', 'portfolioStart', 'portfolioDeadline', 'videoStart', 'videoDeadline', 'resultsStart', 'resultsDeadline'];
-      const payload = Object.fromEntries(dateKeys.map((key) => [key, isoDateValue($(`${key}Input`)?.value)]).filter(([, value]) => value));
-      payload.isRegistrationOpen = $('regIsOpenCheckbox')?.checked;
-      await window.lugStore.adminUpdateSettings(payload);
-      await refreshAdmin();
-      if ($('adminSettingsNote')) $('adminSettingsNote').textContent = 'Параметры сохранены';
-      showToast('Сохранено', 'Сроки конкурса обновлены.', 'success');
-    }));
-  }
-
-  async function sendBroadcast(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    await busy(form.querySelector('[type="submit"]'), () => run(async () => {
-      const type = document.querySelector('input[name="notifTargetType"]:checked')?.value || 'all';
-      const result = await window.lugStore.adminBroadcast({ targetType: type, targetId: type === 'all' ? null : $('notifTargetId')?.value, title: $('notifTitleInput')?.value, message: $('notifMessageInput')?.value });
-      form.reset();
-      renderTargetSuboptions();
-      updateCounters(form);
-      if ($('broadcastSuccess')) $('broadcastSuccess').hidden = false;
-      await refreshAdmin();
-      const emailNotice = Number(result.emailRecipients || 0) > 0
-        ? result.emailMode === 'smtp'
-          ? ` Письма отправлены участникам: ${Number(result.emailSent || 0)} из ${Number(result.emailRecipients || 0)}.`
-          : ' В development письма записаны в лог.'
-        : '';
-      showToast('Отправлено', `Рассылка доставлена получателям.${emailNotice}`, 'success');
-    }));
-  }
-
   /* ---------- Инициализация ---------- */
   function greetingText() {
     const hour = new Date().getHours();
@@ -1024,7 +547,7 @@ import { escapeHtml as esc } from './modules/dom.js';
 
   async function initAdmin() {
     try {
-      const session = await window.lugStore.session();
+      const session = await adminApi.session();
       if (!session.user || session.user.role !== 'admin') { window.location.replace('register.html?next=admin.html'); return; }
       const firstName = (session.user.fio || 'Оргкомитет').split(' ')[0];
       if ($('adminUserName')) $('adminUserName').textContent = firstName;
@@ -1046,211 +569,28 @@ import { escapeHtml as esc } from './modules/dom.js';
     if (view) switchAdminTab(view);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    updateCounters();
-    applyHash();
-
-    document.querySelectorAll('[data-admin-view]').forEach((button) => button.addEventListener('click', () => goToView(button.dataset.adminView)));
-
-    $('adminSidebarToggle')?.addEventListener('click', () => {
-      const isOpen = $('adminSidebar')?.classList.contains('is-open');
-      if (isOpen) closeSidebar(); else openSidebar();
-    });
-    $('adminSidebarClose')?.addEventListener('click', closeSidebar);
-    $('adminSidebarOverlay')?.addEventListener('click', closeSidebar);
-    $('adminRefreshBtn')?.addEventListener('click', () => run(refreshAdmin));
-
-    document.addEventListener('click', (event) => {
-      const back = event.target.closest('[data-team-back]');
-      if (back) { selectedTeamId = null; renderTeams(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-      const userBack = event.target.closest('[data-user-back]');
-      if (userBack) { selectedUserId = null; renderUsers(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-      const achievementBack = event.target.closest('[data-achievement-back]');
-      if (achievementBack) { selectedAchievementId = null; renderAchievements(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-      const scopeReset = event.target.closest('[data-achievement-scope-reset]');
-      if (scopeReset) { filters.achievementTeamId = ''; filters.achievementUserId = ''; renderAchievements(); return; }
-      const achievementReset = event.target.closest('[data-achievement-reset]');
-      if (achievementReset) {
-        const wrap = achievementReset.closest('[data-achievement-review-item]');
-        if (wrap) {
-          wrap.dataset.achievementReviewChoice = '';
-          wrap.querySelectorAll('[data-achievement-review-action]').forEach((button) => button.classList.remove('is-active'));
-          const comment = wrap.querySelector('.admin-achievement-review__comment');
-          if (comment) comment.hidden = true;
-        }
-        return;
-      }
-      const selectAchievementTarget = event.target.closest('[data-select-achievement]');
-      if (selectAchievementTarget) { event.preventDefault(); selectAchievement(selectAchievementTarget.dataset.selectAchievement); return; }
-      const openTeamAchievements = event.target.closest('[data-open-achievements-team]');
-      if (openTeamAchievements) {
-        filters.achievementTeamId = openTeamAchievements.dataset.openAchievementsTeam;
-        filters.achievementUserId = '';
-        selectedAchievementId = null;
-        switchAdminTab('achievements');
-        renderAchievements();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      const openUserAchievements = event.target.closest('[data-open-achievements-user]');
-      if (openUserAchievements) {
-        filters.achievementUserId = openUserAchievements.dataset.openAchievementsUser;
-        filters.achievementTeamId = '';
-        selectedAchievementId = null;
-        switchAdminTab('achievements');
-        renderAchievements();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      const selectUserTarget = event.target.closest('[data-select-user]');
-      if (selectUserTarget) { event.preventDefault(); selectUser(selectUserTarget.dataset.selectUser); return; }
-      const memberDecision = event.target.closest('[data-member-review-action]');
-      if (memberDecision) {
-        const item = memberDecision.closest('[data-member-review-item]');
-        const choice = memberDecision.dataset.memberReviewValue;
-        if (item) {
-          item.dataset.memberReviewChoice = choice;
-          item.querySelectorAll('[data-member-review-action]').forEach((button) => button.classList.toggle('is-active', button === memberDecision));
-          const comment = item.querySelector('.admin-member-review__comment');
-          if (comment) comment.hidden = choice !== 'rejected';
-        }
-        return;
-      }
-      const teamDecision = event.target.closest('[data-team-review-action]');
-      if (teamDecision) {
-        const item = teamDecision.closest('[data-team-review-item]');
-        const choice = teamDecision.dataset.teamReviewValue;
-        if (item) {
-          item.dataset.teamReviewChoice = choice;
-          item.querySelectorAll('[data-team-review-action]').forEach((button) => button.classList.toggle('is-active', button === teamDecision));
-          const comment = item.querySelector('[data-team-review-comment-wrap]');
-          if (comment) comment.hidden = choice !== 'rejected';
-        }
-        return;
-      }
-      const achievementDecision = event.target.closest('[data-achievement-review-action]');
-      if (achievementDecision) {
-        const item = achievementDecision.closest('[data-achievement-review-item]');
-        if (item) {
-          item.dataset.achievementReviewChoice = achievementDecision.dataset.achievementReviewValue;
-          item.querySelectorAll('[data-achievement-review-action]').forEach((button) => button.classList.toggle('is-active', button === achievementDecision));
-          const comment = item.querySelector('.admin-achievement-review__comment');
-          if (comment) comment.hidden = achievementDecision.dataset.achievementReviewValue !== 'rejected';
-        }
-        return;
-      }
-      const userDecision = event.target.closest('[data-user-decision-action]');
-      if (userDecision) {
-        const form = userDecision.closest('[data-user-decision]');
-        const input = form?.querySelector('[data-user-decision-status]');
-        if (input) input.value = userDecision.dataset.userDecisionAction;
-        if (form) syncReviewCommentVisibility(form);
-        return;
-      }
-      const select = event.target.closest('[data-select-team]');
-      if (select) { event.preventDefault(); selectTeam(select.dataset.selectTeam); return; }
-      const target = event.target.closest('[data-admin-view-target]');
-      if (target) {
-        const teamId = target.dataset.selectTeam;
-        if (teamId) { selectedTeamId = teamId; }
-        goToView(target.dataset.adminViewTarget);
-        if (teamId) renderTeams();
-        return;
-      }
-      const remove = event.target.closest('[data-remove-member]');
-      if (remove) {
-        run(async () => {
-          if (!window.confirm('Удалить участника из команды? Его материалы также будут удалены.')) return;
-          await window.lugStore.adminRemoveMember(remove.dataset.removeMember, remove.dataset.memberId);
-          showToast('Удалено', 'Участник исключён из команды.', 'success');
-          await refreshAdmin();
-        });
-        return;
-      }
-      const achievement = event.target.closest('[data-review-achievement]');
-      if (achievement) { reviewAchievement(achievement.dataset.reviewAchievement); return; }
-      const saveVideo = event.target.closest('[data-save-video]');
-      if (saveVideo) { reviewVideo(saveVideo.dataset.saveVideo, 'approved'); return; }
-      const rejectVideo = event.target.closest('[data-reject-video]');
-      if (rejectVideo) { reviewVideo(rejectVideo.dataset.rejectVideo, 'rejected'); return; }
-    });
-
-    document.addEventListener('change', (event) => {
-      const quota = event.target.closest('[data-team-quota]');
-      if (quota) run(async () => { await window.lugStore.adminUpdateQuota(quota.dataset.teamQuota, quota.checked); await refreshAdmin(); });
-      if (event.target.name === 'notifTargetType') renderTargetSuboptions();
-      if (event.target.closest('[data-counter]')) updateCounters();
-    });
-
-    document.addEventListener('input', (event) => {
-      if (event.target.closest('[data-counter]')) updateCounters();
-    });
-
-    $('adminTeamSearch')?.addEventListener('input', (event) => { filters.teams = event.target.value; renderTeams(); });
-    $('adminAchievementSearch')?.addEventListener('input', (event) => { filters.achievements = event.target.value; renderAchievements(); });
-    $('adminUserSearch')?.addEventListener('input', (event) => { filters.users = event.target.value; renderUsers(); });
-
-    document.querySelectorAll('[data-achievement-filter]').forEach((chip) => chip.addEventListener('click', () => {
-      filters.achievementStatus = chip.dataset.achievementFilter;
-      document.querySelectorAll('[data-achievement-filter]').forEach((item) => item.classList.toggle('is-active', item === chip));
-      renderAchievements();
-    }));
-    document.querySelectorAll('[data-achievement-direction]').forEach((chip) => chip.addEventListener('click', () => {
-      filters.achievementDirection = chip.dataset.achievementDirection;
-      document.querySelectorAll('[data-achievement-direction]').forEach((item) => item.classList.toggle('is-active', item === chip));
-      renderAchievements();
-    }));
-
-    document.querySelectorAll('[data-team-filter]').forEach((chip) => chip.addEventListener('click', () => {
-      filters.teamStatus = chip.dataset.teamFilter;
-      document.querySelectorAll('[data-team-filter]').forEach((item) => item.classList.toggle('is-active', item === chip));
-      renderTeams();
-    }));
-    document.querySelectorAll('[data-user-filter]').forEach((chip) => chip.addEventListener('click', () => {
-      filters.userStatus = chip.dataset.userFilter;
-      document.querySelectorAll('[data-user-filter]').forEach((item) => item.classList.toggle('is-active', item === chip));
-      renderUsers();
-    }));
-
-    document.addEventListener('submit', (event) => {
-      const teamProfileReview = event.target.closest('[data-team-profile-review]');
-      if (teamProfileReview) { submitTeamProfileReview(event); return; }
-      const teamMembersReview = event.target.closest('[data-team-members-review]');
-      if (teamMembersReview) { submitMemberReview(event); return; }
-      const userDecision = event.target.closest('[data-user-decision]');
-      if (userDecision) { submitUserDecision(event); return; }
-    });
-
-    $('broadcastForm')?.addEventListener('submit', sendBroadcast);
-    $('saveAdminSettingsButton')?.addEventListener('click', saveSettings);
-    $('adminLogoutButton')?.addEventListener('click', () => run(async () => { await window.lugStore.logout(); window.location.replace('index.html'); }));
-    $('adminUserMenuBtn')?.addEventListener('click', () => {
-      const button = $('adminUserMenuBtn');
-      const menu = $('adminUserMenu');
-      const open = button.getAttribute('aria-expanded') !== 'true';
-      button.setAttribute('aria-expanded', String(open));
-      menu.hidden = !open;
-    });
-    document.addEventListener('click', (event) => {
-      const menu = $('adminUserMenu');
-      if (!menu || menu.hidden) return;
-      if (!event.target.closest('#adminUserMenu') && !event.target.closest('#adminUserMenuBtn')) {
-        menu.hidden = true;
-        $('adminUserMenuBtn')?.setAttribute('aria-expanded', 'false');
-      }
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Escape') return;
-      if ($('adminUserMenu') && !$('adminUserMenu').hidden) {
-        $('adminUserMenu').hidden = true;
-        $('adminUserMenuBtn')?.setAttribute('aria-expanded', 'false');
-      }
-      closeSidebar();
-    });
-    window.addEventListener('hashchange', applyHash);
-
-    initAdmin();
+  const actions = createAdminActions({
+    $, adminApi, busy, run, showError, showToast, refreshAdmin,
+    renderTargetSuboptions, updateCounters, syncReviewCommentVisibility,
+    getSelectedTeamId: () => selectedTeamId,
   });
 
+  bindAdminEvents({
+    $, adminApi, applyHash, closeSidebar, filters, goToView, initAdmin,
+    loadMoreCollection, openSidebar, refreshAdmin, renderAchievements,
+    renderTeams, renderTargetSuboptions, renderUsers, reviewAchievement: actions.reviewAchievement,
+    reviewVideo: actions.reviewVideo, run, saveSettings: actions.saveSettings, selectAchievement, selectTeam, selectUser,
+    selected: {
+      get team() { return selectedTeamId; },
+      set team(value) { selectedTeamId = value; },
+      get user() { return selectedUserId; },
+      set user(value) { selectedUserId = value; },
+      get achievement() { return selectedAchievementId; },
+      set achievement(value) { selectedAchievementId = value; },
+    },
+    sendBroadcast: actions.sendBroadcast, showToast, submitMemberReview: actions.submitMemberReview, submitTeamProfileReview: actions.submitTeamProfileReview,
+    submitUserDecision: actions.submitUserDecision, switchAdminTab, syncReviewCommentVisibility,
+    updateCounters,
+  });
   window.switchAdminTab = switchAdminTab;
 })(window, document);

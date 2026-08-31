@@ -51,7 +51,9 @@ def _decoded(value: Any, field: str) -> bytes:
     try:
         return base64.b64decode(padded.encode("ascii"), altchars=b"-_", validate=True)
     except (UnicodeEncodeError, ValueError, binascii.Error) as exc:
-        raise ValueError(f"Зашифрованный payload содержит некорректный {field}.") from exc
+        raise ValueError(
+            f"Зашифрованный payload содержит некорректный {field}."
+        ) from exc
 
 
 def encrypt_json(payload: Mapping[str, Any], key: bytes) -> dict[str, Any]:
@@ -99,8 +101,8 @@ def encrypt_bytes(data: bytes, key: bytes, associated_data: bytes) -> bytes:
     if len(key) != AES256_KEY_BYTES:
         raise ValueError("AES-256 требует ключ длиной 32 байта.")
     nonce = os.urandom(GCM_NONCE_BYTES)
-    return LOCAL_UPLOAD_MAGIC + nonce + AESGCM(key).encrypt(
-        nonce, data, associated_data
+    return (
+        LOCAL_UPLOAD_MAGIC + nonce + AESGCM(key).encrypt(nonce, data, associated_data)
     )
 
 

@@ -11,8 +11,8 @@ from .infrastructure.email import EmailService
 from .infrastructure.file_storage import FileStorage
 from .infrastructure.store import Store
 from .observability import Logger, Metrics
-from .security.auth import password_hash, password_matches
-from .shared.domain import audit, normalize_email, now, strong_password, valid_email
+from .security.auth import password_hash_async, password_matches_async
+from .shared.domain import normalize_email, now, strong_password, valid_email
 
 
 @dataclass
@@ -41,64 +41,34 @@ async def ensure_bootstrap_admin(context: AppContext) -> None:
     email = normalize_email(os.getenv("LUG_ADMIN_EMAIL", ""))
     legacy_phone = os.getenv("LUG_ADMIN_PHONE", "").strip()
     password = os.getenv("LUG_ADMIN_PASSWORD", "")
-    state = await context.store.load()
     if email or password:
         if not valid_email(email) or not strong_password(password):
             raise RuntimeError(
                 "LUG_ADMIN_EMAIL и LUG_ADMIN_PASSWORD должны быть заданы и соответствовать требованиям безопасности."
             )
     if not email or not password:
-        if not any(user.get("role") == "admin" for user in state["users"]):
+        if not await context.store.has_admin():
             context.logger.warning(
                 "admin.not_configured",
                 {"hint": "Set LUG_ADMIN_EMAIL and LUG_ADMIN_PASSWORD"},
             )
         return
-    existing = next(
-        (
-            user
-            for user in state["users"]
-            if user.get("role") == "admin"
-            and normalize_email(user.get("email")) == email
-        ),
-        None,
-    )
-    if not existing and legacy_phone:
-        existing = next(
-            (
-                user
-                for user in state["users"]
-                if user.get("role") == "admin" and user.get("phone") == legacy_phone
-            ),
-            None,
-        )
+    existing = await context.store.get_admin_by_identity(email, legacy_phone)
     if existing:
         changed = False
         credentials_changed = False
-        if (
-            existing.get("email") != email
-            or existing.get("emailVerified") is not True
-        ):
+        if existing.get("email") != email or existing.get("emailVerified") is not True:
             existing["email"] = email
             existing["emailVerified"] = True
             existing["emailVerifiedAt"] = existing.get("emailVerifiedAt") or now()
             changed = True
             credentials_changed = True
-        if not password_matches(password, existing.get("passwordHash", "")):
-            existing["passwordHash"] = password_hash(password)
-            audit(
-                state, existing["id"], "admin.password_synced", "user", existing["id"]
-            )
+        if not await password_matches_async(password, existing.get("passwordHash", "")):
+            existing["passwordHash"] = await password_hash_async(password)
             changed = True
             credentials_changed = True
-        if credentials_changed:
-            state["sessions"] = [
-                session
-                for session in state.get("sessions", [])
-                if session.get("userId") != existing["id"]
-            ]
         if changed:
-            await context.store.save(state)
+            await context.store.save_admin_atomic(existing, credentials_changed)
         return
     admin = {
         "id": str(uuid4()),
@@ -121,9 +91,7 @@ async def ensure_bootstrap_admin(context: AppContext) -> None:
         "consentAt": now(),
         "consentVersion": "1.0",
         "consentPolicy": "/privacy.html",
-        "passwordHash": password_hash(password),
+        "passwordHash": await password_hash_async(password),
         "createdAt": now(),
     }
-    state["users"].append(admin)
-    audit(state, admin["id"], "admin.created", "user", admin["id"])
-    await context.store.save(state)
+    await context.store.save_admin_atomic(admin)

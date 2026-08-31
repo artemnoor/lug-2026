@@ -61,13 +61,8 @@
       };
 
       const order = ['science', 'public', 'sport', 'culture'];
-      cacheFullTexts();
       const stage = document.getElementById('orbitStage');
       if(!stage) return;
-
-      // The old public-activity SVG is kept in the source as a fallback, but
-      // it is too heavy to keep mounted next to the optimized raster artwork.
-      stage.querySelector('[data-illustration="public-legacy"]')?.remove();
 
       const copyBlock = document.getElementById('orbitCopyBlock');
       const copyKickerText = document.getElementById('orbitCopyKickerText') || document.getElementById('orbitCopyKicker');
@@ -108,38 +103,15 @@
             copyTags.innerHTML = item.tags.map(tag => `<span class="orbit-tag">${tag}</span>`).join('');
           }
           
-          if (id === 'science') {
-            if (microscopeSvg) microscopeSvg.style.display = 'block';
-          } else {
-            if (microscopeSvg) microscopeSvg.style.display = 'none';
-          }
+          if (microscopeSvg) microscopeSvg.hidden = id !== 'science';
           artIllustrations.forEach(illustration => {
-            illustration.style.display = illustration.dataset.illustration === id ? 'block' : 'none';
+            illustration.hidden = illustration.dataset.illustration !== id;
           });
 
           if (id === 'culture') {
             window.startCultureCanvas?.();
           } else {
             window.stopCultureCanvas?.();
-          }
-
-          if (id === 'public') {
-            if (!notebookHasPlayed) {
-              startNotebookAutoPlay();
-            } else {
-              setNotebookComplete();
-            }
-          } else {
-            if (notebookIsRunning) {
-              notebookCancelToken++;
-              notebookIsRunning = false;
-              notebookHasPlayed = true;
-            }
-            if (notebookHasPlayed) {
-              setNotebookComplete();
-            } else {
-              resetNotebook();
-            }
           }
 
           copyBlock?.classList.remove('is-leaving');
@@ -165,184 +137,6 @@
         art?.classList.add('is-leaving');
         swapTimer = setTimeout(commit, 180);
       }
-
-      // Auto-running notebook solution for the public-activity illustration.
-      let notebookCancelToken = 0;
-      let notebookIsRunning = false;
-      let notebookHasPlayed = false;
-
-      function cacheFullTexts() {
-        const svg = document.getElementById('publicActivityIllustrationSvg');
-        if (!svg) return;
-        svg.querySelectorAll('.hand').forEach(el => {
-          if (!el.dataset.fullText) {
-            const txt = el.textContent.trim();
-            if (txt) el.dataset.fullText = txt;
-          }
-        });
-      }
-
-      function resetNotebook() {
-        const svg = document.getElementById('publicActivityIllustrationSvg');
-        if (!svg) return;
-
-        svg.querySelectorAll('*').forEach(el => {
-          if (typeof el.getAnimations === 'function') {
-            el.getAnimations().forEach(anim => anim.cancel());
-          }
-        });
-
-        cacheFullTexts();
-
-        svg.querySelectorAll('.hand').forEach(el => {
-          el.textContent = '';
-          el.style.opacity = '0';
-          el.style.transform = 'none';
-        });
-
-        svg.querySelectorAll('.ink').forEach(el => {
-          let len = 120;
-          try {
-            if (typeof el.getTotalLength === 'function') {
-              len = Math.ceil(el.getTotalLength()) + 25;
-            }
-          } catch(e) {}
-          el.style.opacity = '0';
-          el.style.strokeDasharray = String(len);
-          el.style.strokeDashoffset = String(len);
-        });
-      }
-
-      function setNotebookComplete() {
-        const svg = document.getElementById('publicActivityIllustrationSvg');
-        if (!svg) return;
-
-        svg.querySelectorAll('*').forEach(el => {
-          if (typeof el.getAnimations === 'function') {
-            el.getAnimations().forEach(anim => anim.cancel());
-          }
-        });
-
-        cacheFullTexts();
-
-        svg.querySelectorAll('.hand').forEach(el => {
-          if (el.dataset.fullText) {
-            el.textContent = el.dataset.fullText;
-          }
-          el.style.opacity = '1';
-          el.style.transform = 'none';
-        });
-
-        svg.querySelectorAll('.ink').forEach(el => {
-          el.style.opacity = '1';
-          el.style.strokeDashoffset = '0';
-        });
-      }
-
-      async function playNotebookSequence(token) {
-        if (notebookIsRunning) return;
-        notebookIsRunning = true;
-        
-        const svg = document.getElementById('publicActivityIllustrationSvg');
-        if (!svg) { notebookIsRunning = false; return; }
-
-        const sleep = ms => new Promise(r => setTimeout(r, ms));
-        const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
-
-        const write = async (id, factor=1) => {
-          if (token !== notebookCancelToken || active !== 'public') return;
-          const el = svg.querySelector('#' + id);
-          if(!el) return;
-          const full = el.dataset.fullText || el.textContent.trim();
-          el.dataset.fullText = full;
-          el.textContent = '';
-          el.style.opacity = '1';
-          const stepDelay = Math.max(10, Math.min(26, Math.round(16 * factor)));
-          for (let i = 1; i <= full.length; i++) {
-            if (token !== notebookCancelToken || active !== 'public') return;
-            el.textContent = full.slice(0, i);
-            await sleep(stepDelay);
-          }
-          await sleep(35);
-        };
-
-        const draw = async (id, factor=1) => {
-          if (token !== notebookCancelToken || active !== 'public') return;
-          const el = svg.querySelector('#' + id);
-          if(!el) return;
-          let len = 120;
-          try{
-            if (typeof el.getTotalLength === 'function') {
-              len = Math.max(20, Math.ceil(el.getTotalLength()) + 25);
-            }
-          }catch(e){}
-          el.style.opacity = '1';
-          el.style.strokeDasharray = String(len);
-          el.style.strokeDashoffset = String(len);
-          const duration = clamp(len * 2.2 * factor, 200, 1000);
-          const anim = el.animate(
-            [
-              {strokeDashoffset: len, opacity: 1},
-              {strokeDashoffset: 0, opacity: 1}
-            ],
-            {duration, easing: 'cubic-bezier(.35,.05,.2,1)'}
-          );
-          await anim.finished.catch(()=>{});
-          if (token !== notebookCancelToken || active !== 'public') return;
-          el.style.opacity = '1';
-          el.style.strokeDashoffset = '0';
-          await sleep(35);
-        };
-
-        const pause = async (ms=200) => {
-          if (token !== notebookCancelToken || active !== 'public') return;
-          await sleep(ms);
-        };
-
-        resetNotebook();
-        await pause(300);
-
-        // Sequence
-        await write('edu-l-title',.9); await draw('edu-l-title-u',.8);
-        await write('edu-l-g1'); await write('edu-l-g2'); await write('edu-l-g3'); await pause(240);
-        await draw('edu-beam',1.1); await draw('edu-supportA'); await draw('edu-supportB'); await write('edu-A',.7); await write('edu-B',.7);
-        await draw('edu-qtop',.8); await draw('edu-qarrows',1.15); await write('edu-qtext',.8);
-        await draw('edu-parrow',.8); await write('edu-ptext',.8);
-        await draw('edu-reactA',.7); await write('edu-ratext',.7); await draw('edu-reactB',.7); await write('edu-rbtext',.7);
-        await draw('edu-dims',.9); await write('edu-d1',.7); await write('edu-d2',.7); await write('edu-d3',.7); await pause(300);
-
-        await write('edu-r-title',.9); await write('edu-r1'); await write('edu-r2'); await write('edu-r3'); await write('edu-r4'); await draw('edu-r-u',.9); await pause(350);
-
-        await write('edu-q-title',.9); await write('edu-qe1',.9); await write('edu-qe2',.9); await write('edu-qe3',.9);
-        await draw('edu-qaxes',1.0); await write('edu-qlabel',.7); await write('edu-qx',.7); await draw('edu-qgraph',1.35); await draw('edu-qhatch',1.15);
-        await write('edu-q20',.7); await write('edu-q4',.7); await write('edu-qm16',.7);
-        await write('edu-qnote',.85); await write('edu-qnote2',.85); await write('edu-qnote3',.85); await write('edu-qnote4',.85); await pause(380);
-
-        await write('edu-m-title',.9); await write('edu-me1'); await write('edu-me2'); await write('edu-me3');
-        await draw('edu-maxes',1.0); await write('edu-mlabel',.7); await write('edu-mx',.7); await draw('edu-mgraph',1.55); await draw('edu-mguide',.9); await write('edu-m32',.7); await write('edu-mmax'); await draw('edu-m-u',.9); await pause(350);
-
-        await write('edu-s-title',.9); await draw('edu-section',1.1); await draw('edu-sectiondim',.9); await write('edu-h120',.8); await write('edu-b60',.8);
-        await write('edu-w1'); await write('edu-w2'); await write('edu-w3'); await pause(260);
-        await write('edu-str-title',.9); await write('edu-str1'); await write('edu-str2'); await write('edu-str3'); await draw('edu-str-u',1.0); await pause(220); await write('edu-final',.95);
-
-        notebookHasPlayed = true;
-        notebookIsRunning = false;
-        setNotebookComplete();
-      }
-
-      function startNotebookAutoPlay() {
-        if (notebookHasPlayed) {
-          setNotebookComplete();
-          return;
-        }
-        notebookCancelToken++;
-        notebookIsRunning = false;
-        cacheFullTexts();
-        resetNotebook();
-        const currentToken = notebookCancelToken;
-        playNotebookSequence(currentToken);
-      }
-
       // Microscope nosepiece rotation animation
       const assembly = document.getElementById("nosepieceAssembly");
       const objectives = [

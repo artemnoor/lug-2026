@@ -38,7 +38,9 @@ def window_open(start: Any, end: Any) -> bool:
     start_at, end_at = timestamp(start), timestamp(end)
     now_ms = datetime.now(timezone.utc).timestamp() * 1000
     return (
-        start_at == start_at and end_at == end_at and start_at <= end_at
+        start_at == start_at
+        and end_at == end_at
+        and start_at <= end_at
         and start_at <= now_ms <= end_at
     )
 
@@ -133,9 +135,31 @@ def valid_iso_date(value: Any) -> bool:
 
 
 def public_user(user: dict) -> dict:
-    safe = deepcopy(user)
-    safe.pop("passwordHash", None)
-    safe.setdefault("messengerContacts", normalize_messenger_contacts(user))
+    """Return the explicit API projection; never serialize persistence payload wholesale."""
+    allowed = {
+        "id",
+        "fio",
+        "group",
+        "email",
+        "emailVerified",
+        "emailVerifiedAt",
+        "phone",
+        "messenger",
+        "messengerContact",
+        "telegramAccount",
+        "messengerContacts",
+        "role",
+        "teamId",
+        "avatarUrl",
+        "studentCardFile",
+        "studentCardFileName",
+        "identityStatus",
+        "identityComment",
+        "isIdentityConfirmed",
+        "createdAt",
+    }
+    safe = {key: deepcopy(value) for key, value in user.items() if key in allowed}
+    safe["messengerContacts"] = normalize_messenger_contacts(user)
     return safe
 
 
@@ -203,15 +227,11 @@ def team_for(state: dict, user: dict) -> dict | None:
     )
 
 
-def team_quota(
-    state: dict, team: dict, members: list[dict] | None = None
-) -> dict:
+def team_quota(state: dict, team: dict, members: list[dict] | None = None) -> dict:
     members_count = (
         len(members)
         if members is not None
-        else sum(
-            u.get("teamId") == team.get("id") for u in state.get("users", [])
-        )
+        else sum(u.get("teamId") == team.get("id") for u in state.get("users", []))
     )
     total = int(team.get("totalStudentsInGroup") or 0)
     required = -(-total * int(state["settings"].get("minTeamPercentage", 60)) // 100)
@@ -223,23 +243,42 @@ def team_quota(
     }
 
 
-def audit(state: dict, actor_id: str, action: str, entity_type: str, entity_id: str) -> None:
+def audit(
+    state: dict, actor_id: str, action: str, entity_type: str, entity_id: str
+) -> None:
     state["auditLog"].insert(
         0,
-        {"id": str(uuid4()), "at": now(), "actorId": actor_id, "action": action,
-         "entityType": entity_type, "entityId": entity_id},
+        {
+            "id": str(uuid4()),
+            "at": now(),
+            "actorId": actor_id,
+            "action": action,
+            "entityType": entity_type,
+            "entityId": entity_id,
+        },
     )
     del state["auditLog"][10000:]
 
 
 def notify(
-    state: dict, target_type: str, target_id: str | None, title: str, message: str,
+    state: dict,
+    target_type: str,
+    target_id: str | None,
+    title: str,
+    message: str,
 ) -> None:
     state["notifications"].insert(
         0,
-        {"id": str(uuid4()), "targetType": target_type, "targetId": target_id,
-         "title": title, "message": message, "kind": "system",
-         "createdAt": now(), "readBy": []},
+        {
+            "id": str(uuid4()),
+            "targetType": target_type,
+            "targetId": target_id,
+            "title": title,
+            "message": message,
+            "kind": "system",
+            "createdAt": now(),
+            "readBy": [],
+        },
     )
 
 
@@ -261,6 +300,7 @@ def list_notifications(state: dict, user: dict) -> list[dict]:
             or (kind == "team" and target == user_team)
             or (kind == "captain" and is_captain and target == user_team)
             or (kind == "captains" and is_captain)
+            or (kind == "admins" and user.get("role") == "admin")
             or (kind == "user" and target == user_id)
         )
 
@@ -306,9 +346,7 @@ def team_is_admitted(state: dict, team: dict, members: list[dict]) -> bool:
 def dashboard(state: dict, user: dict) -> dict:
     team = team_for(state, user)
     members = [
-        m
-        for m in state.get("users", [])
-        if team and m.get("teamId") == team.get("id")
+        m for m in state.get("users", []) if team and m.get("teamId") == team.get("id")
     ]
     team_payload = deepcopy(team) if team else None
     if team_payload:
@@ -329,10 +367,13 @@ def dashboard(state: dict, user: dict) -> dict:
 
 
 def owns_upload(state: dict, user: dict, url: str) -> bool:
-    return bool(user and any(
-        item.get("userId") == user.get("id") and item.get("url") == url
-        for item in state.get("uploads", [])
-    ))
+    return bool(
+        user
+        and any(
+            item.get("userId") == user.get("id") and item.get("url") == url
+            for item in state.get("uploads", [])
+        )
+    )
 
 
 def upload_usage(state: dict, user_id: str) -> tuple[int, int]:

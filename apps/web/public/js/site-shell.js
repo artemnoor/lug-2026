@@ -1,4 +1,7 @@
-import { publicDate } from './modules/dom.js';
+import { buildPublicNavigation } from './modules/public-navigation.js';
+import { authApi } from './modules/auth-api.js';
+import { createPublicSchedule } from './modules/public-schedule.js';
+import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messengerMeta, renderMessengerContacts } from './modules/site-auth-helpers.js';
 
 /* Public navigation and the single account entry point.
  * Login and registration intentionally share one modal so the public page
@@ -8,275 +11,14 @@ import { publicDate } from './modules/dom.js';
   'use strict';
 
   function createPublicNavigation() {
-    const demoBar = document.querySelector('.demo-bar');
-    if (demoBar) demoBar.remove();
-
-    const navigation = document.createElement('header');
-    navigation.className = 'site-nav site-nav--public';
-    navigation.innerHTML = `
-      <a class="skip-link" href="#main-content">Перейти к содержанию</a>
-      <a class="site-nav__brand" href="index.html" aria-label="Лучшая учебная группа — главная">
-        <span class="site-nav__mark"><img src="assets/group-icon.svg" alt=""></span>
-      </a>
-      <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="public-navigation" aria-label="Открыть меню">
-        <span></span><span></span><span></span>
-      </button>
-      <nav class="site-nav__links" id="public-navigation" aria-label="Основная навигация">
-        <a href="#about">О конкурсе</a>
-        <a href="#process">Этапы</a>
-        <a href="#gallery">История</a>
-        <a href="#rules">Правила</a>
-        <a href="#registration">Участие</a>
-        <a class="site-nav__menu-account" id="siteMenuAccountLink" href="index.html?action=choice">Войти в кабинет <span aria-hidden="true">→</span></a>
-      </nav>
-      <a class="site-nav__account" id="siteAccountLink" href="index.html?action=choice">Войти</a>
-    `;
-    document.body.prepend(navigation);
-
-    const updateHeaderState = () => navigation.classList.toggle('is-scrolled', window.scrollY > 40);
-    updateHeaderState();
-    window.addEventListener('scroll', updateHeaderState, { passive: true });
-
-    const toggle = navigation.querySelector('.site-nav__toggle');
-    const closeMenu = () => {
-      navigation.classList.remove('is-open');
-      document.body.classList.remove('menu-open');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.setAttribute('aria-label', 'Открыть меню');
-    };
-    toggle.addEventListener('click', () => {
-      const isOpen = navigation.classList.toggle('is-open');
-      document.body.classList.toggle('menu-open', isOpen);
-      toggle.setAttribute('aria-expanded', String(isOpen));
-      toggle.setAttribute('aria-label', isOpen ? 'Закрыть меню' : 'Открыть меню');
-    });
-    navigation.querySelectorAll('.site-nav__links a').forEach(link => link.addEventListener('click', closeMenu));
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
+    const navigation = buildPublicNavigation(document, window);
 
     const accountLink = navigation.querySelector('#siteAccountLink');
     const menuAccountLink = navigation.querySelector('#siteMenuAccountLink');
-    const authDialog = document.createElement('dialog');
-    authDialog.className = 'site-auth-dialog';
-    authDialog.setAttribute('aria-labelledby', 'site-auth-title');
-    authDialog.innerHTML = `
-      <form class="site-auth-dialog__card" id="siteAuthForm" novalidate>
-        <svg class="site-auth-dialog__star" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,0 58,37 88,12 67,43 100,50 64,57 88,88 57,65 50,100 42,63 12,88 35,57 0,50 36,43 12,12 43,37"/></svg>
-        <div class="site-auth-dialog__intro" aria-hidden="true">
-          <svg class="site-auth-dialog__intro-logo" viewBox="0 0 1254 1254" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
-            <g fill="none" stroke="currentColor" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
-              <circle class="auth-logo-line auth-logo-line--1" pathLength="1" cx="629.5" cy="249.5" r="77.5"/><circle class="auth-logo-line auth-logo-line--2" pathLength="1" cx="434.5" cy="333.5" r="77.5"/><circle class="auth-logo-line auth-logo-line--2" pathLength="1" cx="824.5" cy="333.5" r="77.5"/>
-              <path class="auth-logo-line auth-logo-line--3" pathLength="1" d="M512 455c4-38 38-68 84-68h66c46 0 80 30 84 68"/><path class="auth-logo-line auth-logo-line--4" pathLength="1" d="M286 753V566c0-55 45-99 100-99h126"/><path class="auth-logo-line auth-logo-line--4" pathLength="1" d="M746 467h126c55 0 100 44 100 99v199"/>
-              <path class="auth-logo-line auth-logo-line--5" pathLength="1" d="M512 467v199a43.5 43.5 0 0 0 87 0V566c0-48-38-88-87-99"/><path class="auth-logo-line auth-logo-line--6" pathLength="1" d="M746 467v199a43.5 43.5 0 0 1-87 0V566c0-48-38-88-87-99"/>
-            </g>
-            <path class="auth-logo-fill auth-logo-line--8" pathLength="1" d="M382 754h82q15 0 15 15v219h-46V790h-60q-35 0-44 34l-48 164h-41l49-178q15-56 93-56Z"/><path class="auth-logo-fill auth-logo-line--8" pathLength="1" d="M821 754h164v25q0 12-12 12H837v197h-46V779q0-25 30-25Z"/>
-            <path class="auth-logo-line auth-logo-line--7" pathLength="1" d="M536 765l42 96q14 32 67 32h20" fill="none" stroke="currentColor" stroke-width="46" stroke-linecap="butt" stroke-linejoin="round"/><path class="auth-logo-line auth-logo-line--9" pathLength="1" d="M732 765l-67 168q-14 35-58 35h-27" fill="none" stroke="currentColor" stroke-width="46" stroke-linecap="butt" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <button class="site-auth-dialog__close" type="button" aria-label="Закрыть окно">×</button>
-
-        <section class="site-auth-dialog__choice" id="siteAuthChoice">
-          <div class="site-auth-dialog__emblem" aria-hidden="true"><img src="assets/group-icon.svg" alt=""></div>
-          <p class="site-auth-dialog__eyebrow">ЛУГ 2026 · МГТУ им. Н. Э. Баумана</p>
-          <h2 id="site-auth-title">Личный кабинет<br>конкурса</h2>
-          <p class="site-auth-dialog__lead">Выберите действие: войти в кабинет или создать заявку команды.</p>
-          <div class="site-auth-dialog__choice-actions">
-            <div class="site-auth-dialog__choice-action">
-              <p>Уже зарегистрированы?</p>
-              <button type="button" data-auth-mode="login">Войти</button>
-              <small>По почте и паролю</small>
-            </div>
-            <div class="site-auth-dialog__choice-action">
-              <p>Впервые на конкурсе?</p>
-              <button type="button" data-auth-mode="register">Зарегистрироваться</button>
-              <small>Создать команду или войти по приглашению</small>
-            </div>
-          </div>
-          <p class="site-auth-dialog__footer">Не уверены, что выбрать? <a href="mailto:lug@bmstu.ru?subject=Вопрос%20по%20участию">Написать организаторам</a></p>
-        </section>
-
-        <section class="site-auth-dialog__login" id="siteAuthLogin" hidden>
-          <button class="site-auth-dialog__back" type="button" data-auth-mode="choice"><span aria-hidden="true">←</span> Назад</button>
-          <h2 id="site-auth-login-title">Войти<br>в кабинет</h2>
-          <p class="site-auth-dialog__lead">Введите почту и пароль. После входа откроется ваш конкурсный маршрут.</p>
-          <p class="site-auth-dialog__verify-status" id="siteAuthLoginStatus" role="status" aria-live="polite"></p>
-          <label>Электронная почта<input data-auth-field="login" id="siteAuthEmail" type="email" autocomplete="username" placeholder="you@example.com" required></label>
-          <label>Пароль<input data-auth-field="login" id="siteAuthPassword" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
-          <p class="site-auth-dialog__error" id="siteAuthError" role="alert"></p>
-          <button class="site-auth-dialog__submit" id="siteAuthLoginSubmit" type="submit">Войти <span aria-hidden="true">→</span></button>
-          <p class="site-auth-dialog__footer">Не помните пароль? <button class="site-auth-dialog__inline-link" type="button" data-auth-mode="recovery">Восстановить доступ</button></p>
-        </section>
-
-        <section class="site-auth-dialog__login" id="siteAuthRecovery" hidden>
-          <button class="site-auth-dialog__back" type="button" data-auth-mode="login"><span aria-hidden="true">←</span> Вернуться ко входу</button>
-          <p class="site-auth-dialog__eyebrow">Восстановление доступа</p>
-          <h2 id="site-auth-recovery-title">Вернуть<br>доступ</h2>
-          <div id="siteRecoveryRequestStep">
-            <p class="site-auth-dialog__lead">Укажите почту, которую использовали при регистрации. Мы отправим на неё код восстановления.</p>
-            <label>Электронная почта<input data-auth-field="recovery" id="siteRecoveryEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
-            <p class="site-auth-dialog__error" id="siteAuthRecoveryError" role="alert"></p>
-            <button class="site-auth-dialog__submit" id="siteAuthRecoveryRequestSubmit" type="submit">Отправить код <span aria-hidden="true">→</span></button>
-          </div>
-          <div id="siteRecoveryResetStep" hidden>
-            <p class="site-auth-dialog__lead">Код отправлен на <strong id="siteRecoveryVerificationEmail"></strong>. Введите его и задайте новый пароль.</p>
-            <label>Код восстановления<input data-auth-field="recovery" id="siteRecoveryCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required></label>
-            <div class="site-auth-dialog__password-field">
-              <label for="siteRecoveryPassword">Новый пароль</label>
-              <div class="site-auth-dialog__password-control"><input data-auth-field="recovery" id="siteRecoveryPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Придумайте пароль" aria-describedby="siteRecoveryPasswordRules" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteRecoveryPassword" aria-pressed="false">Показать</button></div>
-              <ul class="site-auth-dialog__password-rules" id="siteRecoveryPasswordRules" aria-live="polite"><li data-recovery-password-rule="length">8 символов</li><li data-recovery-password-rule="case">строчная и прописная буква</li><li data-recovery-password-rule="number">цифра</li><li data-recovery-password-rule="special">спецсимвол</li></ul>
-            </div>
-            <div class="site-auth-dialog__password-field">
-              <label for="siteRecoveryPasswordConfirm">Повторите пароль</label>
-              <div class="site-auth-dialog__password-control"><input data-auth-field="recovery" id="siteRecoveryPasswordConfirm" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите пароль" aria-describedby="siteRecoveryPasswordMatch" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteRecoveryPasswordConfirm" aria-pressed="false">Показать</button></div>
-              <p class="site-auth-dialog__password-match" id="siteRecoveryPasswordMatch" role="status" aria-live="polite"></p>
-            </div>
-            <p class="site-auth-dialog__verify-status" id="siteAuthRecoveryStatus" role="status" aria-live="polite"></p>
-            <p class="site-auth-dialog__error" id="siteAuthRecoveryResetError" role="alert"></p>
-            <button class="site-auth-dialog__submit" id="siteAuthRecoveryResetSubmit" type="submit">Сохранить новый пароль <span aria-hidden="true">→</span></button>
-            <button class="site-auth-dialog__inline-link site-auth-dialog__resend" id="siteAuthRecoveryResend" type="button">Отправить код ещё раз</button>
-          </div>
-        </section>
-
-        <section class="site-auth-dialog__register" id="siteAuthRegister" hidden>
-          <button class="site-auth-dialog__back" type="button" data-auth-mode="choice"><span aria-hidden="true">←</span> Назад</button>
-          <p class="site-auth-dialog__eyebrow">Регистрация участника</p>
-          <h2 id="site-auth-register-title">Как<br>участвовать?</h2>
-          <p class="site-auth-dialog__lead">Выберите сценарий. Форму можно заполнить прямо здесь — отдельная страница не нужна.</p>
-          <div class="site-auth-dialog__switch" role="tablist" aria-label="Сценарий регистрации">
-            <button type="button" role="tab" data-register-mode="captain" aria-selected="true">Создать команду</button>
-            <button type="button" role="tab" data-register-mode="participant" aria-selected="false">По приглашению</button>
-          </div>
-
-          <div class="site-auth-dialog__register-panel" id="siteAuthCaptainPanel" data-register-panel="captain">
-            <p class="site-auth-dialog__section-note">Капитан создаёт команду своей учебной группы и затем приглашает одногруппников.</p>
-            <div class="site-auth-dialog__field-grid">
-              <div class="site-auth-dialog__field-group site-auth-dialog__field--wide">
-                <span class="site-auth-dialog__field-group-title">Фамилия, имя и отчество</span>
-                <div class="site-auth-dialog__fio-grid">
-                  <label>Фамилия<input data-auth-field="captain" id="siteCapSurname" type="text" autocomplete="family-name" placeholder="Иванов" required></label>
-                  <label>Имя<input data-auth-field="captain" id="siteCapName" type="text" autocomplete="given-name" placeholder="Иван" required></label>
-                  <label>Отчество<input data-auth-field="captain" id="siteCapPatronymic" type="text" autocomplete="additional-name" placeholder="Иванович" required></label>
-                </div>
-              </div>
-              <label>Учебная группа<input data-auth-field="captain" id="siteCapGroup" type="text" placeholder="Например, ИУ7-41Б" required></label>
-              <label>Студентов в группе<input data-auth-field="captain" id="siteCapGroupSize" type="number" min="1" step="1" inputmode="numeric" placeholder="Например, 25" required></label>
-              <label class="site-auth-dialog__field--wide">Название команды<input data-auth-field="captain" id="siteCapTeamName" type="text" placeholder="Например, Ракета ИУ7" required></label>
-              <label class="site-auth-dialog__field--wide">Электронная почта<input data-auth-field="captain" id="siteCapEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
-              <fieldset class="site-auth-dialog__messenger-picker site-auth-dialog__field--wide" data-messenger-owner="captain">
-                <legend>Мессенджеры</legend>
-                <p class="site-auth-dialog__field-help">Выберите, как с вами можно связаться.</p>
-                <div class="site-auth-dialog__messenger-options" role="group" aria-label="Способы связи капитана">
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="captain" data-messenger="telegram" aria-pressed="false"><img src="assets/messenger-telegram.svg" alt=""><span>Telegram</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="captain" data-messenger="vk" aria-pressed="false"><img src="assets/messenger-vk.svg" alt=""><span>VK</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="captain" data-messenger="max" aria-pressed="false"><img src="assets/messenger-max.svg" alt=""><span>MAX</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                </div>
-                <div class="site-auth-dialog__messenger-contacts" data-messenger-contacts="captain" aria-live="polite"></div>
-                <p class="site-auth-dialog__messenger-status" data-messenger-status="captain" role="status">Способ связи ещё не выбран</p>
-              </fieldset>
-            </div>
-            <div class="site-auth-dialog__upload" data-dropzone="captain">
-              <div class="site-auth-dialog__upload-head">
-                <span class="site-auth-dialog__upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2l1.1-1.5h4.8L15.5 5h2A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12" r="3.5"/></svg></span>
-                <span class="site-auth-dialog__upload-copy"><span class="site-auth-dialog__upload-title">Подтверждение студента</span><strong>Фото личного кабинета</strong><small>Сфотографируйте экран или выберите фото/PDF · до 5 МБ.</small></span>
-              </div>
-              <input class="site-auth-dialog__file-input" data-auth-field="captain" id="siteCapStudentCardFile" type="file" accept="image/*,.pdf" aria-label="Выбрать фото личного кабинета" tabindex="-1">
-              <div class="site-auth-dialog__upload-controls">
-                <button class="site-auth-dialog__upload-choose" data-auth-field="captain" data-upload-trigger data-upload-owner="captain" type="button" aria-controls="siteCapStudentCardFile" aria-describedby="siteCapFilePreview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-upload-action>Выбрать фото</span></button>
-                <button class="site-auth-dialog__upload-clear" data-auth-field="captain" data-upload-clear data-upload-owner="captain" type="button" hidden>Удалить</button>
-              </div>
-              <p class="site-auth-dialog__file-status" id="siteCapFilePreview" role="status" aria-live="polite">Файл не выбран</p>
-              <div class="site-auth-dialog__file-preview" data-upload-preview-wrap hidden><img data-upload-preview alt="Предпросмотр выбранного фото"></div>
-              <small class="site-auth-dialog__upload-desktop-hint">На компьютере можно также перетащить файл сюда · JPG, PNG, WEBP или PDF до 5 МБ.</small>
-            </div>
-            <div class="site-auth-dialog__field-grid site-auth-dialog__password-grid">
-              <div class="site-auth-dialog__password-field">
-                <label for="siteCapPassword">Пароль</label>
-                <div class="site-auth-dialog__password-control"><input data-auth-field="captain" data-password="captain" id="siteCapPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Придумайте пароль" aria-describedby="siteCapPasswordRules" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteCapPassword" aria-pressed="false">Показать</button></div>
-                <ul class="site-auth-dialog__password-rules" id="siteCapPasswordRules" data-password-rules="captain" aria-live="polite"><li data-password-rule="length">8 символов</li><li data-password-rule="case">строчная и прописная буква</li><li data-password-rule="number">цифра</li><li data-password-rule="special">спецсимвол</li></ul>
-              </div>
-              <div class="site-auth-dialog__password-field">
-                <label for="siteCapPasswordConfirm">Повторите пароль</label>
-                <div class="site-auth-dialog__password-control"><input data-auth-field="captain" data-password-confirm="captain" id="siteCapPasswordConfirm" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите пароль" aria-describedby="siteCapPasswordMatch" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteCapPasswordConfirm" aria-pressed="false">Показать</button></div>
-                <p class="site-auth-dialog__password-match" id="siteCapPasswordMatch" role="status" aria-live="polite"></p>
-              </div>
-            </div>
-            <label class="site-auth-dialog__consent"><input data-auth-field="captain" id="siteCapConsent" type="checkbox" required><span>Согласен(на) на обработку <a href="privacy.html" target="_blank" rel="noopener">персональных данных</a> для конкурса.</span></label>
-          </div>
-
-          <div class="site-auth-dialog__register-panel" id="siteAuthParticipantPanel" data-register-panel="participant" hidden>
-            <p class="site-auth-dialog__section-note">Укажите код от капитана — команда и учебная группа подставятся автоматически.</p>
-            <div class="site-auth-dialog__field-grid">
-              <label class="site-auth-dialog__field--wide">Код приглашения<input data-auth-field="participant" id="siteJoinInviteCode" type="text" placeholder="Например, IU7-41B-2026" required></label>
-              <p class="site-auth-dialog__invite-status" id="siteInviteStatus" role="status"></p>
-              <label>Команда<input id="siteJoinTeamName" type="text" placeholder="Определится по коду" readonly></label>
-              <label>Учебная группа<input id="siteJoinGroup" type="text" placeholder="Определится по коду" readonly></label>
-              <div class="site-auth-dialog__field-group site-auth-dialog__field--wide">
-                <span class="site-auth-dialog__field-group-title">Фамилия, имя и отчество</span>
-                <div class="site-auth-dialog__fio-grid">
-                  <label>Фамилия<input data-auth-field="participant" id="siteJoinSurname" type="text" autocomplete="family-name" placeholder="Иванова" required></label>
-                  <label>Имя<input data-auth-field="participant" id="siteJoinName" type="text" autocomplete="given-name" placeholder="Мария" required></label>
-                  <label>Отчество<input data-auth-field="participant" id="siteJoinPatronymic" type="text" autocomplete="additional-name" placeholder="Сергеевна" required></label>
-                </div>
-              </div>
-              <label class="site-auth-dialog__field--wide">Электронная почта<input data-auth-field="participant" id="siteJoinEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
-              <fieldset class="site-auth-dialog__messenger-picker site-auth-dialog__field--wide" data-messenger-owner="participant">
-                <legend>Мессенджеры</legend>
-                <p class="site-auth-dialog__field-help">Выберите, как с вами можно связаться.</p>
-                <div class="site-auth-dialog__messenger-options" role="group" aria-label="Способы связи участника">
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="participant" data-messenger="telegram" aria-pressed="false"><img src="assets/messenger-telegram.svg" alt=""><span>Telegram</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="participant" data-messenger="vk" aria-pressed="false"><img src="assets/messenger-vk.svg" alt=""><span>VK</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                  <button type="button" class="site-auth-dialog__messenger-option" data-messenger-owner="participant" data-messenger="max" aria-pressed="false"><img src="assets/messenger-max.svg" alt=""><span>MAX</span><span class="site-auth-dialog__messenger-check" aria-hidden="true">✓</span></button>
-                </div>
-                <div class="site-auth-dialog__messenger-contacts" data-messenger-contacts="participant" aria-live="polite"></div>
-                <p class="site-auth-dialog__messenger-status" data-messenger-status="participant" role="status">Способ связи ещё не выбран</p>
-              </fieldset>
-            </div>
-            <div class="site-auth-dialog__upload" data-dropzone="participant">
-              <div class="site-auth-dialog__upload-head">
-                <span class="site-auth-dialog__upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2l1.1-1.5h4.8L15.5 5h2A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12" r="3.5"/></svg></span>
-                <span class="site-auth-dialog__upload-copy"><span class="site-auth-dialog__upload-title">Подтверждение студента</span><strong>Фото личного кабинета</strong><small>Сфотографируйте экран или выберите фото/PDF · до 5 МБ.</small></span>
-              </div>
-              <input class="site-auth-dialog__file-input" data-auth-field="participant" id="siteJoinStudentCardFile" type="file" accept="image/*,.pdf" aria-label="Выбрать фото личного кабинета" tabindex="-1">
-              <div class="site-auth-dialog__upload-controls">
-                <button class="site-auth-dialog__upload-choose" data-auth-field="participant" data-upload-trigger data-upload-owner="participant" type="button" aria-controls="siteJoinStudentCardFile" aria-describedby="siteJoinFilePreview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span data-upload-action>Выбрать фото</span></button>
-                <button class="site-auth-dialog__upload-clear" data-auth-field="participant" data-upload-clear data-upload-owner="participant" type="button" hidden>Удалить</button>
-              </div>
-              <p class="site-auth-dialog__file-status" id="siteJoinFilePreview" role="status" aria-live="polite">Файл не выбран</p>
-              <div class="site-auth-dialog__file-preview" data-upload-preview-wrap hidden><img data-upload-preview alt="Предпросмотр выбранного фото"></div>
-              <small class="site-auth-dialog__upload-desktop-hint">На компьютере можно также перетащить файл сюда · JPG, PNG, WEBP или PDF до 5 МБ.</small>
-            </div>
-            <div class="site-auth-dialog__field-grid site-auth-dialog__password-grid">
-              <div class="site-auth-dialog__password-field">
-                <label for="siteJoinPassword">Пароль</label>
-                <div class="site-auth-dialog__password-control"><input data-auth-field="participant" data-password="participant" id="siteJoinPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Придумайте пароль" aria-describedby="siteJoinPasswordRules" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteJoinPassword" aria-pressed="false">Показать</button></div>
-                <ul class="site-auth-dialog__password-rules" id="siteJoinPasswordRules" data-password-rules="participant" aria-live="polite"><li data-password-rule="length">8 символов</li><li data-password-rule="case">строчная и прописная буква</li><li data-password-rule="number">цифра</li><li data-password-rule="special">спецсимвол</li></ul>
-              </div>
-              <div class="site-auth-dialog__password-field">
-                <label for="siteJoinPasswordConfirm">Повторите пароль</label>
-                <div class="site-auth-dialog__password-control"><input data-auth-field="participant" data-password-confirm="participant" id="siteJoinPasswordConfirm" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите пароль" aria-describedby="siteJoinPasswordMatch" required><button type="button" class="site-auth-dialog__password-toggle" data-password-toggle="siteJoinPasswordConfirm" aria-pressed="false">Показать</button></div>
-                <p class="site-auth-dialog__password-match" id="siteJoinPasswordMatch" role="status" aria-live="polite"></p>
-              </div>
-            </div>
-            <label class="site-auth-dialog__consent"><input data-auth-field="participant" id="siteJoinConsent" type="checkbox" required><span>Согласен(на) на обработку <a href="privacy.html" target="_blank" rel="noopener">персональных данных</a> для конкурса.</span></label>
-          </div>
-
-          <p class="site-auth-dialog__error" id="siteAuthRegisterError" role="alert"></p>
-          <button class="site-auth-dialog__submit" id="siteAuthRegisterSubmit" type="submit">Создать команду и войти <span aria-hidden="true">→</span></button>
-          <p class="site-auth-dialog__footer">Уже есть аккаунт? <button class="site-auth-dialog__inline-link" type="button" data-auth-mode="login">Войти</button></p>
-        </section>
-
-        <section class="site-auth-dialog__verify" id="siteAuthVerify" hidden>
-          <button class="site-auth-dialog__back" type="button" data-auth-mode="register"><span aria-hidden="true">←</span> Вернуться к форме</button>
-          <p class="site-auth-dialog__eyebrow">Почта подтверждена не полностью</p>
-          <h2 id="site-auth-verify-title">Ещё<br>один шаг</h2>
-          <p class="site-auth-dialog__lead">Мы отправили шестизначный код на <strong id="siteVerificationEmail"></strong>. Введите его ниже, чтобы завершить регистрацию.</p>
-          <label>Код подтверждения<input data-auth-field="verify" id="siteVerificationCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required></label>
-          <p class="site-auth-dialog__verify-status" id="siteVerificationStatus" role="status" aria-live="polite"></p>
-          <p class="site-auth-dialog__error" id="siteAuthVerifyError" role="alert"></p>
-          <button class="site-auth-dialog__submit" id="siteAuthVerifySubmit" type="submit">Подтвердить почту <span aria-hidden="true">→</span></button>
-          <button class="site-auth-dialog__inline-link site-auth-dialog__resend" id="siteAuthResend" type="button">Отправить код ещё раз</button>
-        </section>
-      </form>
-    `;
+    const template = document.getElementById('siteAuthDialogTemplate');
+    const authDialog = template?.content.firstElementChild?.cloneNode(true);
+    if (!authDialog) return;
+    template.remove();
     document.body.append(authDialog);
 
     const authForm = authDialog.querySelector('#siteAuthForm');
@@ -308,51 +50,17 @@ import { publicDate } from './modules/dom.js';
     let recoveryStep = 'request';
     let recoveryEmail = '';
     const messengerSelections = { captain: new Set(), participant: new Set() };
-    const messengerMeta = {
-      telegram: { label: 'Telegram', contactLabel: 'Никнейм или ID Telegram', placeholder: '@username или 123456789', test: value => /^@?[a-zA-Z0-9_]{4,32}$/.test(value) || /^(?:https?:\/\/)?t\.me\/[a-zA-Z0-9_]{4,32}$/i.test(value) },
-      vk: { label: 'VK', contactLabel: 'Ссылка или ID VK', placeholder: 'vk.com/username или ID', test: value => /^(?:(?:https?:\/\/)?(?:www\.)?vk\.com\/)?[a-zA-Z0-9_.-]{2,64}$/.test(value) },
-      max: { label: 'MAX', contactLabel: 'Номер телефона или никнейм MAX', placeholder: '+7 999 000-00-00 или @username', test: value => /^(?:\+?\d[\d\s()\-]{8,}|@?[a-zA-Z0-9_.-]{3,64})$/.test(value) }
-    };
 
     const setError = (node, message = '') => { node.textContent = message; node.classList.toggle('is-visible', Boolean(message)); };
     const focusFirstField = panel => window.setTimeout(() => panel?.querySelector('[data-auth-field]:not(:disabled)')?.focus(), 0);
-    const isStrongPassword = value => /[a-zа-яё]/.test(value) && /[A-ZА-ЯЁ]/.test(value) && /\d/.test(value) && /[^A-Za-zА-Яа-яЁё\d\s]/.test(value) && value.length >= 8;
-    const getFio = owner => {
-      const prefix = owner === 'captain' ? 'siteCap' : 'siteJoin';
-      return ['Surname', 'Name', 'Patronymic'].map(part => authDialog.querySelector(`#${prefix}${part}`)?.value.trim()).filter(Boolean).join(' ');
-    };
-    const getMessengerContacts = owner => {
-      const contacts = {};
-      messengerSelections[owner].forEach(key => {
-        const input = authDialog.querySelector(`[data-messenger-contact="${owner}-${key}"]`);
-        const value = input?.value.trim();
-        if (value) contacts[key] = value;
-      });
-      return contacts;
-    };
-    const renderMessengerContacts = owner => {
-      const container = authDialog.querySelector(`[data-messenger-contacts="${owner}"]`);
-      const status = authDialog.querySelector(`[data-messenger-status="${owner}"]`);
-      if (!container || !status) return;
-      const previousValues = Object.fromEntries([...container.querySelectorAll('[data-messenger-contact]')].map(input => [input.dataset.messengerContact, input.value]));
-      container.innerHTML = [...messengerSelections[owner]].map(key => {
-        const meta = messengerMeta[key];
-        return `<label class="site-auth-dialog__messenger-contact"><span>${meta.contactLabel}</span><input data-auth-field="${owner}" data-messenger-contact="${owner}-${key}" type="text" autocomplete="off" placeholder="${meta.placeholder}" required><small data-messenger-error="${owner}-${key}" role="alert"></small></label>`;
-      }).join('');
-      container.querySelectorAll('[data-messenger-contact]').forEach(input => { if (previousValues[input.dataset.messengerContact] !== undefined) input.value = previousValues[input.dataset.messengerContact]; });
-      status.textContent = messengerSelections[owner].size ? `Выбрано способов связи: ${messengerSelections[owner].size}` : 'Способ связи ещё не выбран';
-      authDialog.querySelectorAll(`.site-auth-dialog__messenger-option[data-messenger-owner="${owner}"]`).forEach(button => {
-        const active = messengerSelections[owner].has(button.dataset.messenger);
-        button.classList.toggle('is-selected', active);
-        button.setAttribute('aria-pressed', String(active));
-      });
-      syncDisabledFields();
-    };
+    const getFioForOwner = (owner) => getFio(authDialog, owner);
+    const getMessengerContactsForOwner = (owner) => getMessengerContacts(authDialog, messengerSelections, owner);
+    const renderMessengerContactsForOwner = (owner) => renderMessengerContacts({ dialog: authDialog, selections: messengerSelections, owner, syncDisabledFields });
     const toggleMessenger = (owner, key) => {
       if (!messengerMeta[key]) return;
       const selected = messengerSelections[owner];
       selected.has(key) ? selected.delete(key) : selected.add(key);
-      renderMessengerContacts(owner);
+      renderMessengerContactsForOwner(owner);
     };
     const validateMessengerContacts = owner => {
       const selected = messengerSelections[owner];
@@ -405,8 +113,8 @@ import { publicDate } from './modules/dom.js';
     authDialog.querySelectorAll('.site-auth-dialog__messenger-option').forEach(button => {
       button.addEventListener('click', () => toggleMessenger(button.dataset.messengerOwner, button.dataset.messenger));
     });
-    renderMessengerContacts('captain');
-    renderMessengerContacts('participant');
+    renderMessengerContactsForOwner('captain');
+    renderMessengerContactsForOwner('participant');
 
     const setRegistrationMode = (mode, focus = true) => {
       registerMode = mode === 'participant' ? 'participant' : 'captain';
@@ -511,7 +219,6 @@ import { publicDate } from './modules/dom.js';
       window.scrollTo(0, pageScrollY);
     };
 
-    const isAllowedFile = file => file && (/^image\//i.test(file.type) || /^application\/pdf$/i.test(file.type) || /\.(png|jpe?g|webp|gif|avif|heic|heif|tiff?|bmp|pdf)$/i.test(file.name));
     const setFile = (input, file, previewId, type, previewState) => {
       if (!file) return false;
       if (!isAllowedFile(file)) { input.value = ''; setError(registerError, 'Загрузите изображение или PDF.'); return false; }
@@ -624,7 +331,7 @@ import { publicDate } from './modules/dom.js';
       if (!code) { inviteCheckedCode = ''; status.textContent = ''; return false; }
       status.textContent = 'Проверяем приглашение…';
       try {
-        const { team } = await window.lugStore.invite(code);
+        const { team } = await authApi.invite(code);
         authDialog.querySelector('#siteJoinTeamName').value = team.name;
         authDialog.querySelector('#siteJoinGroup').value = team.group;
         inviteCheckedCode = code.toUpperCase(); inviteValid = true;
@@ -678,7 +385,7 @@ import { publicDate } from './modules/dom.js';
       const submit = authDialog.querySelector('#siteAuthVerifySubmit');
       try {
         submit.disabled = true; submit.textContent = 'Проверяем код…';
-        const result = await window.lugStore.verifyEmail(verificationId, codeField.value.trim());
+        const result = await authApi.verifyEmail(verificationId, codeField.value.trim());
         sessionStorage.setItem('lug-welcome-guide', result.user.role);
         window.location.href = nextPath || 'cabinet.html?welcome=1';
       } catch (verificationError) {
@@ -696,7 +403,7 @@ import { publicDate } from './modules/dom.js';
       const error = authDialog.querySelector('#siteAuthVerifyError');
       try {
         resend.disabled = true; setError(error);
-        const result = await window.lugStore.resendEmailCode(verificationId);
+        const result = await authApi.resendEmailCode(verificationId);
         verificationExpiresAt = result.expiresAt || verificationExpiresAt;
         status.textContent = 'Новый код отправлен. Проверьте входящие и папку «Спам».';
       } catch (resendError) {
@@ -717,7 +424,7 @@ import { publicDate } from './modules/dom.js';
       try {
         button.disabled = true;
         setError(error);
-        const result = await window.lugStore.requestPasswordReset(email);
+        const result = await authApi.requestPasswordReset(email);
         recoveryEmail = email;
         authDialog.querySelector('#siteRecoveryVerificationEmail').textContent = email;
         status.textContent = result.message || 'Проверьте почту и папку «Спам».';
@@ -752,7 +459,7 @@ import { publicDate } from './modules/dom.js';
       try {
         submit.disabled = true;
         submit.textContent = 'Сохраняем пароль…';
-        await window.lugStore.resetPassword(recoveryEmail || authDialog.querySelector('#siteRecoveryEmail').value.trim(), code.value.trim(), password.value);
+        await authApi.resetPassword(recoveryEmail || authDialog.querySelector('#siteRecoveryEmail').value.trim(), code.value.trim(), password.value);
         authDialog.querySelector('#siteAuthEmail').value = recoveryEmail;
         authDialog.querySelector('#siteAuthPassword').value = '';
         loginStatus.textContent = 'Пароль изменён. Войдите с новым паролем.';
@@ -776,23 +483,27 @@ import { publicDate } from './modules/dom.js';
       try {
         submit.disabled = true; submit.textContent = 'Создаём заявку…';
         const file = registerMode === 'captain' ? capFile : joinFile;
-        const dataUrl = await window.lugStore.fileToDataUrl(file);
-        const messengerContacts = getMessengerContacts(registerMode);
+        const card = await authApi.uploadRegistrationCard(file);
+        const messengerContacts = getMessengerContactsForOwner(registerMode);
         const firstMessenger = Object.entries(messengerContacts)[0] || ['', ''];
         const result = registerMode === 'captain'
-          ? await window.lugStore.registerCaptain({
-            fio: getFio('captain'), group: authDialog.querySelector('#siteCapGroup').value,
+          ? await authApi.registerCaptain({
+            fio: getFioForOwner('captain'), group: authDialog.querySelector('#siteCapGroup').value,
             teamName: authDialog.querySelector('#siteCapTeamName').value, totalStudentsInGroup: authDialog.querySelector('#siteCapGroupSize').value,
             email: authDialog.querySelector('#siteCapEmail').value, messenger: firstMessenger[0], messengerContact: firstMessenger[1],
             messengerContacts,
-            password: authDialog.querySelector('#siteCapPassword').value, studentCardFile: dataUrl, studentCardFileName: file.name,
+            password: authDialog.querySelector('#siteCapPassword').value, studentCardFile: card.url,
+            studentCardFileName: file.name, studentCardUploadToken: card.registrationToken,
+            studentCardSize: card.size, studentCardType: card.type,
             consent: authDialog.querySelector('#siteCapConsent').checked
           })
-          : await window.lugStore.registerParticipant({
-            inviteCode: authDialog.querySelector('#siteJoinInviteCode').value, fio: getFio('participant'),
+          : await authApi.registerParticipant({
+            inviteCode: authDialog.querySelector('#siteJoinInviteCode').value, fio: getFioForOwner('participant'),
             email: authDialog.querySelector('#siteJoinEmail').value, messenger: firstMessenger[0], messengerContact: firstMessenger[1],
             messengerContacts,
-            password: authDialog.querySelector('#siteJoinPassword').value, studentCardFile: dataUrl, studentCardFileName: file.name,
+            password: authDialog.querySelector('#siteJoinPassword').value, studentCardFile: card.url,
+            studentCardFileName: file.name, studentCardUploadToken: card.registrationToken,
+            studentCardSize: card.size, studentCardType: card.type,
             consent: authDialog.querySelector('#siteJoinConsent').checked
           });
         if (result.verificationRequired) { openEmailVerification(result); return; }
@@ -841,7 +552,7 @@ import { publicDate } from './modules/dom.js';
       setError(authDialog.querySelector('#siteAuthRecoveryError')); setError(authDialog.querySelector('#siteAuthRecoveryResetError'));
       authDialog.querySelector('#siteAuthRecoveryStatus').textContent = '';
       messengerSelections.captain.clear(); messengerSelections.participant.clear();
-      renderMessengerContacts('captain'); renderMessengerContacts('participant');
+      renderMessengerContactsForOwner('captain'); renderMessengerContactsForOwner('participant');
       authDialog.querySelectorAll('[data-password-toggle]').forEach(button => { const input = authDialog.querySelector(`#${button.dataset.passwordToggle}`); input.type = 'password'; button.textContent = 'Показать'; button.setAttribute('aria-pressed', 'false'); });
       uploadResetters.forEach(reset => reset());
       setAuthMode('choice'); authDialog.classList.remove('is-intro-login', 'is-intro-complete'); authDialog.querySelector('.site-auth-dialog__intro')?.style.removeProperty('--auth-intro-travel'); unlockPage();
@@ -890,7 +601,7 @@ import { publicDate } from './modules/dom.js';
       const submit = authDialog.querySelector('#siteAuthLoginSubmit');
       try {
         submit.disabled = true; submit.textContent = 'Проверяем…';
-        const result = await window.lugStore.login(authDialog.querySelector('#siteAuthEmail').value.trim(), authDialog.querySelector('#siteAuthPassword').value);
+        const result = await authApi.login(authDialog.querySelector('#siteAuthEmail').value.trim(), authDialog.querySelector('#siteAuthPassword').value);
         window.location.href = nextPath || (result.user.role === 'admin' ? 'admin.html' : 'cabinet.html');
       } catch (error) {
         setError(authError, error.message || 'Не удалось войти. Проверьте данные.');
@@ -901,7 +612,7 @@ import { publicDate } from './modules/dom.js';
     authDialog.querySelector('#siteAuthResend').addEventListener('click', resendEmailVerification);
     authDialog.querySelector('#siteAuthRecoveryResend').addEventListener('click', () => requestRecoveryCode({ resend: true }));
 
-    window.lugStore?.session?.().then(({ user }) => {
+    authApi.session().then(({ user }) => {
       if (!user) return;
       accountLink.dataset.authenticated = 'true';
       accountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
@@ -918,56 +629,8 @@ import { publicDate } from './modules/dom.js';
     }
   }
 
-  function publicDateRange(start, end) {
-    const left = publicDate(start);
-    const right = publicDate(end);
-    return left && right ? `${left} — ${right}` : left || right;
-  }
-
-  function applyPublicSchedule(settings = {}) {
-    window.lugPublicSettings = settings;
-    const registrationActive = settings.isRegistrationOpen === true
-      && Date.now() >= new Date(settings.registrationStart).getTime()
-      && Date.now() <= new Date(settings.registrationDeadline).getTime();
-    document.body.dataset.registrationClosed = String(!registrationActive);
-    document.querySelectorAll('a[href*="register.html?action=register"]').forEach((link) => {
-      link.setAttribute('aria-disabled', String(!registrationActive));
-      link.tabIndex = registrationActive ? 0 : -1;
-      link.classList.toggle('is-disabled', !registrationActive);
-    });
-    document.querySelectorAll('[data-schedule]').forEach((node) => {
-      const key = node.dataset.schedule;
-      const values = key === 'registration' ? [settings.registrationStart, settings.registrationDeadline]
-        : key === 'portfolio' ? [settings.portfolioStart, settings.portfolioDeadline]
-          : key === 'video' ? [settings.videoStart, settings.videoDeadline]
-            : key === 'results' ? [settings.resultsStart, settings.resultsDeadline] : [];
-      const range = publicDateRange(...values);
-      if (range) node.textContent = range;
-    });
-    document.querySelectorAll('[data-registration-deadline]').forEach((node) => {
-      node.textContent = registrationActive ? `Зарегистрируйся до ${publicDate(settings.registrationDeadline)}` : 'Приём заявок закрыт';
-    });
-    document.querySelectorAll('[data-content]:not([data-registration-status])').forEach((node) => {
-      const value = settings.content?.[node.dataset.content];
-      if (value) node.textContent = value;
-    });
-    document.querySelectorAll('[data-registration-status]').forEach((node) => {
-      node.textContent = registrationActive ? (settings.content?.registrationHeadline || `Приём заявок открыт до ${publicDate(settings.registrationDeadline)}`) : 'Приём заявок закрыт';
-    });
-    window.dispatchEvent(new CustomEvent('lug:config', { detail: settings }));
-  }
-
-  async function syncPublicSchedule() {
-    try {
-      const result = await window.lugStore.request('/api/config');
-      applyPublicSchedule(result.settings || {});
-    } catch {
-      // Static fallback copy remains visible when the page is opened without the server.
-    }
-  }
-
   if (document.body && document.body.classList.contains('public-page')) {
     createPublicNavigation();
-    syncPublicSchedule();
+    createPublicSchedule({ document, window, authApi }).syncPublicSchedule();
   }
 }());

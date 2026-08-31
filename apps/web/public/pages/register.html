@@ -1,21 +1,23 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=index.html?action=choice">
-  <title>Личный кабинет | ЛУГ МГТУ 2026</title>
-  <link rel="icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml" sizes="any">
-  <link rel="shortcut icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml">
-  <style>html,body{display:none!important;}</style>
-  <script>
-    const params = new URLSearchParams(location.search);
-    const target = new URL('index.html', location.href);
-    ['action', 'invite', 'next'].forEach(key => { if (params.has(key)) target.searchParams.set(key, params.get(key)); });
-    if (!target.searchParams.has('action') && !target.searchParams.has('invite') && !target.searchParams.has('next')) target.searchParams.set('action', 'choice');
-    location.replace(target.href);
-  </script>
-</head>
-<body>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="0; url=index.html?action=choice" />
+    <title>Личный кабинет | ЛУГ МГТУ 2026</title>
+    <link
+      rel="icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+      sizes="any"
+    />
+    <link
+      rel="shortcut icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+    />
+    <link rel="stylesheet" href="css/register-redirect.css" />
+    <script src="js/register-redirect.js"></script>
+  </head>
+  <body></body>
 </html>

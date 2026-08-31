@@ -2509,7 +2509,7 @@ textarea.admin-control { line-height: 1.5; padding: 11px 13px; resize: vertical;
 /* Широкие поля комментариев */
 .admin-control--roomy { min-height: 104px; }
 textarea.admin-control--roomy { line-height: 1.55; }
-.admin-comment-field { width: 100%; }
+.admin-comment-field { width: 100%; margin-top: 12px; }
 .admin-comment-field textarea { width: 100%; }
 
 /* Шесть карточек адресатов рассылки */
@@ -2657,3 +2657,5 @@ textarea.admin-control--roomy { line-height: 1.55; }
     transition-duration: 0.01ms !important;
   }
 }
+/* Shared states used by dynamically rendered admin forms. */
+.admin-master__heading--compact { padding-top: 6px; }

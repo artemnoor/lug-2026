@@ -1,6 +1,7 @@
 """FastAPI request parsing and response security helpers."""
 
 import json
+from hashlib import sha256
 from typing import Any
 
 from fastapi import Request, Response
@@ -28,7 +29,8 @@ async def read_json(request: Request, max_bytes: int) -> dict[str, Any]:
         total += len(chunk)
         if total > max_bytes:
             raise ApiError(
-                413, f"Файл или запрос превышает лимит {round(max_bytes / 1024 / 1024)} МБ."
+                413,
+                f"Файл или запрос превышает лимит {round(max_bytes / 1024 / 1024)} МБ.",
             )
         chunks.append(chunk)
     raw = b"".join(chunks)
@@ -55,6 +57,23 @@ def json_response(
     response.headers.setdefault("Vary", "Cookie")
     if request is not None:
         response.headers["X-Request-Id"] = request.state.request_id
+    return response
+
+
+def public_json_response(data: Any, request: Request) -> JSONResponse | Response:
+    """Return a cacheable public projection with safe conditional requests."""
+    encoded = json.dumps(
+        data, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    etag = f'"{sha256(encoded).hexdigest()[:24]}"'
+    if request.headers.get("if-none-match", "").strip() == etag:
+        response = Response(status_code=304)
+    else:
+        response = JSONResponse(data)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=60, must-revalidate"
+    response.headers["Vary"] = "Accept-Encoding"
+    response.headers["X-Request-Id"] = request.state.request_id
     return response
 
 

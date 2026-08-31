@@ -6,17 +6,19 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Request
 
+from ..application.authentication import AuthenticationService, InvalidCredentials
 from ..http.errors import ApiError
-from ..http.utils import json_response, read_json, set_session_cookie
+from ..http.utils import (
+    json_response,
+    public_json_response,
+    read_json,
+    set_session_cookie,
+)
 from ..models import LoginPayload, model_payload
 from ..security.auth import (
     SESSION_COOKIE,
-    current_user,
     hash_token,
-    new_session,
     parse_cookies,
-    password_matches,
-    remove_session,
 )
 from ..shared import domain
 
@@ -43,91 +45,59 @@ def _not_limited(result: dict[str, Any]) -> None:
 @router.get("/config")
 async def config(request: Request):
     store = _context(request).store
-    if hasattr(store, "get_settings"):
-        return json_response({"settings": await store.get_settings()}, request=request)
-    state = await store.load()
-    return json_response({"settings": state["settings"]}, request=request)
+    return public_json_response({"settings": await store.get_settings()}, request)
 
 
 @router.get("/results")
 async def results(request: Request):
-    state = await _context(request).store.load()
-    published = datetime.now(timezone.utc).timestamp() * 1000 >= domain.timestamp(
-        state["settings"].get("resultsStart")
-    )
-    teams = []
-    if published:
-        users_by_team: dict[str, list[dict]] = {}
-        achievements_by_user: dict[str, list[dict]] = {}
-        for user in state["users"]:
-            users_by_team.setdefault(user.get("teamId"), []).append(user)
-        for achievement in state["achievements"]:
-            achievements_by_user.setdefault(achievement.get("userId"), []).append(
-                achievement
-            )
-        for team in state["teams"]:
-            members = users_by_team.get(team.get("id"), [])
-            if not domain.team_is_admitted(state, team, members):
-                continue
-            member_ids = {member.get("id") for member in members}
-            achievement_points = sum(
-                item.get("points") or 0
-                for member_id in member_ids
-                for item in achievements_by_user.get(member_id, [])
-                if item.get("status") == "approved"
-            )
-            video_points = (
-                (team.get("videoCard") or {}).get("score") or 0
-                if (team.get("videoCard") or {}).get("status") == "approved"
-                else 0
-            )
-            teams.append(
-                {
-                    "id": team.get("id"),
-                    "name": team.get("name"),
-                    "group": team.get("group"),
-                    "score": achievement_points + video_points,
-                    "admitted": True,
-                }
-            )
-        teams.sort(key=lambda item: (-item["score"], item["name"] or ""))
-    return json_response(
-        {
-            "published": published,
-            "availableFrom": state["settings"].get("resultsStart"),
-            "teams": teams,
-        },
-        request=request,
+    return public_json_response(
+        await _context(request).store.get_public_results(), request
     )
 
 
 @router.get("/session")
 async def session(request: Request):
     context = _context(request)
-    if hasattr(context.store, "get_user_by_session"):
-        token = parse_cookies(request).get(SESSION_COOKIE, "")
-        authenticated = await context.store.get_user_by_session(hash_token(token)) if token else None
-    else:
-        state = await context.store.load()
-        authenticated = current_user(request, state)
+    token = parse_cookies(request).get(SESSION_COOKIE, "")
+    authenticated = (
+        await context.store.get_user_by_session(hash_token(token)) if token else None
+    )
     user = domain.public_user(authenticated) if authenticated else None
     return json_response({"user": user}, request=request)
+
+
+async def _session_user(request: Request) -> tuple[dict, str]:
+    context = _context(request)
+    token = parse_cookies(request).get(SESSION_COOKIE, "")
+    token_hash = hash_token(token) if token else ""
+    user = await context.store.get_user_by_session(token_hash) if token_hash else None
+    if not user:
+        raise ApiError(401, "Требуется вход в личный кабинет.")
+    return user, token_hash
+
+
+@router.get("/sessions")
+async def sessions(request: Request):
+    user, token_hash = await _session_user(request)
+    items = await _context(request).store.list_sessions(user["id"], token_hash)
+    return json_response({"sessions": items}, request=request)
+
+
+@router.delete("/sessions/others")
+async def remove_other_sessions(request: Request):
+    user, token_hash = await _session_user(request)
+    removed = await _context(request).store.remove_other_sessions_atomic(
+        user["id"], token_hash
+    )
+    return json_response({"removed": removed}, request=request)
 
 
 @router.post("/auth/logout")
 async def logout(request: Request):
     context = _context(request)
     token = parse_cookies(request).get(SESSION_COOKIE, "")
-    if hasattr(context.store, "remove_session_atomic"):
-        if token:
-            await context.store.remove_session_atomic(hash_token(token))
-        response = json_response({"success": True}, request=request)
-        set_session_cookie(response, "", context.config, max_age=0)
-        return response
-    state = await context.store.load()
-    if parse_cookies(request).get(SESSION_COOKIE):
-        remove_session(state, request)
-        await context.store.save(state)
+    if token:
+        await context.store.remove_session_atomic(hash_token(token))
     response = json_response({"success": True}, request=request)
     set_session_cookie(response, "", context.config, max_age=0)
     return response
@@ -146,32 +116,12 @@ async def login(request: Request):
             request, f"auth-account-{hash_token(email)[:24]}", 10
         )
     )
-    if hasattr(context.store, "get_user_by_email"):
-        user = await context.store.get_user_by_email(email)
-    else:
-        state = await context.store.load()
-        user = next(
-            (
-                entry
-                for entry in state["users"]
-                if domain.normalize_email(entry.get("email")) == email
-            ),
-            None,
-        )
-    if not user or not user.get("emailVerified"):
-        raise ApiError(401, "Неверный адрес электронной почты или пароль.")
-    if not password_matches(
-        payload.get("password", ""), user.get("passwordHash", "")
-    ):
-        raise ApiError(401, "Неверный адрес электронной почты или пароль.")
-    if hasattr(context.store, "create_session_atomic"):
-        token = await context.store.create_session_atomic(
-            user["id"], context.config.session_ttl_ms, user["id"]
-        )
-    else:
-        token = new_session(state, user, context.config.session_ttl_ms)
-        domain.audit(state, user["id"], "auth.login", "user", user["id"])
-        await context.store.save(state)
+    try:
+        user, token = await AuthenticationService(
+            context.store, context.config.session_ttl_ms
+        ).authenticate(email, payload.get("password", ""))
+    except InvalidCredentials as exc:
+        raise ApiError(401, "Неверный адрес электронной почты или пароль.") from exc
     response = json_response({"user": domain.public_user(user)}, request=request)
     set_session_cookie(response, token, context.config)
     return response
@@ -185,14 +135,7 @@ async def invite(code: str, request: Request):
     if not domain.valid_invite_code(normalized):
         raise ApiError(404, "Приглашение не найдено, отозвано или истекло.")
     store = context.store
-    if hasattr(store, "get_invite"):
-        team = await store.get_invite(normalized)
-    else:
-        state = await store.load()
-        team = next(
-            (entry for entry in state["teams"] if entry.get("inviteCode") == normalized),
-            None,
-        )
+    team = await store.get_invite(normalized)
     if (
         not team
         or team.get("inviteStatus") != "active"

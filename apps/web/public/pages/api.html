@@ -1,42 +1,55 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>API reference | ЛУГ 2026</title>
-  <link rel="icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml" sizes="any">
-  <link rel="shortcut icon" href="/favicon.svg?v=20260829-lug-04" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/platform.css">
-  <link rel="stylesheet" href="css/privacy.css">
-  <style>
-    .api-reference { max-width: 1180px; margin: 0 auto; padding: 8rem 2rem 6rem; }
-    .api-reference__intro { max-width: 700px; margin-bottom: 3rem; }
-    .api-reference__meta { color: #176bd7; font: 600 .75rem/1.2 Arial, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
-    .api-reference__title { margin: .75rem 0 1rem; }
-    .api-reference__lead { max-width: 60ch; }
-    .api-endpoint { border-top: 1px solid rgba(15, 38, 83, .22); padding: 1rem 0; }
-    .api-endpoint summary { cursor: pointer; display: flex; gap: 1rem; align-items: baseline; list-style: none; }
-    .api-endpoint summary::-webkit-details-marker { display: none; }
-    .api-method { color: #fff; background: #0874e8; border-radius: 999px; padding: .35rem .7rem; font: 700 .72rem/1 Arial, sans-serif; }
-    .api-path { font: 600 1.05rem/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; }
-    .api-summary { color: #16376f; }
-    .api-endpoint__body { padding: 1rem 0 0 5.5rem; color: #3a4e73; }
-    .api-endpoint__security { color: #b14e00; font-size: .85rem; }
-    @media (max-width: 640px) { .api-reference { padding: 6rem 1rem 4rem; } .api-endpoint summary { align-items: flex-start; flex-direction: column; gap: .5rem; } .api-endpoint__body { padding-left: 0; } }
-  </style>
-</head>
-<body class="privacy-page">
-  <header class="site-nav site-nav--public is-scrolled">
-    <a class="skip-link" href="#main-content">Перейти к содержанию</a>
-    <a class="site-nav__brand" href="index.html" aria-label="Лучшая учебная группа — главная"><span class="site-nav__mark"><img src="assets/group-icon.svg" alt=""></span></a>
-    <nav class="site-nav__links" aria-label="Основная навигация"><a href="index.html#about">О конкурсе</a><a href="index.html#process">Этапы</a><a href="rules.html">Правила</a><a href="index.html#registration">Участие</a></nav>
-    <a class="site-nav__account" href="index.html#registration">Войти</a>
-  </header>
-  <main id="main-content" class="api-reference">
-    <div class="api-reference__intro"><p class="api-reference__meta">Internal developer portal · ЛУГ 2026</p><h1 class="api-reference__title">API reference</h1><p class="api-reference__lead">Единый OpenAPI-контракт для web-клиента, API и проверок. Административные операции требуют сессионную авторизацию и CSRF-токен.</p></div>
-    <section id="apiEndpoints" aria-live="polite"><p>Загружаем контракт…</p></section>
-  </main>
-  <script src="js/api-docs.js" defer></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API reference | ЛУГ 2026</title>
+    <link
+      rel="icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+      sizes="any"
+    />
+    <link
+      rel="shortcut icon"
+      href="/favicon.svg?v=20260829-lug-04"
+      type="image/svg+xml"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/platform.css" />
+    <link rel="stylesheet" href="css/privacy.css" />
+    <link rel="stylesheet" href="css/api.css" />
+  </head>
+  <body class="privacy-page">
+    <header class="site-nav site-nav--public is-scrolled">
+      <a class="skip-link" href="#main-content">Перейти к содержанию</a>
+      <a
+        class="site-nav__brand"
+        href="index.html"
+        aria-label="Лучшая учебная группа — главная"
+        ><span class="site-nav__mark"
+          ><img src="assets/group-icon.svg" alt="" /></span
+      ></a>
+      <nav class="site-nav__links" aria-label="Основная навигация">
+        <a href="index.html#about">О конкурсе</a
+        ><a href="index.html#process">Этапы</a><a href="rules.html">Правила</a
+        ><a href="index.html#registration">Участие</a>
+      </nav>
+      <a class="site-nav__account" href="index.html#registration">Войти</a>
+    </header>
+    <main id="main-content" class="api-reference">
+      <div class="api-reference__intro">
+        <p class="api-reference__meta">Internal developer portal · ЛУГ 2026</p>
+        <h1 class="api-reference__title">API reference</h1>
+        <p class="api-reference__lead">
+          Единый OpenAPI-контракт для web-клиента, API и проверок.
+          Административные операции требуют сессионную авторизацию и CSRF-токен.
+        </p>
+      </div>
+      <section id="apiEndpoints" aria-live="polite">
+        <p>Загружаем контракт…</p>
+      </section>
+    </main>
+    <script src="js/api-docs.js" defer></script>
+  </body>
 </html>
