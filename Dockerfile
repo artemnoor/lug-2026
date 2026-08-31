@@ -45,7 +45,7 @@ CMD ["python", "-B", "-m", "app.worker"]
 FROM api-runtime AS migrate
 CMD ["python", "-B", "scripts/migrate.py"]
 
-FROM node:22-bookworm-slim AS web-build
+FROM node:26-bookworm-slim AS web-build
 RUN apt-get update \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
@@ -56,7 +56,7 @@ COPY apps/web ./apps/web
 COPY scripts ./scripts
 RUN npm run build:web
 
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 ENV NODE_ENV=production
 ENV LUG_WEB_ROOT=/app/apps/web/dist
 RUN apt-get update \
