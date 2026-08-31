@@ -1,6 +1,6 @@
 # Runtime images are split by deployment unit. Compose selects a target.
 
-FROM python:3.11-slim AS python-deps
+FROM python:3.14-slim AS python-deps
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH"
 RUN apt-get update \
     && apt-get upgrade -y \
@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt \
               /usr/local/lib/python3.11/site-packages/setuptools* \
               /usr/local/lib/python3.11/site-packages/wheel*
 
-FROM python:3.11-slim AS api-runtime
+FROM python:3.14-slim AS api-runtime
 ARG BUILD_SHA=unknown
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/apps/api PATH="/opt/venv/bin:$PATH"
 ENV LUG_BUILD_SHA=$BUILD_SHA
