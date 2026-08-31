@@ -55,3 +55,32 @@ test("rules page loads schedule data without inline script", async ({
   ).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("public design variants keep rules and registration readable", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  for (const theme of ["classic", "accent"]) {
+    await page.evaluate((value) => {
+      localStorage.setItem("lug-design-version", value);
+    }, theme);
+    await page.reload();
+
+    const state = await page.locator(".rules-preview").evaluate((rules) => ({
+      ruleTextBackground: getComputedStyle(
+        rules.querySelector(".rules-preview__intro h2 span"),
+      ).backgroundColor,
+      registrationBackground: getComputedStyle(
+        document.querySelector(".stage-reg"),
+      ).backgroundColor,
+      registrationTitleColor: getComputedStyle(
+        document.querySelector(".stage-reg .headline"),
+      ).color,
+    }));
+
+    expect(state.ruleTextBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(state.registrationBackground).toBe("rgb(0, 0, 0)");
+    expect(state.registrationTitleColor).toBe("rgb(255, 255, 255)");
+  }
+});

@@ -287,15 +287,188 @@ body,
 :root[data-lug-theme='classic'] .rules-preview,
 :root[data-lug-theme='accent'] .rules-preview { background: var(--theme-page) !important; }
 :root[data-lug-theme='classic'] .rules-preview::before,
+:root[data-lug-theme='accent'] .rules-preview::before { background-color: var(--theme-primary); }
 :root[data-lug-theme='classic'] .rules-preview__eyebrow,
 :root[data-lug-theme='classic'] .rules-preview__intro h2 span,
 :root[data-lug-theme='classic'] .rules-preview__number,
-:root[data-lug-theme='accent'] .rules-preview::before,
 :root[data-lug-theme='accent'] .rules-preview__eyebrow,
 :root[data-lug-theme='accent'] .rules-preview__intro h2 span,
-:root[data-lug-theme='accent'] .rules-preview__number { background-color: var(--theme-primary); color: var(--theme-primary); }
+:root[data-lug-theme='accent'] .rules-preview__number {
+  background-color: transparent;
+  color: var(--theme-primary);
+}
 :root[data-lug-theme='classic'] .rules-preview__star { color: var(--theme-highlight-strong); }
 :root[data-lug-theme='accent'] .rules-preview__star { color: var(--tea-green); }
+
+/* Restore the former blue composition for design 01. The shared green
+   cascade is intentionally stronger, so these rules keep the classic
+   palette exact in the public landing page as well. */
+:root[data-lug-theme='classic'] .site-nav.site-nav--public,
+:root[data-lug-theme='classic'] .site-nav.site-nav--public.is-scrolled {
+  background: #F5F9FD !important;
+  background-image: none !important;
+  border-bottom-color: rgba(0, 108, 220, .14) !important;
+  box-shadow: 0 1px 0 rgba(0, 108, 220, .12), 0 10px 26px rgba(0, 45, 120, .12) !important;
+}
+
+:root[data-lug-theme='classic'] body.public-page .stage.stage-process {
+  background: #F8FBFF !important;
+  border-block-color: rgba(7, 18, 62, .1) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card {
+  background: #FFFFFF !important;
+  border-color: rgba(7, 18, 62, .14) !important;
+  color: #07123E;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card:nth-child(2) {
+  background: #E9F4FF !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card:nth-child(1),
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card:nth-child(4) {
+  background: #E9F4FF !important;
+  border-color: rgba(7, 18, 62, .14) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card-num,
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-kicker,
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card-link {
+  color: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card-heading {
+  color: #07123E !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .timeline-card-desc {
+  color: #2B3754 !important;
+}
+
+:root[data-lug-theme='classic'] body.public-page .stage-hero .star-purple path {
+  fill: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-process .process-time-orbit__center-star path,
+:root[data-lug-theme='classic'] body.public-page .stage-manifesto .manifesto-star .manifesto-star-main {
+  fill: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-manifesto .manifesto-star .manifesto-star-dashed,
+:root[data-lug-theme='classic'] body.public-page .stage-manifesto .marker-path {
+  stroke: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-manifesto .manifesto-title-accent {
+  color: #006CDC !important;
+}
+
+:root[data-lug-theme='classic'] body.public-page .rules-preview {
+  background: #DCEEFF !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview::before {
+  background: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__star {
+  color: #A3C8FD !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__eyebrow,
+:root[data-lug-theme='classic'] body.public-page .rules-preview__intro h2 span,
+:root[data-lug-theme='classic'] body.public-page .rules-preview__number {
+  color: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__intro h2,
+:root[data-lug-theme='classic'] body.public-page .rules-preview__list h3 {
+  color: #07123E !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__lead {
+  color: #2B3754 !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__more {
+  color: #07123E !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__more span {
+  background: #006CDC !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__list p {
+  color: #536078 !important;
+}
+:root[data-lug-theme='classic'] body.public-page .rules-preview__list li {
+  border-color: rgba(7, 18, 62, .24) !important;
+}
+
+/* The opening CTA had a blue glass treatment in the original version. */
+:root[data-lug-theme='classic'] body.public-page .hero-timer {
+  background: linear-gradient(135deg, rgba(0, 108, 220, .38), rgba(22, 79, 232, .22) 48%, rgba(0, 108, 220, .32)) !important;
+  border-color: rgba(163, 200, 253, .68) !important;
+  box-shadow: 0 24px 45px rgba(0, 40, 100, .32), inset 0 1px 0 rgba(255, 255, 255, .62), inset 0 -1px 0 rgba(0, 108, 220, .24) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-timer::before {
+  background: radial-gradient(ellipse, rgba(140, 205, 255, .52), rgba(0, 108, 220, 0) 67%) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-timer .timer-value {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 16px rgba(0, 60, 150, .45) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-timer .timer-label {
+  color: rgba(220, 238, 255, .82) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-timer .timer-separator {
+  color: rgba(163, 200, 253, .85) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-apply {
+  background: linear-gradient(135deg, rgba(0, 108, 220, .82), rgba(22, 79, 232, .68) 52%, rgba(0, 108, 220, .88)) !important;
+  box-shadow: 0 18px 36px rgba(0, 45, 120, .32), inset 0 1px 0 rgba(255, 255, 255, .58), inset 0 -1px 0 rgba(0, 70, 160, .3) !important;
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 12px rgba(0, 40, 110, .35) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .hero-deadline {
+  color: #000000 !important;
+  text-shadow: none !important;
+}
+
+/* In designs 01 and 03 the registration close is a black finishing panel.
+   Include body.public-page to outrank the shared green surface rule. */
+:root[data-lug-theme='classic'] body.public-page .stage.stage-reg,
+:root[data-lug-theme='accent'] body.public-page .stage.stage-reg {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-reg .sub,
+:root[data-lug-theme='accent'] body.public-page .stage-reg .sub {
+  color: rgba(255, 255, 255, .68) !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-reg .footer,
+:root[data-lug-theme='accent'] body.public-page .stage-reg .footer {
+  background: #000000 !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-reg .title::after {
+  background: #72B8FF !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-reg .btn-primary {
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+  color: #07123E !important;
+}
+:root[data-lug-theme='classic'] body.public-page .stage-reg .btn-outline {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, .55) !important;
+  color: #FFFFFF !important;
+}
+:root[data-lug-theme='accent'] body.public-page .stage-reg .btn-outline {
+  background: transparent !important;
+  color: #FFFFFF !important;
+}
+
+@media (max-width: 700px) {
+  :root[data-lug-theme='classic'] .rules-preview::before,
+  :root[data-lug-theme='accent'] .rules-preview::before {
+    content: '' !important;
+    display: block !important;
+    height: 5px;
+    left: 24px;
+    top: 42px;
+    width: 64px;
+  }
+}
+
+:root[data-lug-theme='classic'] .rules-preview::before,
+:root[data-lug-theme='accent'] .rules-preview::before {
+  content: '' !important;
+  display: block !important;
+}
 
 /* Public documents */
 :root[data-lug-theme='classic'] .privacy-shell,
