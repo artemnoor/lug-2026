@@ -6314,3 +6314,30 @@ body.public-page .stage-hero.home-reveal:not(.is-revealed) {
     white-space: nowrap;
   }
 }
+
+/* Public page palette: keep the green surface visible on every section. */
+body.public-page,
+body.public-page .stage:not(.stage-hero),
+body.public-page .rules-preview,
+body.public-page .stage-process .timeline-card,
+body.public-page .stage-process .timeline-card:nth-child(1),
+body.public-page .stage-process .timeline-card:nth-child(2),
+body.public-page .stage-process .timeline-card:nth-child(3),
+body.public-page .stage-process .timeline-card:nth-child(4) {
+  background-color: var(--tea-green) !important;
+}
+
+/* The hero controls are intentionally dark green so the requested white copy
+   remains readable and cannot be replaced by the earlier black theme rules. */
+body.public-page .hero-timer,
+body.public-page .hero-apply {
+  background: var(--dark-cyan) !important;
+  color: #fff !important;
+}
+
+body.public-page .hero-timer .timer-value,
+body.public-page .hero-timer .timer-label,
+body.public-page .hero-timer .timer-separator,
+body.public-page .hero-apply {
+  color: #fff !important;
+}

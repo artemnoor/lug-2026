@@ -1027,7 +1027,8 @@ body.is-auth-dialog-open { inset: 0; position: fixed; width: 100%; }
  * edges around otherwise identical layout geometry. */
  .site-nav.site-nav--public,
  .site-nav.site-nav--public.is-scrolled {
-   background: var(--mint-cream);
+   background: var(--tea-green) !important;
+   background-image: none !important;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
