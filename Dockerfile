@@ -30,6 +30,7 @@ COPY --from=python-deps /opt/venv /opt/venv
 COPY apps/api ./apps/api
 COPY packages ./packages
 COPY scripts ./scripts
+COPY alembic.ini ./alembic.ini
 RUN useradd --create-home --uid 10001 lug \
     && mkdir -p /var/lib/lug/data /var/lib/lug/upload-tmp /var/lib/lug/uploads \
     && chown -R lug:lug /app /var/lib/lug
