@@ -17,6 +17,7 @@ export function buildPublicNavigation(document, window) {
       <a href="#rules">Правила</a><a href="#registration">Участие</a>
       <a class="site-nav__menu-account" id="siteMenuAccountLink" href="index.html?action=choice">Войти в кабинет <span aria-hidden="true">→</span></a>
     </nav>
+    <div data-theme-switcher></div>
     <a class="site-nav__account" id="siteAccountLink" href="index.html?action=choice">Войти</a>
   `;
   document.body.prepend(navigation);
