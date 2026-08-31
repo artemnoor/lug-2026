@@ -159,7 +159,10 @@ function proxy(req, res, { config, id, logger, operations = false }) {
     : "";
   const headers = {
     ...req.headers,
-    host: `${config.apiHost}:${config.apiPort}`,
+    // The gateway has already validated the public Host above. Preserve it so
+    // the API's own TrustedHostMiddleware validates the same canonical host
+    // instead of rejecting the internal Docker service name (api:4174).
+    host: req.headers.host || `${config.apiHost}:${config.apiPort}`,
     "x-request-id": id,
     traceparent: res.__traceParent,
     "x-forwarded-for": [forwardedFor, clientAddress(req)]
