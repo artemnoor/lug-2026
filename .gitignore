@@ -21,3 +21,4 @@ __pycache__/
 *.pyc
 .ruff_cache/
 node_modules/
+AI_VM_DEPLOYMENT.local.md
