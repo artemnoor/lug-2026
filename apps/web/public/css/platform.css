@@ -977,6 +977,8 @@ body.is-auth-dialog-open { inset: 0; position: fixed; width: 100%; }
   .site-nav.site-nav--public .site-nav__links { background: var(--sky-aqua); }
   .site-nav.site-nav--public.is-scrolled .site-nav__account { background: var(--tea-green); border: 1px solid var(--tea-green); box-shadow: 0 6px 14px rgba(37, 197, 233, 0.22); color: var(--dark-cyan); }
   .site-nav.site-nav--public .site-nav__account { align-items: center; background: var(--tea-green); color: var(--dark-cyan); display: flex; font-size: 13px; font-weight: 800; grid-column: 2; grid-row: 1; justify-content: center; min-height: 38px; padding: 8px 12px; }
+  .site-nav.site-nav--public .site-nav__account { transform: translateX(6px); }
+  .site-nav.site-nav--public .site-nav__account:hover { transform: translate(6px, -2px); }
   .site-nav.site-nav--public .site-nav__toggle { min-height: 38px; min-width: 38px; padding: 7px; }
   .site-nav.site-nav--public .site-nav__toggle { grid-column: 3; grid-row: 1; }
 }
