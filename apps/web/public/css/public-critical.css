@@ -8,7 +8,7 @@ html.auth-entry-pending .public-page {
 }
 
 dialog.site-auth-dialog {
-  background: rgba(7, 18, 62, .58);
+  background: rgba(2, 18, 37, .58);
   border: 0;
   box-sizing: border-box;
   contain: paint;
@@ -41,7 +41,7 @@ dialog.site-auth-dialog::backdrop {
 }
 
 .site-auth-dialog__card {
-  background: #dceeff;
+  background: #f2fff6;
   border-radius: 22px;
   box-sizing: border-box;
   max-height: calc(100vh - 28px);

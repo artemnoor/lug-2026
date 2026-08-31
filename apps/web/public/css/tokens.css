@@ -8,11 +8,13 @@
 @font-face { font-family: 'KULAG SHA'; src: url('../fonts/KULAG SHA.otf') format('opentype'); font-display: swap; font-weight: 700; font-style: normal; }
 
 :root {
-  --ink:#07123e; --ink-secondary:#2b3754; --ink-muted:#626f8d;
-  --blue:#0b4eff; --blue2:#164fe8; --blue-soft:#d9e7ff;
-  --star-blue:#A3C8FD; --star-lavender:#006cdc; --line:#2d63f0;
-  --ph:#edf3ff; --ph2:#f7f9ff; --paper:#ffffff; --page:#DCEEFF;
-  --orbit-accent:#7697f4; --orbit-accent-soft:#dbe7ff; --orbit-accent-glow:rgba(118,151,244,.28);
+  /* LUG palette: Mint Cream, Tea Green, Sky Aqua, Dark Cyan, Ink Black. */
+  --mint-cream:#F2FFF6; --tea-green:#CAFFDE; --sky-aqua:#25C5E9; --dark-cyan:#238689; --ink-black:#021225;
+  --ink:var(--ink-black); --ink-secondary:color-mix(in srgb, var(--ink-black) 72%, var(--mint-cream)); --ink-muted:color-mix(in srgb, var(--ink-black) 56%, var(--mint-cream));
+  --blue:var(--sky-aqua); --blue2:var(--dark-cyan); --blue-soft:var(--tea-green);
+  --star-blue:var(--tea-green); --star-lavender:var(--dark-cyan); --line:var(--dark-cyan);
+  --ph:var(--tea-green); --ph2:var(--mint-cream); --paper:#ffffff; --page:var(--mint-cream);
+  --orbit-accent:var(--sky-aqua); --orbit-accent-soft:var(--tea-green); --orbit-accent-glow:color-mix(in srgb, var(--sky-aqua) 28%, transparent);
   --font-display:'MegaSans', sans-serif; --font-body:'MegaSans', sans-serif;
   --font-mono:"Courier New", Courier, monospace;
   --hero-weight:700; --hero-letter-spacing:-0.035em; --hero-line-height:0.84;
