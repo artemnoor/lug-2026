@@ -130,8 +130,173 @@
         <rect x="167" y="140" width="920" height="920" fill="#ffffff" />
       </g>
 
-      <!-- NEW DRAWING ANIMATION -->
-      <img class="culture-artwork-image" src="assets/culture-artwork.svg" width="1254" height="1254" alt="Иллюстрация творческого направления" loading="lazy" decoding="async">
-    </svg>
-  </div>
-</div>
+      <!-- ANIMATED ARCHITECTURAL DRAWING -->
+<svg
+        id="livelyArtworkAnimation"
+        x="162.40"
+        y="310.08"
+        width="929.20"
+        height="743.78"
+        viewBox="0 0 1402 1122"
+        preserveAspectRatio="xMidYMid meet"
+        overflow="hidden"
+        aria-label="animated architectural drawing"
+      >
+        <defs>
+          <mask
+            id="livelyDrawReveal"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="1402"
+            height="1122"
+          >
+            <rect x="0" y="0" width="1402" height="1122" fill="#000" />
+
+            <!-- 1. Main architectural contour: central block -->
+            <path
+              d="M450 487 C472 486 492 485 514 484 L514 316 L526 316 L526 177 L916 177 L916 316 L978 316 L978 486"
+              fill="none"
+              stroke="#fff"
+              stroke-width="24"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.6s"
+                begin="0.15s"
+                fill="freeze"
+              />
+            </path>
+            <path
+              d="M514 177 C610 126 823 126 916 177 M526 316 L978 316 M450 487 L978 487"
+              fill="none"
+              stroke="#fff"
+              stroke-width="20"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.1s"
+                begin="0.9s"
+                fill="freeze"
+              />
+            </path>
+
+            <!-- 2. Side wings: their long outer curves -->
+            <path
+              d="M450 486 C330 488 195 470 72 430 C43 420 20 408 0 397 M978 486 C1092 488 1220 470 1332 430 C1362 419 1384 407 1402 397"
+              fill="none"
+              stroke="#fff"
+              stroke-width="26"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.5s"
+                begin="1.6s"
+                fill="freeze"
+              />
+            </path>
+            <path
+              d="M0 626 C150 657 301 666 451 662 M978 662 C1128 666 1270 657 1402 626 M0 790 C180 812 308 815 450 815 M978 815 C1115 815 1250 812 1402 790"
+              fill="none"
+              stroke="#fff"
+              stroke-width="24"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.8s"
+                begin="2.4s"
+                fill="freeze"
+              />
+            </path>
+
+            <!-- 3. Structural verticals / floor lines -->
+            <path
+              d="M525 179 V814 M606 176 V814 M684 176 V814 M758 176 V814 M834 176 V814 M916 179 V814"
+              fill="none"
+              stroke="#fff"
+              stroke-width="18"
+              stroke-linecap="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.9s"
+                begin="3.0s"
+                fill="freeze"
+              />
+            </path>
+            <path
+              d="M444 321 H984 M444 488 H984 M444 661 H984 M444 814 H984"
+              fill="none"
+              stroke="#fff"
+              stroke-width="22"
+              stroke-linecap="round"
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset="1"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="1"
+                to="0"
+                dur="2.5s"
+                begin="3.6s"
+                fill="freeze"
+              />
+            </path>
+
+            <!-- 4. Central upper details, revealed by calm horizontal drawing passes -->
+            <rect x="500" y="125" width="0" height="205" fill="#fff">
+              <animate
+                attributeName="width"
+                from="0"
+                to="455"
+                dur="2.2s"
+                begin="4.2s"
+                fill="freeze"
+              />
+            </rect>
+            <rect x="440" y="325" width="0" height="165" fill="#fff">
+              <animate
+                attributeName="width"
+                from="0"
+                to="550"
+                dur="2.2s"
+                begin="5.1s"
+                fill="freeze"
+              />
+            </rect>
+
+            <!-- 5. Central lower facade: windows, arches, doors -->

@@ -12,6 +12,25 @@ const page = (name) => readFileSync(join(dist, 'pages', name), 'utf8');
 const index = page('index.html');
 const admin = page('admin.html');
 const cabinet = page('cabinet.html');
+const directionIds = [...index.matchAll(/class="orbit-node"[^>]*data-id="([^"]+)"/g)].map(
+  (match) => match[1],
+);
+assert.deepEqual(
+  directionIds,
+  ['science', 'public', 'sport', 'culture'],
+  'Landing page must keep all four competition directions.',
+);
+for (const marker of [
+  'id="microscopeSvg"',
+  'data-illustration="public"',
+  'data-illustration="sport"',
+  'data-illustration="culture"',
+  'id="livelyArtworkAnimation"',
+  'id="livelyOriginalArtwork"',
+]) {
+  assert.ok(index.includes(marker), 'Missing direction artwork marker: ' + marker);
+}
+assert.doesNotMatch(index, /culture-artwork\.svg/, 'Culture artwork must remain inline so its vector path is preserved.');
 const styleAsset = readdirSync(join(dist, 'css')).find((name) => /^style\.[a-f0-9]{12}\.css$/.test(name));
 assert.ok(styleAsset, 'Hashed style bundle is required.');
 assert.ok(existsSync(join(dist, 'css', `${styleAsset}.br`)), 'CSS Brotli asset is required.');

@@ -103,9 +103,15 @@
             copyTags.innerHTML = item.tags.map(tag => `<span class="orbit-tag">${tag}</span>`).join('');
           }
           
-          if (microscopeSvg) microscopeSvg.hidden = id !== 'science';
+          if (microscopeSvg) {
+            const isScience = id === 'science';
+            microscopeSvg.hidden = !isScience;
+            microscopeSvg.style.display = isScience ? '' : 'none';
+          }
           artIllustrations.forEach(illustration => {
-            illustration.hidden = illustration.dataset.illustration !== id;
+            const isActive = illustration.dataset.illustration === id;
+            illustration.hidden = !isActive;
+            illustration.style.display = isActive ? '' : 'none';
           });
 
           if (id === 'culture') {
