@@ -222,7 +222,9 @@
     z-index:3;
     pointer-events:none;
     display:block;
-    background:url('../assets/hero/bmstu-modern-campus-cutout.webp?v=20260829-assets-01') center calc(100% - 9vh) / 100% auto no-repeat;
+    /* The cutout stays transparent so the shared cloud layer behind it is
+       visible through the open parts of the image. */
+    background: url('../assets/hero/bmstu-modern-campus-cutout.webp?v=20260901-campus-03') center top / 100% auto no-repeat;
     filter:brightness(.92) saturate(.96);
     -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
     mask-image:linear-gradient(to bottom, transparent 0%, #000 3%, #000 64%, rgba(0,0,0,.75) 78%, rgba(0,0,0,.25) 90%, transparent 100%);
@@ -234,32 +236,13 @@
     .hero-cloud{animation:none;opacity:.35;transform:translate3d(18vw,var(--cloud-y),0);}
     .hero-cloud--two,.hero-cloud--four{display:none;}
   }
-  .stage-hero .star-left{opacity:1;}
-  .stage-hero .star-purple{opacity:1;}
-  .stage-hero .star-left path{fill:var(--star-blue);}
-  .stage-hero .star-purple path{fill:#25c5e9;}
-
-  /* Звезды на главном экране */
+  /* Общие стили декоративных звезд */
   .star-decor{
     position:absolute;
     height:auto;
     aspect-ratio:1448/1086;
     z-index:4;
     pointer-events:none;
-  }
-
-  .star-left{
-    left:-16vw;
-    bottom:4vh;
-    width:38vw;
-  }
-
-  .star-purple{
-    right:-12vw;
-    top:7vh;
-    width:31vw;
-    transform:rotate(-16deg);
-    opacity:0.95;
   }
 
   .hero-word{
@@ -270,7 +253,7 @@
     font-family:var(--font-display);
     font-weight:var(--hero-weight);
     text-transform:uppercase;
-    text-shadow:0 5px 24px rgba(2,18,37,.30);
+    text-shadow:0 5px 24px rgba(23, 37, 28,.30);
     white-space:nowrap;
     line-height:var(--hero-line-height);
     letter-spacing:var(--hero-letter-spacing);
@@ -323,7 +306,7 @@
     line-height:.81;
     letter-spacing:var(--hero-letter-spacing);
     text-transform:uppercase;
-    text-shadow:0 5px 24px rgba(2,18,37,.30);
+    text-shadow:0 5px 24px rgba(23, 37, 28,.30);
   }
   .hero-title-line{
     display:block;
@@ -377,11 +360,11 @@
     justify-content:center;
     gap:14px;
     padding:24px 30px 21px;
-    border:1px solid rgba(202,255,222,.68);
+    border:1px solid rgba(221, 243, 210,.68);
     border-radius:22px;
     background-color:var(--sky-aqua);
-    background:linear-gradient(135deg, rgba(37,197,233,.38), rgba(35,134,137,.22) 48%, rgba(37,197,233,.32));
-    box-shadow:0 24px 45px rgba(2,18,37,.32), inset 0 1px 0 rgba(255,255,255,.62), inset 0 -1px 0 rgba(37,197,233,.24);
+    background:linear-gradient(135deg, rgba(52, 122, 74,.38), rgba(35,134,137,.22) 48%, rgba(52, 122, 74,.32));
+    box-shadow:0 24px 45px rgba(23, 37, 28,.32), inset 0 1px 0 rgba(255,255,255,.62), inset 0 -1px 0 rgba(52, 122, 74,.24);
     backdrop-filter:blur(24px) saturate(135%);
   }
   .hero-timer::before{
@@ -391,7 +374,7 @@
     width:58%;
     height:135%;
     border-radius:50%;
-    background:radial-gradient(ellipse, rgba(202,255,222,.52), rgba(37,197,233,0) 67%);
+    background:radial-gradient(ellipse, rgba(221, 243, 210,.52), rgba(52, 122, 74,0) 67%);
     content:"";
     pointer-events:none;
   }
@@ -404,7 +387,7 @@
     font-weight:400;
     letter-spacing:.08em;
     line-height:1;
-    text-shadow:0 2px 16px rgba(2,18,37,.45);
+    text-shadow:0 2px 16px rgba(23, 37, 28,.45);
   }
   .timer-label{
     display:block;
@@ -425,8 +408,8 @@
     border:1px solid rgba(255,255,255,.72);
     border-radius:18px;
     background-color:var(--sky-aqua);
-    background:linear-gradient(135deg, rgba(37,197,233,.92), rgba(35,134,137,.92) 52%, rgba(37,197,233,.96));
-    box-shadow:0 18px 36px rgba(2,18,37,.32), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -1px 0 rgba(2,18,37,.3);
+    background:linear-gradient(135deg, rgba(52, 122, 74,.92), rgba(35,134,137,.92) 52%, rgba(52, 122, 74,.96));
+    box-shadow:0 18px 36px rgba(23, 37, 28,.32), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -1px 0 rgba(23, 37, 28,.3);
     backdrop-filter:blur(22px) saturate(135%);
     color:var(--ink-black);
     font-size:clamp(18px,1.7vw,25px);
@@ -435,48 +418,9 @@
     text-shadow:none;
     transition:background .2s ease, transform .2s ease, box-shadow .2s ease;
   }
-  .hero-apply:hover{background:linear-gradient(135deg, rgba(37,197,233,.96), rgba(35,134,137,.96) 52%, rgba(37,197,233,.98));box-shadow:0 22px 42px rgba(2,18,37,.42), inset 0 1px 0 rgba(255,255,255,.8);transform:translateY(-2px);}
+  .hero-apply:hover{background:linear-gradient(135deg, rgba(52, 122, 74,.96), rgba(35,134,137,.96) 52%, rgba(52, 122, 74,.98));box-shadow:0 22px 42px rgba(23, 37, 28,.42), inset 0 1px 0 rgba(255,255,255,.8);transform:translateY(-2px);}
   .hero-apply:active{transform:scale(.96);}
   .hero-deadline{margin:14px 0 0;color:#000;font-size:14px;}
-
-  /* Бейдж-звезда вокруг текста описания (пустая внутри) */
-  .copy-badge{
-    position:absolute;
-    left:74.0%;
-    top:48.5%;
-    transform:translateY(-50%);
-    width:23.5vw;
-    height:18.5vw;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    z-index:6;
-    filter:drop-shadow(0 8px 18px rgba(255,255,255,.36));
-  }
-
-  .copy-star-svg{
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    pointer-events:none;
-    z-index:1;
-  }
-
-  .copy-text{
-    position:relative;
-    z-index:2;
-    color:#fff;
-    font-family:var(--font-mono);
-    font-weight:700;
-    font-size:clamp(11px, 0.85vw, 15px);
-    line-height:1.64;
-    letter-spacing:0.035em;
-    text-transform:uppercase;
-    max-width:82%;
-    text-shadow:0 2px 12px rgba(2,18,37,.48);
-  }
 
   /* Экран-манифест после главного: масштабный тезис о конкурсе. */
   .stage-manifesto{
@@ -514,18 +458,18 @@
     opacity:0;
     transform:translate3d(38vw, 4vh, 0) rotate(80deg) scale(0.88);
     transform-origin:center center;
-    filter:drop-shadow(0 12px 28px rgba(37,197,233,.22));
+    filter:drop-shadow(0 12px 28px rgba(52, 122, 74,.22));
     will-change:transform, opacity;
   }
   .manifesto-star.is-visible{
     animation:manifestoStarRollIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   .manifesto-star .manifesto-star-main{
-    fill:#25c5e9;
+    fill:#347A4A;
   }
   .manifesto-star .manifesto-star-dashed{
     fill:none;
-    stroke:#25c5e9;
+    stroke:#347A4A;
     stroke-width:6;
     stroke-dasharray:16 12;
     stroke-linecap:round;
@@ -545,7 +489,7 @@
   }
   .manifesto-kicker{
     margin:0 0 2.2em;
-    color:rgba(2,18,37,.56);
+    color:rgba(23, 37, 28,.56);
     font-size:clamp(11px,1vw,15px);
     font-weight:700;
     letter-spacing:.14em;
@@ -563,7 +507,7 @@
     text-transform:uppercase;
   }
   .manifesto-title-line{display:block;}
-  .manifesto-title-accent{color:#25c5e9;}
+  .manifesto-title-accent{color:#347A4A;}
   .highlight-marker{
     position:relative;
     display:inline-block;
@@ -582,13 +526,13 @@
   }
   .marker-path{
     fill:none;
-    stroke:#25c5e9;
+    stroke:#347A4A;
     stroke-width:9.5;
     stroke-linecap:round;
     stroke-linejoin:round;
     stroke-dasharray:360;
     stroke-dashoffset:360;
-    filter:drop-shadow(0 2px 6px rgba(37,197,233,.26));
+    filter:drop-shadow(0 2px 6px rgba(52, 122, 74,.26));
   }
   .stage-manifesto.is-visible .marker-path,
   .manifesto-star.is-visible ~ .manifesto-content .marker-path{

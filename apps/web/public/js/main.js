@@ -79,3 +79,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, 1600);
 })();
+
+// Главный campus приближается вместе с раскрытием полукруга внизу hero.
+(function initHeroScrollScale(){
+  if (!document.body.classList.contains('public-page')) return;
+  const hero = document.querySelector('.stage-hero');
+  const building = hero?.querySelector('.hero-building');
+  const bottomShape = hero?.querySelector('.hero-bottom-shape');
+  if (!hero || !building || !bottomShape) return;
+
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const mobile = () => window.matchMedia?.('(max-width: 700px)').matches;
+  const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+  const revealLead = 28;
+  let revealStart = 0;
+  let revealEnd = 1;
+  let frame = 0;
+
+  const refreshMetrics = () => {
+    const shapeRect = bottomShape.getBoundingClientRect();
+    const shapeTransform = new DOMMatrixReadOnly(getComputedStyle(bottomShape).transform);
+    const shapeTop = shapeRect.top + window.scrollY - (shapeTransform.m42 || 0);
+    const beforeStyle = getComputedStyle(bottomShape, '::before');
+    const beforeTop = parseFloat(beforeStyle.top) || 0;
+    const beforeFirstPixel = shapeTop + beforeTop;
+    const shapeHeight = shapeRect.height;
+
+    // The shape starts one small step before its first pixel reaches the
+    // viewport. Its own initial translateY is included in this calculation.
+    revealStart = Math.max(
+      0,
+      beforeFirstPixel + shapeHeight - window.innerHeight - revealLead,
+    );
+    revealEnd = revealStart + Math.max(320, Math.min(hero.offsetHeight * 0.38, 460));
+  };
+
+  const update = () => {
+    frame = 0;
+    const shapeProgress = reducedMotion
+      ? 1
+      : clamp((window.scrollY - revealStart) / (revealEnd - revealStart));
+    const zoomProgress = reducedMotion ? 0 : shapeProgress;
+    const zoomAmount = mobile() ? 0.08 : 0.1;
+    building.style.setProperty('--hero-campus-scale', (1 + zoomProgress * zoomAmount).toFixed(4));
+
+    bottomShape.style.transform = `translate(0, ${(1 - shapeProgress) * 100}%)`;
+  };
+
+  const requestUpdate = () => {
+    if (!frame) frame = window.requestAnimationFrame(update);
+  };
+  refreshMetrics();
+  window.addEventListener('scroll', requestUpdate, { passive: true });
+  window.addEventListener('resize', () => {
+    refreshMetrics();
+    requestUpdate();
+  }, { passive: true });
+  update();
+})();

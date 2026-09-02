@@ -7,38 +7,30 @@ export function buildPublicNavigation(document, window) {
   navigation.innerHTML = `
     <a class="skip-link" href="#main-content">Перейти к содержанию</a>
     <a class="site-nav__brand" href="index.html" aria-label="Лучшая учебная группа — главная">
-      <span class="site-nav__mark"><img src="assets/group-icon.svg" alt=""></span>
+      <span class="site-nav__mark">
+        <img src="assets/group-icon.svg" alt="">
+        <svg class="site-nav__mark-orbit" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+          <defs>
+            <path id="lug-logo-orbit" d="M 100,100 m -88,0 a 88,88 0 1,1 176,0 a 88,88 0 1,1 -176,0"></path>
+          </defs>
+          <text><textPath href="#lug-logo-orbit" startOffset="0%">ЛУЧШАЯ УЧЕБНАЯ ГРУППА • МГТУ ИМЕНИ БАУМАНА • </textPath></text>
+        </svg>
+      </span>
     </a>
-    <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="public-navigation" aria-label="Открыть меню">
-      <span></span><span></span><span></span>
-    </button>
-    <nav class="site-nav__links" id="public-navigation" aria-label="Основная навигация">
-      <a href="#about">О конкурсе</a><a href="#process">Этапы</a><a href="#gallery">История</a>
-      <a href="#rules">Правила</a><a href="#registration">Участие</a>
-      <a class="site-nav__menu-account" id="siteMenuAccountLink" href="index.html?action=choice">Войти в кабинет <span aria-hidden="true">→</span></a>
-    </nav>
-    <div data-theme-switcher></div>
-    <a class="site-nav__account" id="siteAccountLink" href="index.html?action=choice">Войти</a>
+    <a class="site-nav__account" id="siteAccountLink" href="index.html?action=choice">
+      <span class="site-nav__account-title">Войти<br>в личный кабинет</span>
+      <small class="site-nav__account-caption">доступ к кабинету</small>
+    </a>
   `;
   document.body.prepend(navigation);
 
   const updateHeaderState = () => navigation.classList.toggle('is-scrolled', window.scrollY > 40);
   updateHeaderState();
   window.addEventListener('scroll', updateHeaderState, { passive: true });
-  const toggle = navigation.querySelector('.site-nav__toggle');
   const closeMenu = () => {
     navigation.classList.remove('is-open');
     document.body.classList.remove('menu-open');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Открыть меню');
   };
-  toggle.addEventListener('click', () => {
-    const isOpen = navigation.classList.toggle('is-open');
-    document.body.classList.toggle('menu-open', isOpen);
-    toggle.setAttribute('aria-expanded', String(isOpen));
-    toggle.setAttribute('aria-label', isOpen ? 'Закрыть меню' : 'Открыть меню');
-  });
-  navigation.querySelectorAll('.site-nav__links a').forEach((link) => link.addEventListener('click', closeMenu));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
   return navigation;
 }

@@ -70,7 +70,10 @@ export function serveStatic(
     res.end("Not found");
     return;
   }
-  setSecurityHeaders(res, { secure: secureCookies, csp: true });
+  setSecurityHeaders(res, {
+    secure: secureCookies,
+    csp: true,
+  });
   const extension = extname(path).toLowerCase();
   const compressible = new Set([".html", ".js", ".css", ".svg", ".json"]).has(
     extension,

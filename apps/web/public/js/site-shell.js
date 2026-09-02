@@ -616,10 +616,12 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
       if (!user) return;
       accountLink.dataset.authenticated = 'true';
       accountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
-      accountLink.textContent = 'Личный кабинет';
-      menuAccountLink.dataset.authenticated = 'true';
-      menuAccountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
-      menuAccountLink.textContent = 'Личный кабинет';
+      accountLink.querySelector('.site-nav__account-title')?.replaceChildren(document.createTextNode('Личный кабинет'));
+      menuAccountLink?.setAttribute('data-authenticated', 'true');
+      if (menuAccountLink) {
+        menuAccountLink.href = user.role === 'admin' ? 'admin.html' : 'cabinet.html';
+        menuAccountLink.textContent = 'Личный кабинет';
+      }
     }).catch(() => {});
 
     const params = new URLSearchParams(window.location.search);

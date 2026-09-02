@@ -25,9 +25,12 @@ export function copyResponseHeaders(source, target) {
   }
 }
 
-export function setSecurityHeaders(res, { secure = false, csp = false } = {}) {
+export function setSecurityHeaders(
+  res,
+  { secure = false, csp = false, sameOriginFrame = false } = {},
+) {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Frame-Options", sameOriginFrame ? "SAMEORIGIN" : "DENY");
   res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader(
     "Permissions-Policy",
@@ -37,7 +40,7 @@ export function setSecurityHeaders(res, { secure = false, csp = false } = {}) {
   if (csp)
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'",
+      `default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors ${sameOriginFrame ? "'self'" : "'none'"}; img-src 'self' data: blob: https:; media-src 'self' https:; frame-src 'self' https://rutube.ru https://vk.com https://vkvideo.ru; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'`,
     );
   if (secure)
     res.setHeader(

@@ -9,8 +9,8 @@
 
 .privacy-shell {
   background:
-    radial-gradient(circle at 86% 16%, rgba(202, 255, 222, .42), transparent 20rem),
-    linear-gradient(180deg, #f2fff6 0%, #edf6ff 42%, #f8fbff 100%);
+    radial-gradient(circle at 86% 16%, rgba(221, 243, 210, .42), transparent 20rem),
+    linear-gradient(180deg, #F3FFF0 0%, #edf6ff 42%, var(--surface-soft) 100%);
   min-height: 100vh;
   padding: 132px clamp(24px, 7vw, 112px) 72px;
 }
@@ -61,7 +61,7 @@
 
 .privacy-meta {
   align-items: center;
-  border-top: 1px solid rgba(2, 18, 37, .18);
+  border-top: 1px solid rgba(23, 37, 28, .18);
   color: var(--ink-muted);
   display: flex;
   flex-wrap: wrap;
@@ -135,7 +135,7 @@
 
 .privacy-section,
 .privacy-sources {
-  border-top: 1px solid rgba(2, 18, 37, .15);
+  border-top: 1px solid rgba(23, 37, 28, .15);
   display: grid;
   gap: 22px;
   grid-template-columns: 46px minmax(0, 1fr);
@@ -193,7 +193,7 @@
 }
 
 .privacy-details div {
-  border-top: 1px solid rgba(2, 18, 37, .11);
+  border-top: 1px solid rgba(23, 37, 28, .11);
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(120px, .35fr) 1fr;
@@ -229,7 +229,7 @@
 
 .privacy-footer {
   align-items: center;
-  border-top: 1px solid rgba(2, 18, 37, .15);
+  border-top: 1px solid rgba(23, 37, 28, .15);
   color: var(--ink-muted);
   display: flex;
   flex-wrap: wrap;
