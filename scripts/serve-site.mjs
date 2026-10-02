@@ -4,10 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
-const host = '127.0.0.1';
-const port = 4173;
-const apiHost = '127.0.0.1';
-const apiPort = 4174;
+const host = process.env.LUG_WEB_HOST || '127.0.0.1';
+const port = Number(process.env.PORT || 4173);
+const apiHost = process.env.LUG_API_HOST || '127.0.0.1';
+const apiPort = Number(process.env.LUG_API_PORT || 4174);
 const mimeTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],

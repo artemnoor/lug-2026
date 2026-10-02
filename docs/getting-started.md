@@ -4,32 +4,40 @@
 
 ## Требования
 
-- Node.js и npm — сборка и локальный frontend сервер.
-- Docker Desktop с работающим Docker Engine — полный стек FastAPI, PostgreSQL, Redis, MinIO, ClamAV и Mailpit.
-- Python 3.11+ — альтернативный запуск FastAPI с локальной SQLite-базой.
+- Docker Desktop с запущенным Docker Engine — сайт, FastAPI, PostgreSQL, Redis, MinIO, ClamAV и Mailpit.
+- Node.js и npm — только для отдельной сборки и запуска frontend.
+- Python 3.11+ — только для отдельного запуска backend с локальной SQLite-базой.
 - Chromium нужен только для Playwright browser checks.
 
-## Поднять полный стек
+## Запустить всё одним Compose
 
-Из корня проекта:
-
-~~~powershell
-npm run backend:up
-~~~
-
-Команда собирает backend Docker image, выполняет Alembic migrations и запускает сервисы в фоне. API слушает только `127.0.0.1:4174`; загрузки проходят через локальный MinIO и ClamAV. Mailpit принимает письма регистрации и восстановления пароля на `http://127.0.0.1:8025/`.
-
-Затем во втором терминале запустите сайт:
+Compose-файл расположен в корне репозитория и управляет сайтом, API и всеми зависимостями. Из корня проекта один раз скопируйте шаблон:
 
 ~~~powershell
-npm run start
+Copy-Item .env.example .env
 ~~~
 
-Сайт доступен на [http://127.0.0.1:4173/](http://127.0.0.1:4173/). Сервер preview проксирует запросы `/api/*` и `/uploads/*` к backend и передаёт сессионные cookie браузеру. Для полной остановки нажмите Ctrl+C в терминале сайта и выполните `npm run backend:down`.
+Проверьте `LUG_ADMIN_EMAIL` и задайте пароль администратора в `.env`. Шаблонные значения подходят только для локальной разработки. Затем выполните:
+
+~~~powershell
+docker compose up --build -d
+~~~
+
+Эта команда из корня собирает frontend из `Dockerfile`, API из `backend/Dockerfile`, применяет миграции и поднимает PostgreSQL, Redis, MinIO с созданием bucket, ClamAV и Mailpit. Сайт доступен на [http://127.0.0.1:4173/](http://127.0.0.1:4173/), API — на `http://127.0.0.1:4174/`, MinIO Console — на `http://127.0.0.1:9001/`, Mailpit — на `http://127.0.0.1:8025/`. Сайт проксирует `/api/*` и `/uploads/*` к API внутри Compose-сети, поэтому браузер использует same-origin cookies.
+
+Полезные команды из корня:
+
+~~~powershell
+docker compose ps
+docker compose logs -f web backend
+docker compose down
+~~~
+
+`docker compose down` сохраняет volumes с базой и файлами. `docker compose down --volumes` удаляет их вместе с данными. Короткие npm-алиасы: `npm run docker:up` и `npm run docker:down`.
 
 ## Запуск без Docker
 
-Если Docker Engine или загрузка образов недоступны, из каталога `backend/` создайте окружение и установите runtime-зависимости:
+Если Docker Engine или загрузка образов недоступны, из корня скопируйте `backend/.env.example` в `backend/.env`, настройте dev-параметры и установите runtime-зависимости в каталоге `backend/`:
 
 ~~~powershell
 python -m venv .venv
@@ -40,21 +48,22 @@ python -m venv .venv
 
 ## Локальный администратор
 
-Локальные учётные данные хранятся в игнорируемом Git файле `backend/.env`. Он должен содержать:
+Локальные учётные данные для Compose хранятся в игнорируемом Git файле `.env` в корне. Он должен содержать:
 
 ~~~dotenv
 LUG_ADMIN_EMAIL=admin@lug.local
 LUG_ADMIN_PASSWORD=<длинный сложный пароль>
 ~~~
 
-Если файл отсутствует, скопируйте `backend/.env.example` и задайте новый пароль до первого запуска. Контейнер создаёт учётную запись администратора при старте, когда такой записи ещё нет. Пароль из `.env` не публикуйте и не отправляйте в репозиторий.
+Скопируйте `.env.example` и задайте пароль до первого запуска. Контейнер создаёт учётную запись администратора, если её ещё нет. Не публикуйте `.env`.
 
 ## Команды
 
 - `npm run build` — собрать публичную страницу и скопировать runtime ресурсы в `dist/`.
 - `npm run start` — пересобрать сайт и открыть preview на порту 4173.
-- `npm run backend:up` — собрать/запустить Docker Compose backend.
-- `npm run backend:down` — остановить Compose сервисы; данные в именованных volumes сохраняются.
+- `docker compose up --build -d` — собрать и запустить весь стек из корня.
+- `docker compose down` — остановить Compose сервисы, сохранив volumes.
+- `npm run docker:up` / `npm run docker:down` — короткие алиасы Compose-команд.
 - `npm run backend:dev` — мигрировать локальную SQLite-базу и запустить backend без Docker.
 
 Исходники frontend находятся в `src/`. Редактируйте их вместо `dist/`, который перезаписывает сборщик.

@@ -14,12 +14,10 @@ backend/docs
 docs
 tests
 archive
-.ai-factory
 .codex
+backend
 playwright-report
 test-results
-package.json
-package-lock.json
 .env
 .env.*
 !.env.example

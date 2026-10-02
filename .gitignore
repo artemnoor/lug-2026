@@ -6,6 +6,7 @@
 /.browser-*/
 /graphify-out/
 /output/
+/.ai-factory/
 **/.env
 **/.env.*
 !**/.env.example

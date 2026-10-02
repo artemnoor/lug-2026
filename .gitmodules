@@ -1,4 +1,4 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/artemnoor/lug-2026-backend.git
-	branch = codex/publish-current-version
+	branch = main
