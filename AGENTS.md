@@ -4,7 +4,7 @@
 
 ## Обзор
 
-Сайт конкурса «Лучшая учебная группа» МГТУ им. Н. Э. Баумана с публичными разделами, личным кабинетом участников и админ-панелью организаторов. Frontend — статический HTML/CSS/браузерный JavaScript. Backend — отдельный клонированный FastAPI modular monolith в `backend/`. Описание проекта и архитектуры находится в `.ai-factory/DESCRIPTION.md` и `.ai-factory/ARCHITECTURE.md`.
+Сайт конкурса «Лучшая учебная группа» МГТУ им. Н. Э. Баумана с публичными разделами, личным кабинетом участников и админ-панелью организаторов. Frontend — статический HTML/CSS/браузерный JavaScript. Backend — FastAPI modular monolith в Git submodule `backend/`. Полный локальный стек поднимается единым корневым `docker-compose.yml`; проектная документация находится в `docs/` и backend документации.
 
 ## Технологии
 
@@ -33,15 +33,17 @@
 │   ├── build-site.mjs                 # Собирает статический frontend в dist/
 │   ├── serve-site.mjs                 # Preview server + локальный backend proxy
 │   └── start-backend.ps1              # Миграции и локальный FastAPI без Docker
+├── Dockerfile                         # Сборка frontend контейнера
+├── docker-compose.yml                 # Единый запуск сайта, API и инфраструктуры
+├── .env.example                       # Шаблон параметров локального Compose
 ├── deploy/yandex/                     # Публикация статики на существующую VM
-├── backend/                           # Отдельный Git clone FastAPI backend
+├── backend/                           # Git submodule с FastAPI backend
 │   ├── app/modules/                   # Вертикальные auth/team/media/admin модули
 │   ├── alembic/                       # Миграции схемы
-│   └── docker-compose.yml             # Локальный API и инфраструктура
+│   └── Dockerfile                     # Контейнер FastAPI API
 ├── docs/                              # Запуск, архитектура и конфигурация
 ├── tests/e2e/                         # Browser regressions публичного сайта
 ├── dist/                              # Сгенерированный frontend; не редактировать
-└── .ai-factory/                       # Описание, архитектура и правила проекта
 ~~~
 
 ## Основные точки входа
@@ -62,11 +64,11 @@
 | `scripts/start-backend.ps1` | Запуск API и миграций на локальной SQLite базе |
 | `backend/app/main.py` | Backend composition root и API роутеры |
 | `backend/app/modules/` | Auth, users, teams, media, portfolio, video, notifications, content, admin |
-| `backend/docker-compose.yml` | PostgreSQL, Redis, MinIO, ClamAV, Mailpit и API |
+| `docker-compose.yml` | Сайт, API, PostgreSQL, Redis, MinIO, ClamAV и Mailpit |
 | `docs/getting-started.md` | Полный локальный запуск обоих приложений |
 
 ## Запуск
 
-Для полного стека выполните `npm run backend:up` и `npm run start` в отдельных терминалах; коды email-подтверждения доступны в Mailpit на порту 8025. При недоступном Docker установите Python зависимости в `backend/.venv`, затем запустите `npm run backend:dev` вместе с `npm run start`; в dev-режиме данные хранятся в SQLite, а коды печатаются в backend терминале. `npm run backend:down` останавливает Compose backend без удаления его Docker volumes.
+Для полного стека скопируйте `.env.example` в `.env`, задайте пароль администратора и выполните `docker compose up --build -d` в корне. Сайт откроется на порту 4173, API — 4174, Mailpit — 8025. `docker compose down` останавливает контейнеры, сохраняя volumes. При недоступном Docker установите Python-зависимости в `backend/.venv`, затем запустите `npm run backend:dev` вместе с `npm run start`; данные хранятся в SQLite.
 
 Frontend редактируйте в `src/`, а backend — внутри `backend/` по его `ARCHITECTURE.md`. Не добавляйте ключи и пароли в HTML, JavaScript или Git. Не выполняйте push, PR или merge без настроенного remote и явной задачи.

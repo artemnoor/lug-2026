@@ -4,25 +4,25 @@
 
 ## Полный локальный запуск
 
-Для полного локального стека нужны Node.js/npm и Docker Desktop. В первом терминале из корня проекта поднимите API, PostgreSQL, Redis, MinIO, ClamAV и Mailpit:
+Для запуска полного стека нужен Docker Desktop с запущенным Docker Engine. Единый `docker-compose.yml` в корне собирает сайт и API, запускает PostgreSQL, Redis, MinIO, ClamAV и Mailpit. Один раз скопируйте шаблон локального окружения:
 
 ~~~powershell
-npm run backend:up
+Copy-Item .env.example .env
 ~~~
 
-Во втором терминале запустите сайт:
+Проверьте `LUG_ADMIN_EMAIL` и задайте свой пароль в `.env`, затем поднимите весь проект из корня:
 
 ~~~powershell
-npm run start
+docker compose up --build -d
 ~~~
 
-Откройте [http://127.0.0.1:4173/](http://127.0.0.1:4173/). Локальный сайт проксирует `/api/*` и `/uploads/*` на backend `127.0.0.1:4174`, поэтому сессии и CSRF cookie работают на одном origin. Backend API ограничен loopback-интерфейсом.
+Сайт откроется на [http://127.0.0.1:4173/](http://127.0.0.1:4173/); API — на `http://127.0.0.1:4174/`; Mailpit — на [http://127.0.0.1:8025/](http://127.0.0.1:8025/). Сайт проксирует API-запросы по внутренней Docker-сети. Посмотреть логи можно командой `docker compose logs -f web backend`. `docker compose down` останавливает контейнеры и сохраняет volumes.
 
-Если Docker недоступен, backend можно запустить напрямую с локальной SQLite-базой. Установите Python 3.11+, выполните из каталога `backend/` `python -m venv .venv` и `.venv\Scripts\python.exe -m pip install -e .`, затем из корня запустите `npm run backend:dev`. В другом терминале выполните `npm run start`. Код восстановления пароля в этом режиме виден в терминале backend; регистрация не требует подтверждения почты. Файлы и база хранятся локально в `backend/uploads/` и `backend/data/`.
+Если Docker недоступен, frontend и backend можно запускать отдельно для разработки: установите Node.js и Python 3.11+, скопируйте `backend/.env.example` в `backend/.env`, задайте параметры dev-режима, затем запустите `npm run backend:dev` и `npm run start` в двух терминалах. Этот режим использует SQLite.
 
-Учётная запись первого администратора на локальной машине задаётся переменными `LUG_ADMIN_EMAIL` и `LUG_ADMIN_PASSWORD` в игнорируемом Git файле `backend/.env`. Если файла нет, скопируйте `backend/.env.example` и задайте свой сложный пароль. В этой рабочей копии пароль администратора уже сгенерирован и доступен владельцу проекта в `.env`.
+Учётная запись первого администратора задаётся переменными `LUG_ADMIN_EMAIL` и `LUG_ADMIN_PASSWORD` в игнорируемом Git файле `.env` в корне. Шаблон `.env.example` предназначен только для разработки: поменяйте пароль перед запуском и не публикуйте `.env`.
 
-В Compose-режиме письма восстановления пароля и другие исходящие сообщения открываются в локальном Mailpit: [http://127.0.0.1:8025/](http://127.0.0.1:8025/). Остановить Compose backend можно командой `npm run backend:down`; Docker volumes с данными при этом сохраняются. Прямой backend завершается Ctrl+C в его терминале.
+В Compose-режиме письма восстановления пароля открываются в локальном Mailpit. Команда `docker compose down --volumes` удаляет локальные базы и файлы.
 
 ## Кабинет и админ-панель
 
@@ -41,6 +41,8 @@ src/account/                    # перенесённые кабинет уча
 src/scripts/features/account/   # API-клиент и модули кабинета, админки и регистрации
 src/styles/auth-dialog.css      # окно авторизации и многошаговой регистрации
 scripts/                       # сборщик и локальный сервер с API proxy
+Dockerfile                     # многоэтапная сборка frontend контейнера
+docker-compose.yml             # полный стек сайта, API и инфраструктуры
 backend/                       # отдельный FastAPI modular monolith из GitHub
 dist/                          # результат сборки, не редактировать вручную
 ~~~

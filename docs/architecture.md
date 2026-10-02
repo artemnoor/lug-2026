@@ -19,13 +19,14 @@
 | `src/scripts/features/account/site-shell.js` | Вход/регистрация на публичной странице |
 | `src/scripts/features/account/cabinet.js`, `admin.js` | Приложения участника и организатора |
 | `scripts/build-site.mjs` | Раскрывает HTML include и копирует frontend runtime в `dist/` |
-| `scripts/serve-site.mjs` | Отдаёт frontend на 4173 и проксирует `/api/*`, `/uploads/*` на API 4174 |
+| `scripts/serve-site.mjs` | Отдаёт frontend на 4173 и проксирует `/api/*`, `/uploads/*` на API; адреса задаются переменными окружения |
 | `backend/app/main.py` | FastAPI composition root |
 | `backend/app/modules/` | Вертикальные модули auth, users, teams, media, portfolio, video, notifications, content и admin |
 | `backend/alembic/` | Миграции relational schema |
-| `backend/docker-compose.yml` | Backend, PostgreSQL, Redis, MinIO, ClamAV и Mailpit для локальной разработки |
+| `Dockerfile` | Сборка статического frontend и Node preview контейнера |
+| `docker-compose.yml` | Единый запуск сайта, API и всех локальных зависимостей |
 
-`backend/` — отдельный Git clone. Его backend-слои и API контракт описаны в [backend/ARCHITECTURE.md](../backend/ARCHITECTURE.md) и [compatibility matrix](../backend/docs/compatibility-matrix.md).
+`backend/` — отдельный Git submodule. Его backend-слои и API контракт описаны в [backend/ARCHITECTURE.md](../backend/ARCHITECTURE.md) и [compatibility matrix](../backend/docs/compatibility-matrix.md). Compose запускается из корня и использует `backend/Dockerfile` для API.
 
 Кабинет, админ-панель и формы регистрации сверены с [frontend репозитория `lug-2026`](https://github.com/artemnoor/lug-2026/tree/2f8a8dc/apps/web/public). В проект перенесены только эти экраны и нужные им ресурсы; публичная главная страница остаётся собственной. Сохранены локальные пути, палитра и мобильные исправления. Поток регистрации намеренно отличается от upstream: после создания аккаунта пользователь сразу входит, подтверждение email не требуется, пароль требует только минимум 8 символов.
 
@@ -53,4 +54,4 @@ Browser interface
 
 ## Сборка
 
-Исходники frontend находятся в `src/`; `npm run build` пересоздаёт `dist/`. Python приложение, миграции и контейнерная конфигурация остаются в клонированном `backend/` и развиваются по его модульным границам.
+Исходники frontend находятся в `src/`; `npm run build` пересоздаёт `dist/`. `Dockerfile` упаковывает сборку и Node preview server в frontend контейнер. Python приложение и миграции находятся в `backend/`, образ API собирается из `backend/Dockerfile`, весь стек описан единым корневым `docker-compose.yml`.

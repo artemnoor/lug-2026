@@ -6,8 +6,8 @@
   "scripts": {
     "build": "node scripts/build-site.mjs",
     "start": "npm run build && node scripts/serve-site.mjs",
-    "backend:up": "docker compose --env-file backend/.env -f backend/docker-compose.yml up --build -d",
-    "backend:down": "docker compose --env-file backend/.env -f backend/docker-compose.yml down",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
     "backend:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-backend.ps1",
     "test": "playwright test",
     "check:assets": "npm run build && node scripts/check-local-assets.mjs"
