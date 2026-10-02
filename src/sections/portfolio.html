@@ -1,0 +1,83 @@
+<section class="lug-sec theme_on-color lug-gradient-section" id="portfolio">
+  <div class="deco-star deco-star-portfolio deco-star-portfolio-lime" aria-hidden="true">
+    <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M250 10 L285 185 L460 140 L315 250 L460 360 L285 315 L250 490 L215 315 L40 360 L185 250 L40 140 L215 185 Z" fill="#B8F560"></path>
+    </svg>
+  </div>
+  <div class="deco-star deco-star-portfolio deco-star-portfolio-teal" aria-hidden="true">
+    <svg viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M300 20 L335 220 L498 102 L380 260 L580 300 L380 340 L498 498 L335 380 L300 580 L265 380 L102 498 L220 340 L20 300 L220 260 L102 102 L265 220 Z" fill="#238689"></path>
+    </svg>
+  </div>
+  <div class="lug-container">
+    <div class="lug-header-block">
+      <div class="lug-subtitle">Что входит в портфолио</div>
+      <div class="span"><h2 class="lug-title">Портфолио</h2></div>
+      <p class="lug-lead">
+        Обратите внимание: это не отдельные треки конкурса, а 4 ключевых направления, по которым суммируются баллы группы при формировании портфолио
+      </p>
+    </div>
+
+    <div class="portfolio-carousel" data-portfolio-carousel role="region" aria-label="Четыре направления портфолио">
+      <div class="portfolio-carousel__viewport">
+        <div class="lug-grid-4 portfolio-carousel__track" id="portfolio-directions">
+          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="01">
+            <div class="portfolio-card__content">
+              <h3 class="portfolio-card__title">1. Наука</h3>
+              <p class="portfolio-card__description">
+                Научные статьи (РИНЦ, ВАК, Scopus), участие в конференциях, победы в олимпиадах, хакатонах, зарегистрированные патенты и высокий средний академический балл группы.
+              </p>
+            </div>
+            <img class="portfolio-card__image" src="./assets/images/portfolio-science-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </article>
+
+          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="02">
+            <div class="portfolio-card__content">
+              <h3 class="portfolio-card__title">2. Общественная деятельность</h3>
+              <p class="portfolio-card__description">
+                Активисты Студенческого совета, профсоюзного бюро, волонтерские акции, кураторство младших курсов, донорство и организация знаковых событий университета.
+              </p>
+            </div>
+            <img class="portfolio-card__image" src="./assets/images/portfolio-community-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </article>
+
+          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="03">
+            <div class="portfolio-card__content">
+              <h3 class="portfolio-card__title">3. Спорт</h3>
+              <p class="portfolio-card__description">
+                Участие в ежегодной Спартакиаде МГТУ им. Н.Э. Баумана, сдача нормативов ГТО, победы в межфакультетских и всероссийских студенческих спортивных лигах.
+              </p>
+            </div>
+            <img class="portfolio-card__image" src="./assets/images/portfolio-sport-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </article>
+
+          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="04">
+            <div class="portfolio-card__content">
+              <h3 class="portfolio-card__title">4. Творчество</h3>
+              <p class="portfolio-card__description">
+                Участие в фестивалях «Студенческая весна», выступления на творческих вечерах, медиа-проекты, видеоролики, музыкальное творчество и дизайн.
+              </p>
+            </div>
+            <img class="portfolio-card__image" src="./assets/images/portfolio-creativity-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </article>
+        </div>
+      </div>
+
+      <div class="portfolio-carousel__controls" role="group" aria-label="Управление направлениями портфолио">
+        <button class="portfolio-carousel__arrow" type="button" data-portfolio-prev aria-label="Предыдущее направление" aria-controls="portfolio-directions">
+          <span aria-hidden="true">←</span>
+        </button>
+        <div class="portfolio-carousel__dots" role="group" aria-label="Выбрать направление">
+          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="0" aria-label="Наука" aria-controls="portfolio-directions"></button>
+          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="1" aria-label="Общественная деятельность" aria-controls="portfolio-directions"></button>
+          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="2" aria-label="Спорт" aria-controls="portfolio-directions"></button>
+          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="3" aria-label="Творчество" aria-controls="portfolio-directions"></button>
+        </div>
+        <button class="portfolio-carousel__arrow" type="button" data-portfolio-next aria-label="Следующее направление" aria-controls="portfolio-directions">
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      <p class="portfolio-carousel__live" data-portfolio-live aria-live="polite" aria-atomic="true"></p>
+    </div>
+  </div>
+</section>
