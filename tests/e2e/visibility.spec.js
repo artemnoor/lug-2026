@@ -239,84 +239,34 @@ test('sections stay visible in document flow if the transition script fails to l
   expect(state.prizeTop).toBeGreaterThanOrEqual(state.introBottom);
 });
 
-test('mobile menu works without animation libraries', async ({ page }) => {
+test('mobile header keeps the profile but does not show a navigation menu', async ({ page }) => {
   await blockExternalRequests(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  for (const viewport of [
+    { width: 280, height: 568 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    const profile = page.locator('#siteAccountLink');
+    const trigger = page.locator('[data-modal-menu-btn="mob"]');
+    const menu = page.locator('[data-modal-menu="mob"]');
 
-  const menu = page.locator('[data-modal-menu="mob"]');
-  const trigger = page.locator('[data-modal-menu-btn="mob"]');
-  await expect(menu).toBeHidden();
-  await page.locator('#introduction').evaluate((intro) => {
-    window.scrollTo(0, intro.getBoundingClientRect().bottom + window.scrollY + 1);
-  });
-  await expect(page.locator('body')).toHaveClass(/is-site-header-visible/);
-  await trigger.click();
-  await expect(menu).toBeVisible();
-  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  await page.keyboard.press('Escape');
-  await expect(menu).toBeHidden();
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(profile).toBeVisible();
+    await expect(trigger).toBeHidden();
+    await expect(menu).toBeHidden();
+    const bounds = await profile.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
 
-});
-
-test('mobile menu traps keyboard focus and restores the page when closed', async ({ page }) => {
-  await blockExternalRequests(page);
-  await page.setViewportSize({ width: 280, height: 568 });
-  await page.goto('/');
-  await page.locator('#introduction').evaluate((intro) => {
-    window.scrollTo(0, intro.getBoundingClientRect().bottom + window.scrollY + 1);
-  });
-
-  const trigger = page.locator('[data-modal-menu-btn="mob"]');
-  const menu = page.locator('[data-modal-menu="mob"]');
-  const links = menu.locator('a[href]');
-  const close = menu.locator('#siteMobileMenuClose');
-  const headerTargets = await page.locator('.header-logo, .site-profile-link, button.btn-menu[data-modal-menu-btn="mob"]').evaluateAll((targets) => targets.map((target) => {
-    const rect = target.getBoundingClientRect();
-    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-  }));
-  expect(headerTargets.every((target) => (
-    target.width >= 44 && target.height >= 44
-      && target.left >= 0 && target.right <= 280
-      && target.top >= 0 && target.bottom <= 568
-  ))).toBe(true);
-
-  await expect(trigger).toHaveRole('button');
-  await expect(trigger).toHaveAccessibleName('Открыть меню');
-  await expect(trigger.locator('a[href]')).toHaveCount(0);
-  await expect(trigger.locator('.btn-menu_label.is-active .l2').first()).toHaveCSS('color', 'rgb(23, 37, 28)');
-
-  await trigger.focus();
-  await page.keyboard.press('Enter');
-  await expect(menu).toBeVisible();
-  await expect(menu).toHaveAttribute('aria-modal', 'true');
-  await expect(trigger).toHaveAccessibleName('Закрыть меню');
-  await expect(close).toHaveAccessibleName('Закрыть меню');
-  await expect(close).toBeFocused();
-  await expect(page.locator('.header-logo')).toHaveCSS('filter', 'brightness(0) invert(1)');
-  await expect.poll(() => page.locator('.hero-intro-scene').evaluate((element) => element.inert)).toBe(true);
-
-  await page.keyboard.press('Shift+Tab');
-  await expect(links.last()).toBeFocused();
-  await expect(links.last()).toBeInViewport();
-  await expect.poll(() => menu.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await page.keyboard.press('Tab');
-  await expect(close).toBeFocused();
-  await close.click();
-  await expect(menu).toBeHidden();
-  await expect(trigger).toBeFocused();
-
-  await page.keyboard.press('Enter');
-  await expect(menu).toBeVisible();
-  await page.keyboard.press('Escape');
-
-  await expect(menu).toBeHidden();
-  await expect(trigger).toBeFocused();
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-  await expect(trigger).toHaveAccessibleName('Открыть меню');
-  await expect.poll(() => page.locator('.hero-intro-scene').evaluate((element) => element.inert)).toBe(false);
-  expect(await page.locator('body').evaluate((element) => element.style.overflow)).toBe('');
+    await page.locator('#introduction').evaluate((intro) => {
+      window.scrollTo(0, intro.getBoundingClientRect().bottom + window.scrollY + 1);
+    });
+    await expect(page.locator('body')).toHaveClass(/is-site-header-visible/);
+    await expect(trigger).toBeHidden();
+    await expect(menu).toBeHidden();
+    await expect(profile).toBeVisible();
+  }
 });
 
 test('profile entry opens the themed registration flow without an email verification step', async ({ page }) => {
@@ -338,6 +288,19 @@ test('profile entry opens the themed registration flow without an email verifica
   await page.locator('#siteAuthChoice [data-auth-mode="register"]').click();
   await expect(page.locator('#siteAuthRegister')).toBeVisible();
   await expect(page.locator('#siteAuthVerify')).toHaveCount(0);
+
+  await page.locator('#siteCapGroup').fill('ИУ7-41Б');
+  await page.locator('#siteCapGroupSize').fill('25');
+  await page.locator('#siteCapTeamName').fill('Команда ИУ7');
+  await page.locator('#siteAuthRegisterNext').click();
+  await page.locator('#siteCapSurname').fill('Иванов');
+  await page.locator('#siteCapName').fill('Иван');
+  await page.locator('#siteCapPatronymic').fill('Иванович');
+  await page.locator('#siteCapEmail').fill('ivanov@example.test');
+  await page.locator('[data-messenger="telegram"][data-messenger-owner="captain"]').click();
+  await page.locator('[data-messenger-contact="captain-telegram"]').fill('@ivanov_test');
+  await page.locator('#siteAuthRegisterNext').click();
+
   await expect(page.locator('#siteCapPasswordRules')).toContainText('Минимум 8 символов');
   await page.locator('#siteCapPassword').fill('пароль123');
   await expect(page.locator('#siteCapPasswordRules [data-password-rule="length"]')).toHaveClass(/is-valid/);
@@ -393,11 +356,17 @@ test('fixed header controls do not cover section labels reached from navigation'
     await expect(page.locator('body')).toHaveClass(/is-site-header-visible/);
 
     const mobile = viewport.width <= 991;
-    const headerSelector = mobile ? '.btn-menu' : '.site-tabs-nav';
+    const headerSelector = mobile ? '.btn-menu[data-modal-menu-btn="mob"]' : '.site-tabs-nav';
+    if (mobile) {
+      await expect(page.locator(headerSelector)).toBeHidden();
+      await expect(page.locator('[data-modal-menu="mob"]')).toBeHidden();
+    }
     for (const id of ['tracks', 'stages', 'portfolio', 'history', 'prizes', 'cta']) {
       if (mobile) {
-        await page.locator('[data-modal-menu-btn="mob"]').click();
-        await page.locator(`#siteMobileMenu nav a[href="#${id}"]`).click();
+        await page.locator(`#${id}`).evaluate((section) => {
+          window.location.hash = section.id;
+          section.scrollIntoView({ block: 'start', behavior: 'instant' });
+        });
       } else {
         await page.locator(`.site-tabs-nav a[href="#${id}"]`).click();
       }

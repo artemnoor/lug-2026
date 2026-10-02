@@ -299,6 +299,21 @@ test('registration form fits phone and tablet layouts without clipped controls',
   const dialog = page.locator('dialog.site-auth-dialog');
   const card = dialog.locator('.site-auth-dialog__card');
   await expect(page.locator('#siteAuthRegister')).toBeVisible();
+
+  await page.locator('#siteCapGroup').fill('ИУ7-41Б');
+  await page.locator('#siteCapGroupSize').fill('25');
+  await page.locator('#siteCapTeamName').fill('Команда ИУ7');
+  await page.locator('#siteAuthRegisterNext').click();
+  await expect(page.locator('[data-register-step-indicator="2"]')).toHaveAttribute('aria-current', 'step');
+  await page.locator('#siteCapSurname').fill('Иванов');
+  await page.locator('#siteCapName').fill('Иван');
+  await page.locator('#siteCapPatronymic').fill('Иванович');
+  await page.locator('#siteCapEmail').fill('ivanov@example.test');
+  await page.locator('[data-messenger="telegram"][data-messenger-owner="captain"]').click();
+  await page.locator('[data-messenger-contact="captain-telegram"]').fill('@ivanov_test');
+  await page.locator('#siteAuthRegisterNext').click();
+  await expect(page.locator('[data-register-step-indicator="3"]')).toHaveAttribute('aria-current', 'step');
+
   const fileChooserPromise = page.waitForEvent('filechooser');
   await page.locator('#siteAuthRegister [data-upload-trigger]').first().click();
   const fileChooser = await fileChooserPromise;
@@ -309,7 +324,7 @@ test('registration form fits phone and tablet layouts without clipped controls',
     const layout = await card.evaluate((element) => {
       const cardRect = element.getBoundingClientRect();
       const clippedControls = [...element.querySelectorAll('input, button, select, textarea')]
-        .filter((control) => control.getClientRects().length)
+        .filter((control) => control.getClientRects().length && !control.closest('[hidden]'))
         .filter((control) => {
           const rect = control.getBoundingClientRect();
           return rect.left < cardRect.left - 1 || rect.right > cardRect.right + 1;
@@ -433,15 +448,17 @@ test('captain can register with an eight-character password and reach the cabine
   }, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<main id="registration-complete">Кабинет открыт</main>' }));
 
   await page.goto('/?action=register');
-  await page.locator('#siteCapSurname').fill('Иванов');
-  await page.locator('#siteCapName').fill('Иван');
-  await page.locator('#siteCapPatronymic').fill('Иванович');
   await page.locator('#siteCapGroup').fill('ИУ7-41Б');
   await page.locator('#siteCapGroupSize').fill('25');
   await page.locator('#siteCapTeamName').fill('Команда ИУ7');
+  await page.locator('#siteAuthRegisterNext').click();
+  await page.locator('#siteCapSurname').fill('Иванов');
+  await page.locator('#siteCapName').fill('Иван');
+  await page.locator('#siteCapPatronymic').fill('Иванович');
   await page.locator('#siteCapEmail').fill('ivanov@example.test');
   await page.locator('[data-messenger="telegram"][data-messenger-owner="captain"]').click();
   await page.locator('[data-messenger-contact="captain-telegram"]').fill('@ivanov_test');
+  await page.locator('#siteAuthRegisterNext').click();
   await page.locator('#siteCapStudentCardFile').setInputFiles({
     name: 'student-card.png',
     mimeType: 'image/png',
@@ -488,12 +505,14 @@ test('participant can join by invite with an eight-character password and reach 
   await page.locator('#siteJoinInviteCode').fill('TEST42');
   await page.locator('#siteJoinInviteCode').blur();
   await expect(page.locator('#siteInviteStatus')).toContainText('Приглашение активно');
+  await page.locator('#siteAuthRegisterNext').click();
   await page.locator('#siteJoinSurname').fill('Петрова');
   await page.locator('#siteJoinName').fill('Анна');
   await page.locator('#siteJoinPatronymic').fill('Сергеевна');
   await page.locator('#siteJoinEmail').fill('anna@example.test');
   await page.locator('[data-messenger="telegram"][data-messenger-owner="participant"]').click();
   await page.locator('[data-messenger-contact="participant-telegram"]').fill('@anna_test');
+  await page.locator('#siteAuthRegisterNext').click();
   await page.locator('#siteJoinStudentCardFile').setInputFiles({
     name: 'student-card.png',
     mimeType: 'image/png',
