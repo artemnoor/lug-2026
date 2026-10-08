@@ -2098,7 +2098,7 @@ html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abb
     z-index: 1;
     width: min(400%, 118vw);
     height: auto;
-    aspect-ratio: 0.7 / 1;
+    aspect-ratio: 0.35 / 1;
     transform: translateX(-50%);
     overflow: visible;
     mix-blend-mode: screen;
@@ -3893,7 +3893,7 @@ html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abb
 
   @media (max-width: 600px) {
     body.body .lug-sec#prizes .prize-spotlight__beam {
-      aspect-ratio: 0.65 / 1;
+      aspect-ratio: 0.325 / 1;
     }
   }
 
