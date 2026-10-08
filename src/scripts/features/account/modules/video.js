@@ -9,7 +9,7 @@ export const videoProviderMeta = {
 
 export function parseVideoUrl(value = '') {
   const raw = String(value).trim();
-  if (!raw) return { valid: false, message: 'Вставьте ссылку на видео-визитку.' };
+  if (!raw) return { valid: false, message: 'Вставьте ссылку на видеовизитку.' };
   if (/^\/uploads\/[a-f0-9]{64}\.(?:mp4|webm|mov)$/i.test(raw)) return { valid: true, provider: 'file', label: videoProviderMeta.file.label, title: videoProviderMeta.file.title, url: raw, embedUrl: '' };
   let url;
   try { url = new URL(raw); } catch { return { valid: false, message: 'Проверьте формат ссылки: она должна начинаться с https:// или http://.' }; }

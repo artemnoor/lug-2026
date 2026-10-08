@@ -21,7 +21,7 @@ test('page content is immediately visible without external scripts or reveal mar
 
   await expect(page.locator('#hero h1')).toContainText('Лучшая');
   await expect(page.locator('#hero h2')).toContainText('2026');
-  await expect(page.locator('#portfolio .lug-card')).toHaveCount(4);
+  await expect(page.locator('#portfolio [data-portfolio-item]')).toHaveCount(4);
   await expect(page.locator('.section.arch .arch-heading')).toBeVisible();
   await expect(page.locator('.section.arch .arch-logo-row li')).toHaveCount(4);
   await expect(page.locator('#hero .hero-organizers-wrap')).toHaveCount(0);
@@ -94,6 +94,42 @@ test('hero text is above its photo and sections stay in normal page flow', async
   expect(layout.prizePosition).not.toBe('absolute');
   expect(Math.abs(layout.sceneBottom - layout.prizeLayoutTop)).toBeLessThan(1);
   expect(layout.tracksTop).toBeGreaterThanOrEqual(layout.prizeTop);
+});
+
+test('desktop hero title, year, and dates stay clear of the menu and inside the first screen', async ({ page }) => {
+  await blockExternalRequests(page);
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+
+  for (const viewport of [
+    { width: 1024, height: 768 },
+    { width: 1440, height: 768 },
+    { width: 1440, height: 1000 },
+    { width: 1920, height: 1080 }
+  ]) {
+    await page.setViewportSize(viewport);
+    const layout = await page.evaluate(() => {
+      const rect = (selector) => {
+        const { top, bottom, left, right } = document.querySelector(selector).getBoundingClientRect();
+        return { top, bottom, left, right };
+      };
+      return {
+        viewportWidth: document.documentElement.clientWidth,
+        title: rect('#hero h1'),
+        year: rect('#hero h2'),
+        dates: rect('#hero .hero-dates_text')
+      };
+    });
+
+    expect(layout.viewportWidth, `no horizontal overflow at ${viewport.width}×${viewport.height}`).toBe(viewport.width);
+    expect(layout.title.top, `title clears the menu at ${viewport.width}×${viewport.height}`).toBeGreaterThanOrEqual(90);
+    for (const [name, box] of Object.entries({ title: layout.title, year: layout.year, dates: layout.dates })) {
+      expect(box.top, `${name} starts within ${viewport.width}×${viewport.height}`).toBeGreaterThanOrEqual(0);
+      expect(box.bottom, `${name} ends within ${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(viewport.height);
+      expect(box.left, `${name} stays on screen at ${viewport.width}×${viewport.height}`).toBeGreaterThanOrEqual(0);
+      expect(box.right, `${name} stays on screen at ${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(viewport.width);
+    }
+  }
 });
 
 test('introduction rises over the hero without blur as the transition scene scrolls', async ({ page }) => {
@@ -404,7 +440,7 @@ test('fixed header controls do not cover section labels reached from navigation'
   }
 });
 
-test('history album turns in both directions, responds to arrow keys, and wraps at the beginning', async ({ page }) => {
+test('history album shows one photo at a time, responds to arrow keys, and wraps at the beginning', async ({ page }) => {
   const remotePhoto = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l2sAAAAASUVORK5CYII=', 'base64');
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -421,88 +457,124 @@ test('history album turns in both directions, responds to arrow keys, and wraps 
   await page.goto('/');
 
   const stage = page.locator('[data-history-stage]');
-  const left = page.locator('[data-history-left]');
-  const right = page.locator('[data-history-right]');
+  const image = page.locator('[data-history-image]');
+  const counter = page.locator('[data-history-counter]');
   const photoCount = await page.locator('[data-history-photos]').evaluate((template) => template.content.querySelectorAll('img').length);
+  const lastPhoto = await page.locator('[data-history-photos]').evaluate((template) => template.content.querySelector('img:last-child').src);
+
+  await expect(stage.locator('img')).toHaveCount(1);
+  await expect(counter).toHaveText(`1 / ${photoCount}`);
+  await expect(image).toHaveAttribute('alt', `Фотография из альбома конкурса, кадр 1 из ${photoCount}`);
+
   await page.locator('[data-history-next]').click();
-  await expect(right).toHaveAttribute('data-photo-index', '2');
+  await expect(image).toHaveAttribute('src', /lug-2025-002\.jpg$/);
+  await expect(counter).toHaveText(`2 / ${photoCount}`);
+  await expect(image).toHaveAttribute('alt', `Фотография из альбома конкурса, кадр 2 из ${photoCount}`);
   await expect(stage).toHaveAttribute('aria-busy', 'false');
 
   await page.locator('[data-history-prev]').click();
-  await expect(left).toHaveAttribute('data-photo-index', '0');
-  await expect(right).toHaveAttribute('data-photo-index', '1');
+  await expect(image).toHaveAttribute('src', /lug-2025-001\.jpg$/);
+  await expect(counter).toHaveText(`1 / ${photoCount}`);
   await expect(stage).toHaveAttribute('aria-busy', 'false');
 
   await stage.focus();
   await page.keyboard.press('ArrowLeft');
-  await expect(left).toHaveAttribute('data-photo-index', String(photoCount - 1));
-  await expect(right).toHaveAttribute('data-photo-index', '0');
+  await expect(image).toHaveAttribute('src', lastPhoto);
+  await expect(counter).toHaveText(`${photoCount} / ${photoCount}`);
   await expect(stage).toHaveAttribute('aria-busy', 'false');
-  await expect.poll(() => left.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => image.evaluate((photo) => photo.naturalWidth)).toBeGreaterThan(0);
 });
 
-test('stages and the portfolio carousel fit mobile, tablet, and desktop widths', async ({ page }) => {
+test('reviewed copy, date range, partner order, and mobile hero year are current', async ({ page }) => {
   await blockExternalRequests(page);
   await page.goto('/');
-  await page.addStyleTag({ content: '.portfolio-carousel__card, .portfolio-carousel__card > * { transition: none !important; }' });
+
+  await expect(page.locator('#hero .hero-dates_text')).toHaveText('12 октября — 16 декабря');
+  await expect(page.locator('#cta .site-registration__deadline')).toHaveText('Приём заявок продлится до 16 декабря 2026 года');
+  await expect(page.locator('#prizes .prize-single-award-copy')).toContainText('Поездка для всей группы');
+  await expect(page.locator('#stages .stage-card:nth-child(3) .stage-card__tag')).toHaveText('Очно в университете');
+  await expect(page.locator('#stages .stage-card:nth-child(4) .stage-card__title')).toContainText(/Награждение\s*по итогам конкурса/);
+  await expect(page.locator('#stages .stage-card:nth-child(4)')).not.toContainText('битва');
+  await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).toContainText('не менее 60%');
+  await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).toContainText('истории Университета');
+  await expect(page.locator('#tracks .arch-rect-black_r .arch-track-list')).not.toContainText('кейс');
+  await expect(page.locator('#portfolio #portfolio-panel-community')).toContainText('Профкома студентов МГТУ');
+  await page.locator('#introduction .arch-logo-row img').first().scrollIntoViewIfNeeded();
+  await expect.poll(() => page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
+  const partnerLogosLoaded = await page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0));
+  expect(partnerLogosLoaded).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.locator('.site-footer__social-link[aria-label*="Telegram"]')).toHaveAttribute('href', 'https://t.me/studsovet_bmstu');
+
+  const partnerOrder = await page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname.split('/').pop()));
+  expect(partnerOrder).toEqual(['bmstu_emblem_white.png', 'logo-youth-policy.png', 'studsovet_white.png', 'lug_white.svg']);
+  await expect(page.locator('.site-footer__social-caption')).toHaveText('Молодёжная политика МГТУ им. Н. Э. Баумана');
+  await expect(page.locator('.site-footer__social-link')).toHaveCount(2);
 
   for (const viewport of [
-    { width: 280, height: 720, columns: 1 },
-    { width: 300, height: 720, columns: 1 },
-    { width: 320, height: 740, columns: 1 },
-    { width: 390, height: 844, columns: 1 },
-    { width: 768, height: 1024, columns: 2 },
-    { width: 1024, height: 768, columns: 2 },
-    { width: 1440, height: 900, columns: 4 }
+    { width: 280, height: 568 },
+    { width: 320, height: 640 },
+    { width: 390, height: 844 }
   ]) {
     await page.setViewportSize(viewport);
-    await page.waitForFunction(() => {
-      const carousel = document.querySelector('.portfolio-carousel');
-      return carousel?.classList.contains('is-enhanced')
-        && [...carousel.querySelectorAll('[data-portfolio-card]')].every((card) => card.dataset.position);
-    });
-
-    const sections = await page.evaluate(() => ['#stages', '#portfolio'].map((selector) => {
-      const grid = document.querySelector(selector === '#stages' ? '.stage-cards' : '.portfolio-carousel__track');
-      const gridRect = grid.getBoundingClientRect();
-      const cards = [...grid.querySelectorAll(selector === '#stages' ? '.stage-card' : '.portfolio-carousel__card')];
-      const visibleCards = cards.filter((card) => {
-        const style = getComputedStyle(card);
-        return style.display !== 'none' && style.visibility === 'visible' && Number(style.opacity) > 0;
-      });
-
+    const hero = await page.evaluate(() => {
+      const year = document.querySelector('#hero .hero-title-year').getBoundingClientRect();
+      const date = document.querySelector('#hero .hero-dates_text').getBoundingClientRect();
+      const heroRect = document.querySelector('#hero .hero-scroll-area').getBoundingClientRect();
       return {
-        selector,
+        width: document.documentElement.clientWidth,
+        lines: document.querySelectorAll('#hero .hero-motion-line').length,
+        year: { left: year.left, right: year.right, top: year.top, bottom: year.bottom },
+        date: { top: date.top, bottom: date.bottom },
+        heroHeight: heroRect.height
+      };
+    });
+    expect(hero.width).toBe(viewport.width);
+    expect(hero.lines).toBe(0);
+    expect(hero.year.left).toBeGreaterThanOrEqual(0);
+    expect(hero.year.right).toBeLessThanOrEqual(viewport.width);
+    expect(hero.year.top).toBeGreaterThanOrEqual(0);
+    expect(hero.date.bottom).toBeLessThanOrEqual(viewport.height);
+    expect(hero.year.bottom).toBeLessThanOrEqual(hero.heroHeight);
+  }
+});
+
+test('stages and the portfolio accordion fit mobile, tablet, and desktop widths', async ({ page }) => {
+  await blockExternalRequests(page);
+  await page.goto('/');
+  await page.addStyleTag({ content: '.portfolio-tab, .portfolio-tab > * { transition: none !important; }' });
+
+  for (const viewport of [
+    { width: 280, height: 720 },
+    { width: 300, height: 720 },
+    { width: 320, height: 740 },
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1024, height: 768 },
+    { width: 1440, height: 900 }
+  ]) {
+    await page.setViewportSize(viewport);
+    const layout = await page.evaluate(() => {
+      const grid = document.querySelector('.stage-cards');
+      const cards = [...grid.querySelectorAll('.stage-card')];
+      return {
         pageWidth: document.documentElement.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
-        columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
-        visibleCards: visibleCards.length,
-        activeCards: cards.filter((card) => card.dataset.position === 'active').length,
-        controlsVisible: selector !== '#portfolio' || getComputedStyle(document.querySelector('.portfolio-carousel__controls')).display !== 'none',
-        cards: cards.map((card) => {
+        stageColumns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+        stages: cards.map((card) => {
           const rect = card.getBoundingClientRect();
           const style = getComputedStyle(card);
-          return {
-            position: card.dataset.position || '',
-            visible: style.display !== 'none' && style.visibility === 'visible' && Number(style.opacity) > 0,
-            insideViewport: rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1,
-            insideGrid: selector !== '#stages' || (rect.left >= gridRect.left - 1 && rect.right <= gridRect.right + 1),
-            left: Math.round(rect.left),
-            right: Math.round(rect.right),
-            hasSize: rect.width > 0 && rect.height > 0
-          };
+          return { visible: style.display !== 'none' && style.visibility === 'visible', inside: rect.left >= grid.getBoundingClientRect().left - 1 && rect.right <= grid.getBoundingClientRect().right + 1, sized: rect.width > 0 && rect.height > 0 };
+        }),
+        portfolioItems: [...document.querySelectorAll('#portfolio [data-portfolio-item]')].map((item) => {
+          const rect = item.getBoundingClientRect();
+          const trigger = item.querySelector('[data-portfolio-card]');
+          const title = trigger.getBoundingClientRect();
+          const style = getComputedStyle(item);
+          return { active: item.classList.contains('is-active'), visible: style.display !== 'none' && style.visibility === 'visible', inside: rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1, sized: rect.width > 0 && rect.height > 0, triggerInside: title.left >= rect.left && title.right <= rect.right + 1, triggerSize: { width: title.width, height: title.height } };
         })
       };
-    }));
-    const carouselTargets = await page.locator('.portfolio-carousel__arrow, .portfolio-carousel__dot').evaluateAll((controls) => controls.map((control) => {
-      const rect = control.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
-    }));
-    expect(carouselTargets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
-    expect(
-      carouselTargets.every((target) => target.left >= 0 && target.right <= viewport.width),
-      `portfolio controls stay inside the viewport at ${viewport.width}px`
-    ).toBe(true);
+    });
 
     if (viewport.width <= 360) {
       const headingBounds = await page.evaluate(() => {
@@ -530,23 +602,21 @@ test('stages and the portfolio carousel fit mobile, tablet, and desktop widths',
       ).toEqual([]);
     }
 
-    for (const section of sections) {
-      expect(section.pageWidth, `horizontal overflow at ${viewport.width}px`).toBe(section.viewportWidth);
-      if (section.selector === '#stages') {
-        expect(section.columns, `${section.selector} at ${viewport.width}px`).toBe(viewport.columns);
-        expect(section.cards).toHaveLength(4);
-        expect(section.cards.every((card) => card.visible && card.insideGrid && card.hasSize)).toBe(true);
-      } else {
-        expect(section.columns, `${section.selector} carousel layout`).toBe(1);
-        expect(section.cards).toHaveLength(4);
-        expect(section.activeCards).toBe(1);
-        expect(section.visibleCards).toBe(viewport.width <= 700 ? 1 : 3);
-        expect(section.controlsVisible).toBe(true);
-        expect(
-          section.cards.filter((card) => card.visible && (!card.insideViewport || !card.hasSize)),
-          `${section.selector} has a clipped card at ${viewport.width}px`
-        ).toEqual([]);
-      }
+    expect(layout.pageWidth, `horizontal overflow at ${viewport.width}px`).toBe(layout.viewportWidth);
+    expect(layout.stageColumns).toBe(viewport.width >= 1200 ? 4 : viewport.width >= 700 ? 2 : 1);
+    expect(layout.stages).toHaveLength(4);
+    expect(layout.stages.every((card) => card.visible && card.inside && card.sized)).toBe(true);
+    expect(layout.portfolioItems).toHaveLength(4);
+    expect(layout.portfolioItems.filter((item) => item.active)).toHaveLength(1);
+    expect(layout.portfolioItems.every((item) => item.visible && item.inside && item.sized && item.triggerInside)).toBe(true);
+    expect(layout.portfolioItems.every(({ triggerSize }) => triggerSize.width >= 44 && triggerSize.height >= 44)).toBe(true);
+
+    for (const direction of ['community', 'sport', 'creativity', 'science']) {
+      const button = page.locator(`#portfolio-tab-${direction}`);
+      await button.click();
+      await expect(button).toHaveAttribute('aria-expanded', 'true');
+      await expect(page.locator(`#portfolio-panel-${direction}`)).toBeVisible();
+      await expect(page.locator(`#portfolio-panel-${direction}`)).toHaveAttribute('aria-hidden', 'false');
     }
   }
 });

@@ -1,9 +1,9 @@
-import { escapeHtml as esc, formatDate as date, phaseOpen } from './modules/dom.js';
-import { parseVideoUrl, videoProviderMeta } from './modules/video.js';
-import { messengerLabels, nameInitial, plural } from './modules/cabinet-utils.js';
-import { cabinetApi } from './modules/cabinet-api.js';
-import { bindCabinetEvents } from './modules/cabinet-events.js';
-import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSummary, renderProfile, renderTeam as renderTeamView, renderVideo as renderVideoView } from './modules/cabinet-renderers.js';
+import { escapeHtml as esc, formatDate as date, phaseOpen } from './modules/dom.js?v=20261008-3';
+import { parseVideoUrl, videoProviderMeta } from './modules/video.js?v=20261008-3';
+import { messengerLabels, nameInitial, plural } from './modules/cabinet-utils.js?v=20261008-3';
+import { cabinetApi } from './modules/cabinet-api.js?v=20261008-3';
+import { bindCabinetEvents } from './modules/cabinet-events.js?v=20261008-4';
+import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSummary, renderProfile, renderTeam as renderTeamView, renderVideo as renderVideoView } from './modules/cabinet-renderers.js?v=20261008-3';
 
 (() => {
   'use strict';
@@ -11,8 +11,12 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
   let state = null;
   let direction = 'science';
   let selectedMaterialId = null;
+  let mobileNavCloseTimer = null;
+  let mobileNavScrollY = 0;
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
+  const mobileNavPanel = $('#cabinetMobileNavPanel');
+  if (mobileNavPanel && mobileNavPanel.parentElement !== document.body) document.body.append(mobileNavPanel);
 
   function setVideoFeedback(message = '', type = 'error') {
     const feedback = $('#videoFeedback');
@@ -106,9 +110,11 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
     const profileReady = Boolean(user.fio && user.email && Object.keys(user.messengerContacts || {}).length);
     const hasVideo = Boolean(team?.videoCard?.url);
     const score = [profileReady, achievements.length > 0, Boolean(team?.description), hasVideo].filter(Boolean).length * 25;
-    const initial = nameInitial(user.fio);
+    const fioParts = String(user.fio || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = fioParts[1] || fioParts[0] || 'Участник';
+    const initial = nameInitial(firstName);
     if ($('#dropdownAvatar')) $('#dropdownAvatar').textContent = initial;
-    if ($('#topbarUserName')) $('#topbarUserName').textContent = (user.fio.split(' ')[0] || user.fio).toUpperCase();
+    if ($('#topbarUserName')) $('#topbarUserName').textContent = firstName.toUpperCase();
     $('#cabinet-title').textContent = user.fio;
     $('#cabinet-subtitle').textContent = `${user.role === 'captain' ? 'Капитан' : 'Участник'} · ${user.group}`;
     $('#identityBadge').className = `cabinet-status ${identity.className}`;
@@ -135,19 +141,67 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
   function setMobileNavOpen(open) {
     const toggles = $$('.cabinet-mobile-nav-toggle');
     const panel = $('#cabinetMobileNavPanel');
-    const sidebar = document.querySelector('.cabinet-sidebar');
     if (!toggles.length || !panel) return;
-    const isCompact = matchMedia('(max-width: 1100px)').matches;
-    const shouldOpen = isCompact && open;
-    panel.hidden = isCompact ? !shouldOpen : false;
+    const shouldOpen = Boolean(open);
+    const wasOpen = panel.dataset.navOpen === 'true';
+
+    clearTimeout(mobileNavCloseTimer);
     toggles.forEach((toggle) => toggle.setAttribute('aria-expanded', String(shouldOpen)));
-    sidebar?.classList.toggle('is-nav-open', shouldOpen);
+    const headerToggle = $('#cabinetMobileNavToggle');
+    if (headerToggle) headerToggle.setAttribute('aria-label', shouldOpen ? 'Закрыть разделы кабинета' : 'Открыть разделы кабинета');
+    panel.dataset.navOpen = String(shouldOpen);
+    if (shouldOpen) {
+      if (!wasOpen) {
+        mobileNavScrollY = window.scrollY;
+        document.documentElement.classList.add('cabinet-mobile-nav-scroll-locked');
+        document.body.style.setProperty('--cabinet-scroll-lock-top', `-${mobileNavScrollY}px`);
+        document.body.classList.add('cabinet-mobile-nav-scroll-locked');
+      }
+      panel.hidden = false;
+      panel.inert = false;
+      const userDropdown = $('#userDropdown');
+      if (userDropdown && !userDropdown.hidden) {
+        userDropdown.hidden = true;
+        $('#userMenuBtn')?.setAttribute('aria-expanded', 'false');
+      }
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', 'Разделы личного кабинета');
+      panel.setAttribute('aria-hidden', 'false');
+      panel.classList.remove('is-closing');
+      document.body.classList.add('cabinet-mobile-nav-open');
+      requestAnimationFrame(() => {
+        if (panel.dataset.navOpen === 'true') panel.classList.add('is-open');
+      });
+      $('#cabinetMobileNavClose')?.focus({ preventScroll: true });
+      return;
+    }
+
+    panel.classList.remove('is-open');
+    panel.inert = true;
+    panel.setAttribute('aria-hidden', 'true');
+    const wasScrollLocked = document.documentElement.classList.contains('cabinet-mobile-nav-scroll-locked');
+    document.body.classList.remove('cabinet-mobile-nav-open');
+    document.body.classList.remove('cabinet-mobile-nav-scroll-locked');
+    document.documentElement.classList.remove('cabinet-mobile-nav-scroll-locked');
+    document.body.style.removeProperty('--cabinet-scroll-lock-top');
+    if (wasScrollLocked) window.scrollTo(0, mobileNavScrollY);
+    if (panel.contains(document.activeElement)) headerToggle?.focus({ preventScroll: true });
+    if (!wasOpen || panel.hidden) {
+      panel.hidden = true;
+      panel.classList.remove('is-closing');
+    } else {
+      panel.classList.add('is-closing');
+      const closeDelay = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220;
+      mobileNavCloseTimer = window.setTimeout(() => {
+        if (panel.dataset.navOpen !== 'true') {
+          panel.hidden = true;
+          panel.classList.remove('is-closing');
+        }
+      }, closeDelay);
+    }
   }
-  function getCompactNavToggle() {
-    return matchMedia('(max-width: 620px)').matches
-      ? $('#cabinetMobileNavToggle')
-      : $('#cabinetTabletNavToggle');
-  }
+  function getCompactNavToggle() { return $('#cabinetMobileNavToggle'); }
   function updateMobileNavLabel(view) {
     const current = $(`#${view}-tab`);
     const label = current?.querySelector('.cabinet-nav__lead > span:last-child')?.textContent;
@@ -160,8 +214,7 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
       button.setAttribute('aria-selected', String(active));
       button.tabIndex = active ? 0 : -1;
       if (active && focus) {
-        if (matchMedia('(max-width: 1100px)').matches) getCompactNavToggle()?.focus();
-        else button.focus();
+        getCompactNavToggle()?.focus();
       }
     });
     $$('[data-view-panel]').forEach((panel) => {

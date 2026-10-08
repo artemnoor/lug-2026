@@ -9,37 +9,37 @@
   <div class="lug-container">
     <div class="lug-header-block">
       <div class="prize-spotlight" aria-hidden="true">
-        <svg class="prize-spotlight__beam" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <svg class="prize-spotlight__beam" viewBox="0 0 160 100" preserveAspectRatio="none" aria-hidden="true">
           <defs>
-            <linearGradient id="prize-beam-falloff" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#fff9d5" stop-opacity="0.86"></stop>
-              <stop offset="24%" stop-color="#fff3ae" stop-opacity="0.76"></stop>
-              <stop offset="60%" stop-color="#fff0a0" stop-opacity="0.56"></stop>
-              <stop offset="88%" stop-color="#fff0a0" stop-opacity="0.34"></stop>
+            <linearGradient id="prize-beam-falloff" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#fff9d5" stop-opacity="0"></stop>
+              <stop offset="20%" stop-color="#fff3ae" stop-opacity="0.24"></stop>
+              <stop offset="50%" stop-color="#fff0a0" stop-opacity="0.72"></stop>
+              <stop offset="80%" stop-color="#fff3ae" stop-opacity="0.24"></stop>
               <stop offset="100%" stop-color="#fff0a0" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="prize-beam-core" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stop-color="#fffef0" stop-opacity="0"></stop>
-              <stop offset="26%" stop-color="#fffef0" stop-opacity="0.14"></stop>
-              <stop offset="50%" stop-color="#fffef0" stop-opacity="0.62"></stop>
-              <stop offset="74%" stop-color="#fffef0" stop-opacity="0.14"></stop>
+              <stop offset="26%" stop-color="#fffef0" stop-opacity="0.32"></stop>
+              <stop offset="50%" stop-color="#fffef0" stop-opacity="0.96"></stop>
+              <stop offset="74%" stop-color="#fffef0" stop-opacity="0.32"></stop>
               <stop offset="100%" stop-color="#fffef0" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="prize-beam-haze" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#fff7c8" stop-opacity="0.3"></stop>
-              <stop offset="58%" stop-color="#fff3b3" stop-opacity="0.19"></stop>
+              <stop offset="0%" stop-color="#fff7c8" stop-opacity="0.48"></stop>
+              <stop offset="58%" stop-color="#fff3b3" stop-opacity="0.3"></stop>
               <stop offset="100%" stop-color="#fff3b3" stop-opacity="0"></stop>
             </linearGradient>
-            <filter id="prize-beam-soft-edge" x="-20%" y="-10%" width="140%" height="125%">
-              <feGaussianBlur stdDeviation="2.4"></feGaussianBlur>
+            <filter id="prize-beam-soft-edge" x="-50%" y="-60%" width="200%" height="220%">
+              <feGaussianBlur stdDeviation="7"></feGaussianBlur>
             </filter>
-            <filter id="prize-beam-soft-haze" x="-20%" y="-10%" width="140%" height="125%">
-              <feGaussianBlur stdDeviation="5"></feGaussianBlur>
+            <filter id="prize-beam-soft-haze" x="-50%" y="-60%" width="200%" height="220%">
+              <feGaussianBlur stdDeviation="10"></feGaussianBlur>
             </filter>
           </defs>
-          <path d="M 50 0 C 42 28 13 78 0 100 L 100 100 C 87 78 58 28 50 0 Z" fill="url(#prize-beam-haze)" filter="url(#prize-beam-soft-haze)"></path>
-          <path d="M 50 0 C 44 24 16 76 2 100 L 98 100 C 84 76 56 24 50 0 Z" fill="url(#prize-beam-falloff)" filter="url(#prize-beam-soft-edge)"></path>
-          <path d="M 50 0 C 44 24 16 76 2 100 L 98 100 C 84 76 56 24 50 0 Z" fill="url(#prize-beam-core)" filter="url(#prize-beam-soft-edge)"></path>
+          <path d="M 80 0 C 67 28 21 78 0 100 L 160 100 C 139 78 93 28 80 0 Z" fill="url(#prize-beam-haze)" filter="url(#prize-beam-soft-haze)"></path>
+          <path d="M 80 0 C 70 24 26 76 3 100 L 157 100 C 134 76 90 24 80 0 Z" fill="url(#prize-beam-falloff)" filter="url(#prize-beam-soft-edge)"></path>
+          <path d="M 80 0 C 70 24 26 76 3 100 L 157 100 C 134 76 90 24 80 0 Z" fill="url(#prize-beam-core)" filter="url(#prize-beam-soft-edge)"></path>
         </svg>
         <div class="prize-spotlight__halo"></div>
         <div class="prize-spotlight__source"></div>
@@ -56,8 +56,7 @@
         <div class="prize-single-award">
           <img class="prize-single-award-art" src="./assets/images/grand-prize-trip.png" alt="Иллюстрация главного приза конкурса" loading="eager" draggable="false">
           <div class="prize-single-award-copy">
-            <h3 class="prize-single-award-amount prize-single-award-amount--message">Полностью оплачиваемая</h3>
-            <p class="prize-single-award-caption">поездка для лучшей группы</p>
+            <h3 class="prize-single-award-amount prize-single-award-amount--message">Поездка для всей группы</h3>
           </div>
         </div>
       </div>

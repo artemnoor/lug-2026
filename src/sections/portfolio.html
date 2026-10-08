@@ -18,66 +18,77 @@
       </p>
     </div>
 
-    <div class="portfolio-carousel" data-portfolio-carousel role="region" aria-label="Четыре направления портфолио">
-      <div class="portfolio-carousel__viewport">
-        <div class="lug-grid-4 portfolio-carousel__track" id="portfolio-directions">
-          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="01">
-            <div class="portfolio-card__content">
-              <h3 class="portfolio-card__title">1. Наука</h3>
-              <p class="portfolio-card__description">
+    <div class="portfolio-accordion" data-portfolio-accordion role="group" aria-label="Четыре направления портфолио">
+      <div class="portfolio-accordion__track">
+        <article class="portfolio-tab is-active" data-portfolio-item>
+          <button class="portfolio-tab__trigger" id="portfolio-tab-science" type="button" data-portfolio-card aria-expanded="true" aria-controls="portfolio-panel-science" aria-label="Научная деятельность" tabindex="0">
+            <span class="portfolio-tab__collapsed-icon" aria-hidden="true">01</span>
+            <span class="portfolio-tab__collapsed-title" aria-hidden="true">Научная деятельность</span>
+          </button>
+          <div class="portfolio-tab__panel" id="portfolio-panel-science" role="region" aria-labelledby="portfolio-tab-science">
+            <div class="portfolio-tab__content">
+              <h3 class="portfolio-tab__title" id="portfolio-heading-science">Научная деятельность</h3>
+              <p class="portfolio-tab__description">
                 Научные статьи (РИНЦ, ВАК, Scopus), участие в конференциях, победы в олимпиадах, хакатонах, зарегистрированные патенты и высокий средний академический балл группы.
               </p>
+              <span class="portfolio-tab__pagination" aria-hidden="true"><i class="is-active"></i><i></i><i></i><i></i></span>
             </div>
-            <img class="portfolio-card__image" src="./assets/images/portfolio-science-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
-          </article>
+            <img class="portfolio-tab__image" src="./assets/images/portfolio-science-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+        </article>
 
-          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="02">
-            <div class="portfolio-card__content">
-              <h3 class="portfolio-card__title">2. Общественная деятельность</h3>
-              <p class="portfolio-card__description">
-                Активисты Студенческого совета, профсоюзного бюро, волонтерские акции, кураторство младших курсов, донорство и организация знаковых событий университета.
+        <article class="portfolio-tab" data-portfolio-item>
+          <button class="portfolio-tab__trigger" id="portfolio-tab-community" type="button" data-portfolio-card aria-expanded="false" aria-controls="portfolio-panel-community" aria-label="Общественная деятельность" tabindex="0">
+            <span class="portfolio-tab__collapsed-icon" aria-hidden="true">02</span>
+            <span class="portfolio-tab__collapsed-title" aria-hidden="true">Общественная деятельность</span>
+          </button>
+          <div class="portfolio-tab__panel" id="portfolio-panel-community" role="region" aria-labelledby="portfolio-tab-community" aria-hidden="true">
+            <div class="portfolio-tab__content">
+              <h3 class="portfolio-tab__title" id="portfolio-heading-community">Общественная деятельность</h3>
+              <p class="portfolio-tab__description">
+                Активисты Студенческого совета и Профкома студентов МГТУ, волонтёрские акции, кураторство младших курсов, донорство и организация знаковых событий Университета.
               </p>
+              <span class="portfolio-tab__pagination" aria-hidden="true"><i></i><i class="is-active"></i><i></i><i></i></span>
             </div>
-            <img class="portfolio-card__image" src="./assets/images/portfolio-community-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
-          </article>
+            <img class="portfolio-tab__image" src="./assets/images/portfolio-community-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+        </article>
 
-          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="03">
-            <div class="portfolio-card__content">
-              <h3 class="portfolio-card__title">3. Спорт</h3>
-              <p class="portfolio-card__description">
-                Участие в ежегодной Спартакиаде МГТУ им. Н.Э. Баумана, сдача нормативов ГТО, победы в межфакультетских и всероссийских студенческих спортивных лигах.
+        <article class="portfolio-tab" data-portfolio-item>
+          <button class="portfolio-tab__trigger" id="portfolio-tab-sport" type="button" data-portfolio-card aria-expanded="false" aria-controls="portfolio-panel-sport" aria-label="Спортивная деятельность" tabindex="0">
+            <span class="portfolio-tab__collapsed-icon" aria-hidden="true">03</span>
+            <span class="portfolio-tab__collapsed-title" aria-hidden="true">Спортивная деятельность</span>
+          </button>
+          <div class="portfolio-tab__panel" id="portfolio-panel-sport" role="region" aria-labelledby="portfolio-tab-sport" aria-hidden="true">
+            <div class="portfolio-tab__content">
+              <h3 class="portfolio-tab__title" id="portfolio-heading-sport">Спортивная деятельность</h3>
+              <p class="portfolio-tab__description">
+                Участие в ежегодной Спартакиаде МГТУ&nbsp;им.&nbsp;Н.&nbsp;Э.&nbsp;Баумана, сдача нормативов ГТО, победы в межфакультетских и всероссийских студенческих спортивных лигах.
               </p>
+              <span class="portfolio-tab__pagination" aria-hidden="true"><i></i><i></i><i class="is-active"></i><i></i></span>
             </div>
-            <img class="portfolio-card__image" src="./assets/images/portfolio-sport-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
-          </article>
+            <img class="portfolio-tab__image" src="./assets/images/portfolio-sport-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+        </article>
 
-          <article class="lug-card portfolio-carousel__card" data-portfolio-card data-card-number="04">
-            <div class="portfolio-card__content">
-              <h3 class="portfolio-card__title">4. Творчество</h3>
-              <p class="portfolio-card__description">
+        <article class="portfolio-tab" data-portfolio-item>
+          <button class="portfolio-tab__trigger" id="portfolio-tab-creativity" type="button" data-portfolio-card aria-expanded="false" aria-controls="portfolio-panel-creativity" aria-label="Творческая деятельность" tabindex="0">
+            <span class="portfolio-tab__collapsed-icon" aria-hidden="true">04</span>
+            <span class="portfolio-tab__collapsed-title" aria-hidden="true">Творческая деятельность</span>
+          </button>
+          <div class="portfolio-tab__panel" id="portfolio-panel-creativity" role="region" aria-labelledby="portfolio-tab-creativity" aria-hidden="true">
+            <div class="portfolio-tab__content">
+              <h3 class="portfolio-tab__title" id="portfolio-heading-creativity">Творческая деятельность</h3>
+              <p class="portfolio-tab__description">
                 Участие в фестивалях «Студенческая весна», выступления на творческих вечерах, медиа-проекты, видеоролики, музыкальное творчество и дизайн.
               </p>
+              <span class="portfolio-tab__pagination" aria-hidden="true"><i></i><i></i><i></i><i class="is-active"></i></span>
             </div>
-            <img class="portfolio-card__image" src="./assets/images/portfolio-creativity-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
-          </article>
-        </div>
+            <img class="portfolio-tab__image" src="./assets/images/portfolio-creativity-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+        </article>
       </div>
-
-      <div class="portfolio-carousel__controls" role="group" aria-label="Управление направлениями портфолио">
-        <button class="portfolio-carousel__arrow" type="button" data-portfolio-prev aria-label="Предыдущее направление" aria-controls="portfolio-directions">
-          <span aria-hidden="true">←</span>
-        </button>
-        <div class="portfolio-carousel__dots" role="group" aria-label="Выбрать направление">
-          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="0" aria-label="Наука" aria-controls="portfolio-directions"></button>
-          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="1" aria-label="Общественная деятельность" aria-controls="portfolio-directions"></button>
-          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="2" aria-label="Спорт" aria-controls="portfolio-directions"></button>
-          <button class="portfolio-carousel__dot" type="button" data-portfolio-to="3" aria-label="Творчество" aria-controls="portfolio-directions"></button>
-        </div>
-        <button class="portfolio-carousel__arrow" type="button" data-portfolio-next aria-label="Следующее направление" aria-controls="portfolio-directions">
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
-      <p class="portfolio-carousel__live" data-portfolio-live aria-live="polite" aria-atomic="true"></p>
+      <p class="portfolio-accordion__live" data-portfolio-live aria-live="polite" aria-atomic="true"></p>
     </div>
   </div>
 </section>

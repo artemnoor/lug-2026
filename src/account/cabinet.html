@@ -15,10 +15,10 @@
       href="/assets/images/favicon.svg"
       type="image/svg+xml"
     />
-    <link rel="stylesheet" href="css/style.css" />
-    <link rel="stylesheet" href="css/platform.css?v=20260824-21" />
-    <link rel="stylesheet" href="css/cabinet.css?v=20260829-31" />
-    <link rel="stylesheet" href="css/onboarding.css?v=20260821-05" />
+    <link rel="stylesheet" href="css/style.css?v=20261008-2" />
+    <link rel="stylesheet" href="css/platform.css?v=20261008-2" />
+    <link rel="stylesheet" href="css/cabinet.css?v=20261008-6" />
+    <link rel="stylesheet" href="css/onboarding.css?v=20261008-2" />
   </head>
   <body class="cabinet-page">
     <a class="skip-link" href="#cabinet-main">Перейти к содержанию</a>
@@ -250,12 +250,30 @@
               ><i></i><i></i><i></i
             ></span>
           </button>
-          <div class="cabinet-mobile-nav-panel" id="cabinetMobileNavPanel">
-            <div
-              class="cabinet-nav-tabs"
-              role="tablist"
-              aria-label="Разделы кабинета"
-            >
+          <div class="cabinet-mobile-nav-panel" id="cabinetMobileNavPanel" hidden>
+            <div class="cabinet-mobile-nav-sheet">
+              <header class="cabinet-mobile-nav-sheet__header">
+                <div>
+                  <p class="cabinet-mobile-nav-sheet__eyebrow">ЛУГ 2026 · КАБИНЕТ</p>
+                  <h2>Разделы кабинета</h2>
+                </div>
+                <span class="cabinet-mobile-nav-sheet__meta">Участник</span>
+                <button
+                  class="cabinet-mobile-nav-close"
+                  id="cabinetMobileNavClose"
+                  type="button"
+                  aria-label="Закрыть разделы кабинета"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m6 6 12 12M18 6 6 18" />
+                  </svg>
+                </button>
+              </header>
+              <div
+                class="cabinet-nav-tabs"
+                role="tablist"
+                aria-label="Разделы кабинета"
+              >
               <section
                 class="cabinet-nav-section"
                 aria-labelledby="nav-participation-label"
@@ -354,7 +372,7 @@
                       >
                         <rect x="3" y="5" width="18" height="14" rx="3"></rect>
                         <path d="m10 9 5 3-5 3V9Z"></path></svg
-                      ><span>Видео-визитка</span></span
+                      ><span>Видеовизитка</span></span
                     >
                   </button>
                 </div>
@@ -437,18 +455,19 @@
                   </button>
                 </div>
               </section>
-            </div>
-            <button
-              class="cabinet-guide-menu"
-              type="button"
-              id="overviewWelcomeOpen"
-            >
-              <span class="cabinet-guide-menu__icon" aria-hidden="true">✦</span>
-              <span
-                ><strong>Инструкция по кабинету</strong
-                ><small>Кратко о разделах и следующих шагах</small></span
+              </div>
+              <button
+                class="cabinet-guide-menu"
+                type="button"
+                id="overviewWelcomeOpen"
               >
-            </button>
+                <span class="cabinet-guide-menu__icon" aria-hidden="true">✦</span>
+                <span
+                  ><strong>Инструкция по кабинету</strong
+                  ><small>Кратко о разделах и следующих шагах</small></span
+                >
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -568,7 +587,7 @@
                     </svg>
                   </span>
                   <span class="cabinet-overview__quick-action-copy"
-                    ><strong>Посмотреть видео-визитку</strong
+                    ><strong>Посмотреть видеовизитку</strong
                     ><small>Ссылка команды и статус проверки видео</small></span
                   >
                 </button>
@@ -643,7 +662,7 @@
                 aria-selected="true"
                 data-direction="science"
               >
-                <span>Наука</span
+                <span>Научная деятельность</span
                 ><b
                   class="cabinet-direction-tabs__count"
                   data-direction-badge="science"
@@ -656,7 +675,7 @@
                 aria-selected="false"
                 data-direction="public"
               >
-                <span>Общество</span
+                <span>Общественная деятельность</span
                 ><b
                   class="cabinet-direction-tabs__count"
                   data-direction-badge="public"
@@ -669,7 +688,7 @@
                 aria-selected="false"
                 data-direction="sport"
               >
-                <span>Спорт</span
+                <span>Спортивная деятельность</span
                 ><b
                   class="cabinet-direction-tabs__count"
                   data-direction-badge="sport"
@@ -682,7 +701,7 @@
                 aria-selected="false"
                 data-direction="culture"
               >
-                <span>Творчество</span
+                <span>Творческая деятельность</span
                 ><b
                   class="cabinet-direction-tabs__count"
                   data-direction-badge="culture"
@@ -714,6 +733,10 @@
                 </p>
               </div>
             </div>
+            <section id="teamReviewNotice" class="cabinet-panel cabinet-panel--notice" role="status" hidden>
+              <strong>Нужно уточнить данные команды</strong>
+              <p id="teamReviewNoticeText"></p>
+            </section>
             <div class="team-primary-grid">
               <section class="team-roster" aria-labelledby="team-roster-title">
                 <header class="team-roster__header">
@@ -828,7 +851,7 @@
           >
             <div class="cabinet-section-intro">
               <div class="cabinet-banner__content">
-                <h2 class="cabinet-banner__title">Видео-визитка</h2>
+                <h2 class="cabinet-banner__title">Видеовизитка</h2>
                 <p class="cabinet-banner__desc">
                   Капитан добавляет публичную ссылку на готовое видео. Перед
                   отправкой проверьте критерии справа.
@@ -940,7 +963,7 @@
                 <div class="video-preview__frame" id="videoPreviewFrame"></div>
                 <div class="video-preview__meta">
                   <p class="cabinet-eyebrow">Предпросмотр</p>
-                  <h3 id="videoPreviewTitle">Видео-визитка</h3>
+                  <h3 id="videoPreviewTitle">Видеовизитка</h3>
                   <p id="videoPreviewMeta">
                     Проверьте, что видео открывается по публичной ссылке.
                   </p>
@@ -1191,7 +1214,7 @@
             <option value="science">Научная деятельность</option>
             <option value="public">Общественная деятельность</option>
             <option value="sport">Спортивная деятельность</option>
-            <option value="culture">Культура и творчество</option>
+            <option value="culture">Творческая деятельность</option>
           </select></label
         ><label
           >Категория<input
@@ -1229,8 +1252,8 @@
       </form>
     </dialog>
 
-    <script src="../scripts/features/account/store.js"></script>
-    <script type="module" src="../scripts/features/account/cabinet.js"></script>
-    <script src="../scripts/features/account/onboarding.js"></script>
+    <script src="../scripts/features/account/store.js?v=20261008-2"></script>
+    <script type="module" src="../scripts/features/account/cabinet.js?v=20261008-4"></script>
+    <script src="../scripts/features/account/onboarding.js?v=20261008-2"></script>
   </body>
 </html>

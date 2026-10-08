@@ -26,7 +26,7 @@ test('hard refresh on touch landscape never shows a blocking template overlay', 
   await expect(page.locator('#hero h1')).toBeVisible();
   await expect(page.locator('#hero h2')).toContainText('2026');
   await expect(page.locator('#portfolio .lug-lead')).toContainText('4 ключевых направления');
-  await expect(page.locator('#portfolio .lug-card')).toHaveCount(4);
+  await expect(page.locator('#portfolio [data-portfolio-item]')).toHaveCount(4);
 
   const state = await page.evaluate(() => ({
     landscape: matchMedia('(orientation: landscape) and (max-width: 991px) and (pointer: coarse) and (hover: none)').matches,

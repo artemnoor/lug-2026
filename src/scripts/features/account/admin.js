@@ -277,7 +277,7 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       </article>`;
     }).join('') : '<p class="admin-empty">Команда ещё не добавила достижений.</p>';
 
-    const videoBlock = video.url ? `<div class="admin-team-video__head"><div><p class="admin-card-kicker">Видео-визитка</p><h3>Материал команды</h3><a class="admin-inline-link" href="${esc(video.url)}" target="_blank" rel="noopener">Открыть ссылку на видео ↗</a></div><span class="admin-status ${video.status === 'approved' ? 'admin-status--ready' : video.status === 'rejected' ? 'admin-status--danger' : 'admin-status--pending'}">${esc(statusLabel[video.status] || 'На проверке')}</span></div>
+    const videoBlock = video.url ? `<div class="admin-team-video__head"><div><p class="admin-card-kicker">Видеовизитка</p><h3>Материал команды</h3><a class="admin-inline-link" href="${esc(video.url)}" target="_blank" rel="noopener">Открыть ссылку на видео ↗</a></div><span class="admin-status ${video.status === 'approved' ? 'admin-status--ready' : video.status === 'rejected' ? 'admin-status--danger' : 'admin-status--pending'}">${esc(statusLabel[video.status] || 'На проверке')}</span></div>
       <div class="admin-score-grid">
         <label class="admin-score-field"><span>Содержание · 8</span><input class="admin-control" data-video-score="topic" data-team-id="${esc(team.id)}" type="number" min="0" max="8" value="${scores.topic ?? 0}"></label>
         <label class="admin-score-field"><span>Креативность · 8</span><input class="admin-control" data-video-score="creativity" data-team-id="${esc(team.id)}" type="number" min="0" max="8" value="${scores.creativity ?? 0}"></label>
@@ -286,7 +286,7 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       </div>
       <label class="admin-field admin-video-card__comment"><span>Комментарий команде</span><textarea class="admin-control admin-control--roomy" data-video-comment="${esc(team.id)}" rows="3" placeholder="Что нужно учесть при доработке">${esc(video.reviewComment || '')}</textarea></label>
       <div class="admin-video-card__actions"><button class="admin-button admin-button--primary" type="button" data-save-video="${esc(team.id)}">Принять и сохранить · ${videoScore} / 23</button><button class="admin-button admin-button--secondary" type="button" data-reject-video="${esc(team.id)}">Вернуть на уточнение</button></div>
-      ${video.score != null ? `<div class="admin-video-card__score"><strong>${video.score} / 23</strong><span>Итоговая оценка сохранена</span></div>` : ''}` : '<p class="admin-empty">Видео-визитка ещё не отправлена капитаном.</p>';
+      ${video.score != null ? `<div class="admin-video-card__score"><strong>${video.score} / 23</strong><span>Итоговая оценка сохранена</span></div>` : ''}` : '<p class="admin-empty">Видеовизитка ещё не отправлена капитаном.</p>';
 
     return `<div class="admin-detail__topbar"><button class="admin-team-back" type="button" data-team-back>← Все команды</button><span>Управление командой</span></div>
     <section class="admin-surface admin-team-head-card">
@@ -305,7 +305,7 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
     ${renderTeamProfileReview(team)}
     <section class="admin-surface admin-team-section" aria-labelledby="team-members-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Состав и документы</p><h3 id="team-members-title">Участники команды</h3></div><span class="admin-section-heading__count">${team.members?.length || 0}</span></div>${memberReviewForm}</section>
     <section class="admin-surface admin-team-section" aria-labelledby="team-achievements-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Портфолио команды</p><h3 id="team-achievements-title">Достижения</h3></div><span class="admin-section-heading__actions"><span class="admin-section-heading__count">${team.achievements?.length || 0}</span><button class="admin-text-button" type="button" data-open-achievements-team="${esc(team.id)}">Учёт достижений →</button></span></div><div class="admin-team-achievements-review">${achievementReviews}</div></section>
-    <section class="admin-surface admin-team-section" aria-labelledby="team-video-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Материал команды</p><h3 id="team-video-title">Видео-визитка</h3></div><span class="admin-section-heading__count">${video.status === 'pending' ? '1' : '0'}</span></div><div class="admin-team-video">${videoBlock}</div></section>
+    <section class="admin-surface admin-team-section" aria-labelledby="team-video-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Материал команды</p><h3 id="team-video-title">Видеовизитка</h3></div><span class="admin-section-heading__count">${video.status === 'pending' ? '1' : '0'}</span></div><div class="admin-team-video">${videoBlock}</div></section>
     <label class="admin-toggle admin-team-quota"><input type="checkbox" data-team-quota="${esc(team.id)}"${team.isQuotaConfirmed ? ' checked' : ''}><span><strong>Квота состава проверена вручную</strong><small>Отметка оргкомитета для этой заявки.</small></span></label>`;
   }
 

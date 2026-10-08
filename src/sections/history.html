@@ -419,29 +419,14 @@
       </template>
 
       <div class="history-book__stage" data-history-stage role="region" aria-label="Фотоальбом конкурса" tabindex="0">
-        <div class="history-book__spread">
-          <figure class="history-book__page history-book__page--left">
-            <img data-history-left data-photo-index="0" src="./assets/images/history/lug-2025-001.jpg" alt="Фотография из альбома" fetchpriority="high" decoding="async">
-          </figure>
-          <figure class="history-book__page history-book__page--right">
-            <img data-history-right data-photo-index="1" src="./assets/images/history/lug-2025-002.jpg" alt="Фотография из альбома" fetchpriority="high" decoding="async">
-          </figure>
-        </div>
-
-        <div class="history-book__turn" data-history-turn aria-hidden="true">
-          <div class="history-book__turn-face history-book__turn-face--front">
-            <img data-history-turn-front alt="" decoding="async">
-          </div>
-          <div class="history-book__turn-face history-book__turn-face--back">
-            <img data-history-turn-back alt="" decoding="async">
-          </div>
-        </div>
+        <img class="history-book__image" data-history-image src="./assets/images/history/lug-2025-001.jpg" alt="Фотография из альбома конкурса" fetchpriority="high" decoding="async">
       </div>
 
       <div class="history-book__controls" role="group" aria-label="Перелистывать фотографии">
         <button class="history-book__arrow" type="button" data-history-prev aria-label="Предыдущее фото" title="Предыдущее фото">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5m0 0 7-7m-7 7 7 7" /></svg>
         </button>
+        <span class="history-book__counter" data-history-counter aria-live="polite">1</span>
         <button class="history-book__arrow" type="button" data-history-next aria-label="Следующее фото" title="Следующее фото">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14m0 0-7-7m7 7-7 7" /></svg>
         </button>

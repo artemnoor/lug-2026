@@ -2,7 +2,8 @@ export function createAdminActions({ $, adminApi, busy, run, showError, showToas
   const reviewAchievement = async (achievementId) => run(async () => {
     const item = document.querySelector(`[data-achievement-review-item="${CSS.escape(achievementId)}"]`);
     const status = item?.dataset.achievementReviewChoice || '';
-    const points = document.querySelector(`[data-achievement-points="${CSS.escape(achievementId)}"]`)?.value;
+    const pointsValue = document.querySelector(`[data-achievement-points="${CSS.escape(achievementId)}"]`)?.value.trim() || '';
+    const points = pointsValue === '' ? undefined : Number(pointsValue);
     const comment = document.querySelector(`[data-achievement-comment="${CSS.escape(achievementId)}"]`)?.value.trim() || '';
     if (!status) { showError('Выберите: принять достижение или отклонить его.'); return; }
     if (status === 'rejected' && !comment) { showError('Для отклонённого достижения укажите причину.'); document.querySelector(`[data-achievement-comment="${CSS.escape(achievementId)}"]`)?.focus(); return; }
@@ -14,7 +15,9 @@ export function createAdminActions({ $, adminApi, busy, run, showError, showToas
   const reviewVideo = async (teamId, status) => run(async () => {
     const scores = {};
     document.querySelectorAll(`[data-video-score][data-team-id="${CSS.escape(teamId)}"]`).forEach((input) => { scores[input.dataset.videoScore] = input.value; });
-    const comment = document.querySelector(`[data-video-comment="${CSS.escape(teamId)}"]`)?.value || '';
+    const commentField = document.querySelector(`[data-video-comment="${CSS.escape(teamId)}"]`);
+    const comment = commentField?.value.trim() || '';
+    if (status === 'rejected' && !comment) { showError('Для возврата видеовизитки укажите комментарий.'); commentField?.focus(); return; }
     await adminApi.adminReviewVideo(teamId, { status, criteriaScores: scores, comment });
     showToast('Готово', status === 'approved' ? 'Видео принято, оценка сохранена.' : 'Видео возвращено на уточнение.', 'success');
     await refreshAdmin();

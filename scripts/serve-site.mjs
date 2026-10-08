@@ -99,6 +99,7 @@ const server = createServer(async (request, response) => {
     }
 
     response.writeHead(200, {
+      'Cache-Control': 'no-store',
       'Content-Length': targetFile.size,
       'Content-Type': mimeTypes.get(path.extname(targetPath).toLowerCase()) ?? 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff'

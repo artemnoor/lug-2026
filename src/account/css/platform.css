@@ -1267,3 +1267,21 @@ body.is-auth-dialog-open > :not(.site-auth-dialog) {
     width: 100%;
   }
 }
+
+/* Keep the decorative star clear of the dialog close control. */
+.site-auth-dialog__star {
+  height: 70px;
+  opacity: 0.16;
+  right: 86px;
+  top: 22px;
+  width: 70px;
+}
+
+@media (max-width: 560px) {
+  .site-auth-dialog__star {
+    height: 58px;
+    right: 76px;
+    top: 20px;
+    width: 58px;
+  }
+}

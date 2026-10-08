@@ -9,20 +9,45 @@ export function bindCabinetEvents({
   const mobileNavToggles = $$('.cabinet-mobile-nav-toggle');
   const mobileNavPanel = $('#cabinetMobileNavPanel');
   if (mobileNavToggles.length && mobileNavPanel) {
+    $('#cabinetMobileNavClose')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setMobileNavOpen(false);
+    });
     mobileNavToggles.forEach((mobileNavToggle) => {
       mobileNavToggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        setMobileNavOpen(mobileNavPanel.hidden);
+        setMobileNavOpen(mobileNavToggle.getAttribute('aria-expanded') !== 'true');
       });
     });
     document.addEventListener('click', (event) => {
       const clickedToggle = mobileNavToggles.some((toggle) => toggle.contains(event.target));
-      if (!mobileNavPanel.hidden && !clickedToggle && !document.querySelector('.cabinet-sidebar')?.contains(event.target)) setMobileNavOpen(false);
+      const isOpen = mobileNavPanel.classList.contains('is-open');
+      if (isOpen && event.target === mobileNavPanel) {
+        setMobileNavOpen(false);
+        return;
+      }
+      if (isOpen && !clickedToggle && !mobileNavPanel.contains(event.target)) setMobileNavOpen(false);
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !mobileNavPanel.hidden) {
+      const isOpen = mobileNavPanel.classList.contains('is-open');
+      if (event.key === 'Escape' && isOpen) {
+        event.preventDefault();
         setMobileNavOpen(false);
         getCompactNavToggle()?.focus();
+        return;
+      }
+      if (event.key !== 'Tab' || !isOpen) return;
+      const headerToggle = $('#cabinetMobileNavToggle');
+      const panelButtons = [...mobileNavPanel.querySelectorAll('button:not([hidden]):not([disabled]), a[href]:not([hidden])')];
+      const focusable = [headerToggle, ...panelButtons].filter((element) => element && element.getClientRects().length);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
       }
     });
     addEventListener('resize', () => setMobileNavOpen(false));

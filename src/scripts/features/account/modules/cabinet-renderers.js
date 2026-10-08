@@ -82,6 +82,20 @@ export function renderTeam({ state, $, $$, esc, date, phaseOpen }) {
     return;
   }
   const quota = team.quota;
+  const reviewFields = [
+    ['название команды', team.reviewNameStatus],
+    ['учебную группу', team.reviewGroupStatus],
+    ['символ команды', team.reviewFlagStatus],
+    ['описание команды', team.reviewDescriptionStatus]
+  ];
+  const rejectedReviewFields = reviewFields.filter(([, status]) => status === 'rejected').map(([label]) => label);
+  const reviewNotice = $('#teamReviewNotice');
+  if (reviewNotice) {
+    reviewNotice.hidden = rejectedReviewFields.length === 0 || !team.reviewComment;
+    $('#teamReviewNoticeText').textContent = reviewNotice.hidden
+      ? ''
+      : `Проверьте ${rejectedReviewFields.join(', ')}. ${team.reviewComment}`;
+  }
   $('#teamLead').textContent = `${team.name} · ${team.group}. Сейчас в команде ${quota.members} из ${quota.total} студентов.`;
   $('#quotaBadge').textContent = quota.eligible ? 'Минимальный состав набран' : `Нужно ещё: ${quota.required - quota.members}`;
   $('#inviteCode').textContent = team.inviteCode;
@@ -105,28 +119,38 @@ export function renderVideo({ state, $, parseVideoUrl, phaseOpen, setVideoUrlSta
   const video = team?.videoCard;
   const rawUrl = video?.url || '';
   const parsed = parseVideoUrl(rawUrl);
+  const reviewComment = video?.reviewComment || video?.comment || '';
   $('#videoUrl').value = rawUrl.startsWith('/uploads/') ? '' : rawUrl;
   const status = video?.status === 'approved' ? `Принято · ${video.score || 0} б.` : video?.status === 'rejected' ? 'Нужно исправить' : rawUrl && !parsed.valid ? 'Нужно заменить ссылку' : rawUrl ? 'Проверяем' : 'Не добавлено';
   const statusClass = video?.status === 'approved' ? 'is-approved' : video?.status === 'rejected' || (rawUrl && !parsed.valid) ? 'is-rejected' : rawUrl ? 'is-pending' : '';
   $('#videoStatus').className = `cabinet-video-status ${statusClass}`;
   $('#videoStatus').textContent = status;
-  $('#videoHint').textContent = rawUrl && !parsed.valid ? 'Сохранённая ссылка не относится к поддерживаемым видеосервисам. Замените её ниже.' : user.role === 'captain' ? 'После отправки оргкомитет проверит ссылку или файл и видео.' : 'Добавить или изменить видео может капитан команды.';
+  $('#videoHint').textContent = video?.status === 'rejected' && reviewComment
+    ? `Комментарий оргкомитета: ${reviewComment}`
+    : rawUrl && !parsed.valid
+      ? 'Сохранённая ссылка не относится к поддерживаемым видеосервисам. Замените её ниже.'
+      : user.role === 'captain'
+        ? 'После отправки оргкомитет проверит ссылку или файл и видео.'
+        : 'Добавить или изменить видео может капитан команды.';
   const videoActive = phaseOpen(state.settings?.videoStart, state.settings?.videoDeadline);
   $('#videoUrl').disabled = user.role !== 'captain' || !videoActive;
   $('#videoFile').disabled = user.role !== 'captain' || !videoActive;
   $('#videoForm button').disabled = user.role !== 'captain' || !videoActive;
-  if (!videoActive && user.role === 'captain') $('#videoHint').textContent = 'Приём видео откроется в установленный срок.';
+  if (!videoActive && user.role === 'captain' && !(video?.status === 'rejected' && reviewComment)) {
+    $('#videoHint').textContent = 'Приём видео откроется в установленный срок.';
+  }
   setVideoUrlState(rawUrl, { showInvalid: Boolean(rawUrl) });
 }
 
 export function renderDashboard({ state, $, $$, esc, identity, switchView }) {
   const { user, team, achievements } = state;
-  const firstName = user.fio.split(' ')[0] || user.fio;
+  const nameParts = user.fio.trim().split(/\s+/).filter(Boolean);
+  const givenName = nameParts[1] || nameParts[0] || user.fio;
   const profileReady = Boolean(user.fio && user.email && Object.keys(user.messengerContacts || {}).length);
   const journey = [['profile', 'Профиль', profileReady, 'profile'], ['team', 'Команда', Boolean(team), 'team'], ['portfolio', 'Портфолио', achievements.length > 0, 'portfolio'], ['video', 'Видео', Boolean(team?.videoCard?.url), 'video']];
   const nextJourney = journey.findIndex((item) => !item[2]);
   const journeyDone = journey.filter((item) => item[2]).length;
-  $('#dashboard-title').textContent = `Здравствуйте, ${firstName}`;
+  $('#dashboard-title').textContent = `Привет, ${givenName}`;
   const roleMeta = user.role === 'captain'
     ? { label: 'Капитан', icon: '<svg viewBox="0 0 24 24"><path d="m4 8 3 3 5-6 5 6 3-3-1 10H5z"/><path d="M5 15h14"/></svg>' }
     : { label: 'Участник', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c.5-3.3 2.8-5 7-5s6.5 1.7 7 5"/></svg>' };
@@ -158,7 +182,7 @@ export function renderOverview({ state, $, esc, profileReady, hasVideo }) {
   } else if (user.role === 'captain' && !team.description) {
     step = ['Расскажите о команде', 'Добавьте короткое описание группы, чтобы представить её в конкурсных материалах.', 'Открыть команду', 'team'];
   } else if (user.role === 'captain' && !hasVideo) {
-    step = ['Отправьте видео-визитку', 'Добавьте публичную ссылку на готовое видео, когда команда закончит подготовку.', 'Открыть видео-визитку', 'video'];
+    step = ['Отправьте видеовизитку', 'Добавьте публичную ссылку на готовое видео, когда команда закончит подготовку.', 'Открыть видеовизитку', 'video'];
   } else {
     step = ['Проверьте уведомления', 'Здесь появляются решения и комментарии оргкомитета по вашим материалам.', 'Открыть уведомления', 'notifications'];
   }
@@ -178,7 +202,7 @@ export function renderPortfolioSummary({ state, $, $$, esc, date, direction, sel
     badge.setAttribute('aria-label', count ? `${count} новых уведомления` : 'Новых уведомлений нет');
     badge.classList.toggle('is-active', count > 0);
   });
-  const directions = [['science', 'Наука'], ['public', 'Общество'], ['sport', 'Спорт'], ['culture', 'Творчество']].map(([key, label]) => {
+  const directions = [['science', 'Научная деятельность'], ['public', 'Общественная деятельность'], ['sport', 'Спортивная деятельность'], ['culture', 'Творческая деятельность']].map(([key, label]) => {
     const records = achievements.filter((item) => item.direction === key);
     return { key, label, records, count: records.length, approved: records.filter((item) => item.status === 'approved').length, pending: records.filter((item) => item.status !== 'approved' && item.status !== 'rejected').length, rejected: records.filter((item) => item.status === 'rejected').length };
   });
