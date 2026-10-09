@@ -1,9 +1,8 @@
 import { escapeHtml as esc, formatDate as date, phaseOpen } from './modules/dom.js?v=20261008-3';
-import { parseVideoUrl, videoProviderMeta } from './modules/video.js?v=20261008-3';
 import { messengerLabels, nameInitial, plural } from './modules/cabinet-utils.js?v=20261008-3';
 import { cabinetApi } from './modules/cabinet-api.js?v=20261008-3';
-import { bindCabinetEvents } from './modules/cabinet-events.js?v=20261008-4';
-import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSummary, renderProfile, renderTeam as renderTeamView, renderVideo as renderVideoView } from './modules/cabinet-renderers.js?v=20261008-3';
+import { bindCabinetEvents } from './modules/cabinet-events.js?v=20261009-5';
+import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSummary, renderProfile, renderTeam as renderTeamView } from './modules/cabinet-renderers.js?v=20261009-4';
 
 (() => {
   'use strict';
@@ -17,66 +16,6 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
   const $$ = (selector) => [...document.querySelectorAll(selector)];
   const mobileNavPanel = $('#cabinetMobileNavPanel');
   if (mobileNavPanel && mobileNavPanel.parentElement !== document.body) document.body.append(mobileNavPanel);
-
-  function setVideoFeedback(message = '', type = 'error') {
-    const feedback = $('#videoFeedback');
-    if (!feedback) return;
-    feedback.hidden = !message;
-    feedback.className = `video-feedback${message ? ` is-${type}` : ''}`;
-    feedback.textContent = message;
-  }
-
-  function renderVideoPreview(parsed) {
-    const preview = $('#videoPreview');
-    const frame = $('#videoPreviewFrame');
-    const title = $('#videoPreviewTitle');
-    const meta = $('#videoPreviewMeta');
-    const open = $('#videoPreviewOpen');
-    if (!preview || !frame || !title || !meta || !open) return;
-    frame.replaceChildren();
-    if (!parsed?.valid) { preview.hidden = true; return; }
-    preview.hidden = false;
-    title.textContent = parsed.title;
-    meta.textContent = parsed.embedUrl ? 'Проверьте, что видео открывается без авторизации и звук включается по нажатию.' : 'Для этого сервиса показываем карточку ссылки. Откройте её, чтобы проверить доступ к видео.';
-    open.href = parsed.url;
-    if (parsed.provider === 'file') {
-      const video = document.createElement('video');
-      video.controls = true;
-      video.preload = 'metadata';
-      video.src = parsed.url;
-      video.setAttribute('aria-label', parsed.title);
-      frame.append(video);
-    } else if (parsed.embedUrl) {
-      const iframe = document.createElement('iframe');
-      iframe.title = parsed.title;
-      iframe.src = parsed.embedUrl;
-      iframe.loading = 'lazy';
-      iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-      iframe.referrerPolicy = 'no-referrer';
-      frame.append(iframe);
-    } else {
-      frame.innerHTML = `<div class="video-preview__placeholder"><span aria-hidden="true">▶</span><strong>${esc(parsed.label)}</strong><small>Предпросмотр откроется на странице сервиса.</small></div>`;
-    }
-  }
-
-  function setVideoUrlState(value, { showInvalid = false } = {}) {
-    const input = $('#videoUrl');
-    const hint = $('#videoUrlHint');
-    const parsed = parseVideoUrl(value);
-    const hasValue = String(value).trim().length > 0;
-    if (input) input.setAttribute('aria-invalid', String(Boolean(hasValue && !parsed.valid && showInvalid)));
-    if (parsed.valid) {
-      if (hint) hint.textContent = `${parsed.label}. Ссылка распознана, можно проверить предпросмотр.`;
-      setVideoFeedback('');
-      renderVideoPreview(parsed);
-    } else {
-      if (hint) hint.textContent = 'Ссылка должна открываться без входа в аккаунт.';
-      renderVideoPreview(null);
-      if (showInvalid && hasValue) setVideoFeedback(parsed.message, 'error');
-      else if (!hasValue) setVideoFeedback('');
-    }
-    return parsed;
-  }
 
   async function refresh() {
     state = await cabinetApi.dashboard();
@@ -108,8 +47,7 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
     const { user, team, achievements, notifications } = state;
     const identity = identityMeta();
     const profileReady = Boolean(user.fio && user.email && Object.keys(user.messengerContacts || {}).length);
-    const hasVideo = Boolean(team?.videoCard?.url);
-    const score = [profileReady, achievements.length > 0, Boolean(team?.description), hasVideo].filter(Boolean).length * 25;
+    const score = Math.round(([profileReady, achievements.length > 0, Boolean(team?.description)].filter(Boolean).length / 3) * 100);
     const fioParts = String(user.fio || '').trim().split(/\s+/).filter(Boolean);
     const firstName = fioParts[1] || fioParts[0] || 'Участник';
     const initial = nameInitial(firstName);
@@ -124,9 +62,8 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
     $('#teamNavigation').hidden = !team;
     renderDashboard({ state, $, $$, esc, identity, switchView });
     renderPortfolioSummaryView();
-    renderOverview({ state, $, esc, profileReady, hasVideo });
+    renderOverview({ state, $, esc, profileReady });
     renderTeamView({ state, $, $$, esc, date, phaseOpen });
-    renderVideoView({ state, $, parseVideoUrl, phaseOpen, setVideoUrlState });
     renderNotifications({ items: notifications, state, $, $$, esc, date, readNotification: cabinetApi.readNotification, refresh });
     renderProfile({ state, $, nameInitial, messengerLabels, identityMeta });
     const portfolioActive = phaseOpen(state.settings?.portfolioStart, state.settings?.portfolioDeadline);
@@ -252,8 +189,7 @@ import { renderDashboard, renderNotifications, renderOverview, renderPortfolioSu
     setDirection: (value) => { direction = value; },
     clearSelection: () => { selectedMaterialId = null; },
     setMobileNavOpen, getCompactNavToggle, updateMobileNavLabel, switchView,
-    renderPortfolioSummary: renderPortfolioSummaryView, saveAchievement, refresh, setVideoFeedback,
-    setVideoUrlState, cabinetApi,
+    renderPortfolioSummary: renderPortfolioSummaryView, saveAchievement, refresh, cabinetApi,
   });
   document.addEventListener('DOMContentLoaded', async () => {
     try {

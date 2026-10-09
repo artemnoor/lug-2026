@@ -9,7 +9,6 @@ export const adminApi = {
   adminReviewAchievement: (...args) => store().adminReviewAchievement(...args),
   adminReviewIdentity: (...args) => store().adminReviewIdentity(...args),
   adminReviewTeamField: (...args) => store().adminReviewTeamField(...args),
-  adminReviewVideo: (...args) => store().adminReviewVideo(...args),
   adminUpdateQuota: (...args) => store().adminUpdateQuota(...args),
   adminUpdateSettings: (...args) => store().adminUpdateSettings(...args),
   logout: (...args) => store().logout(...args),

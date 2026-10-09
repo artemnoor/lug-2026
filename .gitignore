@@ -11,4 +11,13 @@
 **/.env.*
 !**/.env.example
 !**/.env.production.example
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+backend/data/
+backend/uploads/
+backend/*.egg-info/
 deploy/yandex/postgres-tls/

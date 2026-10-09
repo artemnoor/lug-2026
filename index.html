@@ -12,11 +12,11 @@
   <meta name="twitter:title" content="Лучшая учебная группа — Сообщество лидеров">
   <meta name="twitter:description" content="Официальный сайт лучшей учебной группы: взаимовыручка, высокие баллы, совместные проекты и яркая студенческая жизнь.">
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Marck+Script&display=swap" media="print" onload="this.media='all'" rel="stylesheet">
+  <link rel="preload" href="./assets/fonts/cormorant-garamond-hero.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./assets/fonts/marck-script-hero.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" as="image" href="./assets/images/campus.webp" fetchpriority="high">
   <link rel="stylesheet" href="./styles/webflow-base.css">
-  <link rel="stylesheet" href="./styles/site.css?v=20261008-8">
+  <link rel="stylesheet" href="./styles/site.css?v=20261009-8">
   <link rel="stylesheet" href="./styles/auth-dialog.css">
   <script type="application/ld+json">
   {
@@ -28,7 +28,7 @@
   }
   </script>
 </head>
-<body class="body">
+<body class="body" data-registration-closed="true" data-profile-access-closed="true">
   <div class="hero-intro-scene" data-hero-intro-scene>
     <!-- @include src/components/page-shell.html -->
     <!-- @include src/sections/introduction.html -->
@@ -49,6 +49,6 @@
   <script src="./scripts/features/section-transitions.js?v=20261008-1"></script>
   <script src="./scripts/features/portfolio-accordion.js?v=20261008-1"></script>
   <script src="./scripts/features/account/store.js"></script>
-  <script type="module" src="./scripts/features/account/site-shell.js"></script>
+  <script type="module" src="./scripts/features/account/site-shell.js?v=20261009-2"></script>
 </body>
 </html>

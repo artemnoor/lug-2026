@@ -2,6 +2,7 @@ import { createServer, request as proxyRequest } from 'node:http';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createGzip } from 'node:zlib';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const host = process.env.LUG_WEB_HOST || '127.0.0.1';
@@ -18,6 +19,7 @@ const mimeTypes = new Map([
   ['.mjs', 'text/javascript; charset=utf-8'],
   ['.png', 'image/png'],
   ['.svg', 'image/svg+xml'],
+  ['.webp', 'image/webp'],
   ['.ttf', 'font/ttf'],
   ['.woff', 'font/woff'],
   ['.woff2', 'font/woff2']
@@ -98,19 +100,34 @@ const server = createServer(async (request, response) => {
       return;
     }
 
-    response.writeHead(200, {
-      'Cache-Control': 'no-store',
-      'Content-Length': targetFile.size,
-      'Content-Type': mimeTypes.get(path.extname(targetPath).toLowerCase()) ?? 'application/octet-stream',
+    const extension = path.extname(targetPath).toLowerCase();
+    const compressible = ['.css', '.html', '.js', '.json', '.mjs', '.svg', '.xml'].includes(extension);
+    const acceptsGzip = /(?:^|,)\s*gzip(?:\s*;[^,]*)?(?:,|$)/i.test(request.headers['accept-encoding'] ?? '');
+    const useGzip = compressible && acceptsGzip;
+    const isProduction = process.env.NODE_ENV === 'production';
+    const responseHeaders = {
+      'Cache-Control': isProduction && extension !== '.html' ? 'public, max-age=3600' : 'no-store',
+      'Content-Type': mimeTypes.get(extension) ?? 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff'
-    });
+    };
+
+    if (useGzip) {
+      responseHeaders['Content-Encoding'] = 'gzip';
+      responseHeaders.Vary = 'Accept-Encoding';
+    } else {
+      responseHeaders['Content-Length'] = targetFile.size;
+    }
+
+    response.writeHead(200, responseHeaders);
 
     if (request.method === 'HEAD') {
       response.end();
       return;
     }
 
-    createReadStream(targetPath).pipe(response);
+    const fileStream = createReadStream(targetPath);
+    if (useGzip) fileStream.pipe(createGzip()).pipe(response);
+    else fileStream.pipe(response);
   } catch (error) {
     if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
       response.writeHead(404).end('Not found');

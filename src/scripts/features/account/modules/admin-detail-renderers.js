@@ -55,7 +55,7 @@ export function renderAchievementDetail({ achievement, team, filterNote, esc, di
       </div>
       <label class="admin-score-field admin-achievement-review__points"><span>Баллы за достижение · 0–100</span><input class="admin-control" data-achievement-points="${esc(achievement.id)}" type="number" min="0" max="100" value="${achievement.points ?? ''}" placeholder="Например, 10"></label>
       <label class="admin-achievement-review__comment admin-comment-field"${status === 'rejected' ? '' : ' hidden'}><span>Почему отклонено</span><textarea class="admin-control admin-control--roomy" data-achievement-comment="${esc(achievement.id)}" rows="4" placeholder="Что нужно исправить участнику?">${esc(achievement.reviewComment || '')}</textarea></label>
-      <div class="admin-video-card__actions">
+      <div class="admin-review-actions">
         <button class="admin-button admin-button--primary" type="button" data-review-achievement="${esc(achievement.id)}">Сохранить решение</button>
         <button class="admin-button admin-button--secondary" type="button" data-achievement-reset>Сбросить выбор</button>
       </div>

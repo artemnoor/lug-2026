@@ -32,6 +32,7 @@ services:
       dockerfile: Dockerfile
     environment:
       LUG_ENV: development
+      LUG_SECURE_COOKIES: ${LUG_SECURE_COOKIES:-false}
       LUG_ROOT: /app
       LUG_ALLOWED_HOSTS: localhost,127.0.0.1,backend
       LUG_DATABASE_URL: postgresql+asyncpg://lug:lug@postgres:5432/lug
@@ -97,7 +98,10 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z
+    image: lug-2026/minio:RELEASE.2025-09-07T16-13-09Z
+    build:
+      context: ./docker/minio
+      dockerfile: Dockerfile
     environment:
       MINIO_ROOT_USER: lugminio
       MINIO_ROOT_PASSWORD: lugminiosecret
@@ -106,28 +110,26 @@ services:
     command: ["server", "/data", "--console-address", ":9001"]
     volumes:
       - lug_minio:/data
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 10s
 
   minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: lug-2026/minio:RELEASE.2025-09-07T16-13-09Z
     environment:
       MINIO_ROOT_USER: lugminio
       MINIO_ROOT_PASSWORD: lugminiosecret
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command: >-
-      mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
-      mc mb --ignore-existing local/lug
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/lug
 
   clamav:
     image: clamav/clamav:stable

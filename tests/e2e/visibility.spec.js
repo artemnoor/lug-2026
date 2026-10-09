@@ -32,7 +32,10 @@ test('page content is immediately visible without external scripts or reveal mar
       .filter((element) => getComputedStyle(element).display !== 'none')
       .map((element) => element.className || element.tagName),
     revealMarkers: document.querySelectorAll('[data-scroll-reveal], [data-prevent-flicker]').length,
-    externalScripts: [...document.scripts].map((script) => script.src).filter((src) => src && new URL(src).origin !== location.origin),
+    externalScripts: [...document.scripts].map((script) => script.src).filter((src) => (
+      src && new URL(src).origin !== location.origin
+      && new URL(src).hostname !== 'gc.kis.v2.scr.kaspersky-labs.com'
+    )),
     bodyOverflow: getComputedStyle(document.body).overflowY,
     ctaBackground: getComputedStyle(document.querySelector('#cta')).backgroundColor,
     ctaHeadingColor: getComputedStyle(document.querySelector('#cta .lug-title')).color,
@@ -485,20 +488,24 @@ test('history album shows one photo at a time, responds to arrow keys, and wraps
   await expect.poll(() => image.evaluate((photo) => photo.naturalWidth)).toBeGreaterThan(0);
 });
 
-test('reviewed copy, date range, partner order, and mobile hero year are current', async ({ page }) => {
+test('updated copy, logo order, date range, and mobile hero year are current', async ({ page }) => {
   await blockExternalRequests(page);
   await page.goto('/');
 
   await expect(page.locator('#hero .hero-dates_text')).toHaveText('12 октября — 16 декабря');
   await expect(page.locator('#cta .site-registration__deadline')).toHaveText('Приём заявок продлится до 16 декабря 2026 года');
   await expect(page.locator('#prizes .prize-single-award-copy')).toContainText('Поездка для всей группы');
-  await expect(page.locator('#stages .stage-card:nth-child(3) .stage-card__tag')).toHaveText('Очно в университете');
-  await expect(page.locator('#stages .stage-card:nth-child(4) .stage-card__title')).toContainText(/Награждение\s*по итогам конкурса/);
-  await expect(page.locator('#stages .stage-card:nth-child(4)')).not.toContainText('битва');
+  await expect(page.locator('#stages .stage-card__tag')).toHaveCount(0);
+  await expect(page.locator('#stages .stage-card:nth-child(3)')).toContainText('впервые примут участие в очном туре');
+  await expect(page.locator('#stages .stage-card:nth-child(4) .stage-card__title')).toHaveText('Итоги конкурса');
+  await expect(page.locator('#stages .stage-card:nth-child(4)')).toContainText('Награждение на сцене БЗДК');
+  await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).toContainText('студенты 1 курса');
   await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).toContainText('не менее 60%');
-  await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).toContainText('истории Университета');
+  await expect(page.locator('#tracks .arch-rect-black_l .arch-track-list')).not.toContainText('задания');
+  await expect(page.locator('#tracks .arch-rect-black_r .arch-track-list')).toContainText('2–6 курсов и магистратуры');
+  await expect(page.locator('#tracks .arch-rect-black_r .arch-track-list')).toContainText('не менее 60%');
   await expect(page.locator('#tracks .arch-rect-black_r .arch-track-list')).not.toContainText('кейс');
-  await expect(page.locator('#portfolio #portfolio-panel-community')).toContainText('Профкома студентов МГТУ');
+  await expect(page.locator('#portfolio #portfolio-panel-community')).toContainText('внутри и за пределами университета');
   await page.locator('#introduction .arch-logo-row img').first().scrollIntoViewIfNeeded();
   await expect.poll(() => page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
   const partnerLogosLoaded = await page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0));
@@ -507,8 +514,8 @@ test('reviewed copy, date range, partner order, and mobile hero year are current
   await expect(page.locator('.site-footer__social-link[aria-label*="Telegram"]')).toHaveAttribute('href', 'https://t.me/studsovet_bmstu');
 
   const partnerOrder = await page.locator('#introduction .arch-logo-row img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname.split('/').pop()));
-  expect(partnerOrder).toEqual(['bmstu_emblem_white.png', 'logo-youth-policy.png', 'studsovet_white.png', 'lug_white.svg']);
-  await expect(page.locator('.site-footer__social-caption')).toHaveText('Молодёжная политика МГТУ им. Н. Э. Баумана');
+  expect(partnerOrder).toEqual(['bmstu_emblem_white.webp', 'youth-policy-logo-black.png', 'studsovet_white.png', 'lug-logo-black.png']);
+  await expect(page.locator('.site-footer__social-caption')).toHaveText('Подразделение молодёжной политики университета');
   await expect(page.locator('.site-footer__social-link')).toHaveCount(2);
 
   for (const viewport of [

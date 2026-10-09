@@ -16,7 +16,7 @@ Copy-Item .env.example .env
 docker compose up --build -d
 ~~~
 
-Сайт откроется на [http://127.0.0.1:4173/](http://127.0.0.1:4173/); API — на `http://127.0.0.1:4174/`; Mailpit — на [http://127.0.0.1:8025/](http://127.0.0.1:8025/). Сайт проксирует API-запросы по внутренней Docker-сети. Посмотреть логи можно командой `docker compose logs -f web backend`. `docker compose down` останавливает контейнеры и сохраняет volumes.
+Сайт откроется на [http://127.0.0.1:4173/](http://127.0.0.1:4173/); API — на `http://127.0.0.1:4174/`; Mailpit — на [http://127.0.0.1:8025/](http://127.0.0.1:8025/). Сайт проксирует API-запросы по внутренней Docker-сети. Порты MinIO не публикуются на хост. Посмотреть логи можно командой `docker compose logs -f web backend`. `docker compose down` останавливает контейнеры и сохраняет volumes.
 
 Если Docker недоступен, frontend и backend можно запускать отдельно для разработки: установите Node.js и Python 3.11+, скопируйте `backend/.env.example` в `backend/.env`, задайте параметры dev-режима, затем запустите `npm run backend:dev` и `npm run start` в двух терминалах. Этот режим использует SQLite.
 
@@ -43,7 +43,7 @@ src/styles/auth-dialog.css      # окно авторизации и много�
 scripts/                       # сборщик и локальный сервер с API proxy
 Dockerfile                     # многоэтапная сборка frontend контейнера
 docker-compose.yml             # полный стек сайта, API и инфраструктуры
-backend/                       # отдельный FastAPI modular monolith из GitHub
+backend/                       # FastAPI modular monolith в этом репозитории
 dist/                          # результат сборки, не редактировать вручную
 ~~~
 

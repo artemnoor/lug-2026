@@ -1,0 +1,41 @@
+services:
+  web:
+    restart: unless-stopped
+
+  backend:
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  minio:
+    restart: unless-stopped
+
+  clamav:
+    restart: unless-stopped
+
+  mailpit:
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      LUG_DOMAIN: ${LUG_DOMAIN:?Set LUG_DOMAIN in the deployment .env file}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/yandex/Caddyfile:/etc/caddy/Caddyfile:ro
+      - lug_caddy_data:/data
+      - lug_caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  lug_caddy_data:
+  lug_caddy_config:

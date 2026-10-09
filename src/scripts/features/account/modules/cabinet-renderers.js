@@ -101,9 +101,23 @@ export function renderTeam({ state, $, $$, esc, date, phaseOpen }) {
   $('#inviteCode').textContent = team.inviteCode;
   $('#inviteExpires').textContent = date(team.inviteExpiresAt);
   $('#teamDescription').value = team.description || '';
-  $('#teamFlagPreview').hidden = !team.flagUrl;
-  $('#teamFlagEmpty').hidden = Boolean(team.flagUrl);
-  if (team.flagUrl) $('#teamFlagPreview').src = team.flagUrl;
+  const teamFlagInput = $('#teamFlagInput');
+  const hasPendingTeamFlag = Boolean(teamFlagInput?.files?.[0]);
+  if (!hasPendingTeamFlag) {
+    $('#teamFlagPreview').hidden = !team.flagUrl;
+    $('#teamFlagEmpty').hidden = Boolean(team.flagUrl);
+    if (team.flagUrl) $('#teamFlagPreview').src = team.flagUrl;
+    const flagStatus = $('#teamFlagStatus');
+    if (flagStatus) {
+      flagStatus.hidden = !team.flagUrl;
+      flagStatus.dataset.state = 'saved';
+      flagStatus.textContent = team.flagUrl
+        ? 'Текущий флаг команды. Выберите новое изображение, чтобы заменить его.'
+        : '';
+    }
+    const chooseLabel = $('#teamFlagChooseLabel');
+    if (chooseLabel) chooseLabel.textContent = team.flagUrl ? 'Выбрать другое изображение' : 'Выбрать изображение';
+  }
   $('#memberList').innerHTML = members.length
     ? members.map((member) => `<article class="cabinet-member"><div><strong>${esc(member.fio)}</strong><small>${esc(member.role === 'captain' ? 'Капитан команды' : 'Участник')} · ${esc(member.group)}</small></div><span>${member.role === 'captain' ? 'Капитан' : 'Участник'}</span><span class="cabinet-member__status ${member.identityStatus === 'approved' ? 'is-approved' : ''}">${member.identityStatus === 'approved' ? '✓ Данные проверены' : '⌛ Проверяем данные'}</span></article>`).join('')
     : '<div class="cabinet-empty">Участники появятся здесь после регистрации по приглашению.</div>';
@@ -112,34 +126,8 @@ export function renderTeam({ state, $, $$, esc, date, phaseOpen }) {
     const control = $(selector);
     if (control) control.disabled = !registrationActive;
   });
-}
-
-export function renderVideo({ state, $, parseVideoUrl, phaseOpen, setVideoUrlState }) {
-  const { user, team } = state;
-  const video = team?.videoCard;
-  const rawUrl = video?.url || '';
-  const parsed = parseVideoUrl(rawUrl);
-  const reviewComment = video?.reviewComment || video?.comment || '';
-  $('#videoUrl').value = rawUrl.startsWith('/uploads/') ? '' : rawUrl;
-  const status = video?.status === 'approved' ? `Принято · ${video.score || 0} б.` : video?.status === 'rejected' ? 'Нужно исправить' : rawUrl && !parsed.valid ? 'Нужно заменить ссылку' : rawUrl ? 'Проверяем' : 'Не добавлено';
-  const statusClass = video?.status === 'approved' ? 'is-approved' : video?.status === 'rejected' || (rawUrl && !parsed.valid) ? 'is-rejected' : rawUrl ? 'is-pending' : '';
-  $('#videoStatus').className = `cabinet-video-status ${statusClass}`;
-  $('#videoStatus').textContent = status;
-  $('#videoHint').textContent = video?.status === 'rejected' && reviewComment
-    ? `Комментарий оргкомитета: ${reviewComment}`
-    : rawUrl && !parsed.valid
-      ? 'Сохранённая ссылка не относится к поддерживаемым видеосервисам. Замените её ниже.'
-      : user.role === 'captain'
-        ? 'После отправки оргкомитет проверит ссылку или файл и видео.'
-        : 'Добавить или изменить видео может капитан команды.';
-  const videoActive = phaseOpen(state.settings?.videoStart, state.settings?.videoDeadline);
-  $('#videoUrl').disabled = user.role !== 'captain' || !videoActive;
-  $('#videoFile').disabled = user.role !== 'captain' || !videoActive;
-  $('#videoForm button').disabled = user.role !== 'captain' || !videoActive;
-  if (!videoActive && user.role === 'captain' && !(video?.status === 'rejected' && reviewComment)) {
-    $('#videoHint').textContent = 'Приём видео откроется в установленный срок.';
-  }
-  setVideoUrlState(rawUrl, { showInvalid: Boolean(rawUrl) });
+  const saveTeamFlag = $('#saveTeamFlag');
+  if (saveTeamFlag) saveTeamFlag.disabled = !registrationActive || !hasPendingTeamFlag;
 }
 
 export function renderDashboard({ state, $, $$, esc, identity, switchView }) {
@@ -147,7 +135,7 @@ export function renderDashboard({ state, $, $$, esc, identity, switchView }) {
   const nameParts = user.fio.trim().split(/\s+/).filter(Boolean);
   const givenName = nameParts[1] || nameParts[0] || user.fio;
   const profileReady = Boolean(user.fio && user.email && Object.keys(user.messengerContacts || {}).length);
-  const journey = [['profile', 'Профиль', profileReady, 'profile'], ['team', 'Команда', Boolean(team), 'team'], ['portfolio', 'Портфолио', achievements.length > 0, 'portfolio'], ['video', 'Видео', Boolean(team?.videoCard?.url), 'video']];
+  const journey = [['profile', 'Профиль', profileReady, 'profile'], ['team', 'Команда', Boolean(team), 'team'], ['portfolio', 'Портфолио', achievements.length > 0, 'portfolio']];
   const nextJourney = journey.findIndex((item) => !item[2]);
   const journeyDone = journey.filter((item) => item[2]).length;
   $('#dashboard-title').textContent = `Привет, ${givenName}`;
@@ -168,7 +156,7 @@ export function renderDashboard({ state, $, $$, esc, identity, switchView }) {
   $$('[data-overview-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.overviewView, { focus: true })));
 }
 
-export function renderOverview({ state, $, esc, profileReady, hasVideo }) {
+export function renderOverview({ state, $, esc, profileReady }) {
   const { user, team, achievements } = state;
   let step;
   if (user.identityStatus === 'rejected') {
@@ -181,8 +169,6 @@ export function renderOverview({ state, $, esc, profileReady, hasVideo }) {
     step = ['Добавьте первое достижение', 'Выберите направление, опишите результат и прикрепите подтверждающий документ.', 'Открыть достижения', 'portfolio'];
   } else if (user.role === 'captain' && !team.description) {
     step = ['Расскажите о команде', 'Добавьте короткое описание группы, чтобы представить её в конкурсных материалах.', 'Открыть команду', 'team'];
-  } else if (user.role === 'captain' && !hasVideo) {
-    step = ['Отправьте видеовизитку', 'Добавьте публичную ссылку на готовое видео, когда команда закончит подготовку.', 'Открыть видеовизитку', 'video'];
   } else {
     step = ['Проверьте уведомления', 'Здесь появляются решения и комментарии оргкомитета по вашим материалам.', 'Открыть уведомления', 'notifications'];
   }

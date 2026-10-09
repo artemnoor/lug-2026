@@ -16,8 +16,8 @@
       type="image/svg+xml"
     />
     <link rel="stylesheet" href="css/style.css?v=20261008-2" />
-    <link rel="stylesheet" href="css/platform.css?v=20261008-2" />
-    <link rel="stylesheet" href="css/cabinet.css?v=20261008-6" />
+    <link rel="stylesheet" href="css/platform.css?v=20261009-1" />
+    <link rel="stylesheet" href="css/cabinet.css?v=20261009-4" />
     <link rel="stylesheet" href="css/onboarding.css?v=20261008-2" />
   </head>
   <body class="cabinet-page">
@@ -355,26 +355,6 @@
                       ><span>Команда</span></span
                     >
                   </button>
-                  <button
-                    class="cabinet-nav"
-                    type="button"
-                    role="tab"
-                    aria-selected="false"
-                    aria-controls="video-panel"
-                    id="video-tab"
-                    data-view="video"
-                  >
-                    <span class="cabinet-nav__lead"
-                      ><svg
-                        class="cabinet-nav__icon"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-                        <path d="m10 9 5 3-5 3V9Z"></path></svg
-                      ><span>Видеовизитка</span></span
-                    >
-                  </button>
                 </div>
               </section>
 
@@ -570,25 +550,6 @@
                     ><small
                       >Состав, описание и приглашения участников</small
                     ></span
-                  >
-                </button>
-                <button
-                  class="cabinet-overview__quick-action"
-                  type="button"
-                  data-open-view="video"
-                >
-                  <span
-                    class="cabinet-overview__quick-action-icon"
-                    aria-hidden="true"
-                  >
-                    <svg viewBox="0 0 24 24">
-                      <rect x="3.5" y="5" width="17" height="14" rx="2" />
-                      <path d="m10 9 5 3-5 3z" />
-                    </svg>
-                  </span>
-                  <span class="cabinet-overview__quick-action-copy"
-                    ><strong>Посмотреть видеовизитку</strong
-                    ><small>Ссылка команды и статус проверки видео</small></span
                   >
                 </button>
               </div>
@@ -816,7 +777,7 @@
                 <div class="team-flag-field">
                   <div class="team-field-heading">
                     <p class="cabinet-eyebrow">Символ команды</p>
-                    <span>Любое изображение</span>
+                    <span>Изображение команды</span>
                   </div>
                   <div class="team-flag-frame">
                     <img id="teamFlagPreview" alt="Флаг команды" hidden />
@@ -824,159 +785,27 @@
                       <span aria-hidden="true">✦</span
                       ><strong>Флаг ещё не добавлен</strong
                       ><small
-                        >Загрузите изображение, которое представляет вашу
-                        группу.</small
+                        >Выберите изображение, чтобы сначала посмотреть его
+                        здесь.</small
                       >
                     </div>
                   </div>
                   <label class="cabinet-upload" for="teamFlagInput"
-                    >Загрузить флаг<input
+                    ><span id="teamFlagChooseLabel">Выбрать изображение</span
+                    ><input
                       id="teamFlagInput"
                       type="file"
                       accept="image/*"
                       hidden
-                  /></label>
+                    />
+                  </label>
+                  <p id="teamFlagStatus" class="team-flag-status" role="status" aria-live="polite" hidden></p>
+                  <button class="cabinet-action team-flag-save" type="button" id="saveTeamFlag" disabled>
+                    Сохранить флаг
+                  </button>
                 </div>
               </section>
             </div>
-          </section>
-
-          <section
-            class="cabinet-view"
-            data-view-panel="video"
-            id="video-panel"
-            role="tabpanel"
-            aria-labelledby="video-tab"
-            hidden
-          >
-            <div class="cabinet-section-intro">
-              <div class="cabinet-banner__content">
-                <h2 class="cabinet-banner__title">Видеовизитка</h2>
-                <p class="cabinet-banner__desc">
-                  Капитан добавляет публичную ссылку на готовое видео. Перед
-                  отправкой проверьте критерии справа.
-                </p>
-              </div>
-            </div>
-            <div class="video-overview">
-              <section class="video-status-block">
-                <p class="cabinet-eyebrow">Текущий статус</p>
-                <strong class="cabinet-video-status" id="videoStatus"
-                  >Не добавлено</strong
-                >
-                <p id="videoHint">
-                  Добавить или изменить видео может капитан команды.
-                </p>
-              </section>
-              <section
-                class="video-criteria-block"
-                aria-labelledby="videoCriteriaTitle"
-              >
-                <header class="video-criteria__header">
-                  <div>
-                    <p class="cabinet-eyebrow">Проверка оргкомитета</p>
-                    <h3 id="videoCriteriaTitle">Что оцениваем</h3>
-                  </div>
-                  <span class="video-criteria__total"
-                    ><strong>23</strong><small>макс. балла</small></span
-                  >
-                </header>
-                <ol class="video-criteria-list">
-                  <li>
-                    <span class="video-criteria-list__number">01</span
-                    ><span class="video-criteria-list__label"
-                      >Соответствие теме</span
-                    ><b>0–8</b>
-                  </li>
-                  <li>
-                    <span class="video-criteria-list__number">02</span
-                    ><span class="video-criteria-list__label">Креативность</span
-                    ><b>0–8</b>
-                  </li>
-                  <li>
-                    <span class="video-criteria-list__number">03</span
-                    ><span class="video-criteria-list__label"
-                      >Качество съёмки</span
-                    ><b>0–5</b>
-                  </li>
-                  <li>
-                    <span class="video-criteria-list__number">04</span
-                    ><span class="video-criteria-list__label"
-                      >Визуальные эффекты</span
-                    ><b>0–2</b>
-                  </li>
-                </ol>
-                <p class="video-criteria__note">
-                  Итоговая оценка складывается из четырёх критериев.
-                </p>
-              </section>
-            </div>
-            <form class="video-submit" id="videoForm" novalidate>
-              <div class="video-submit__header">
-                <div>
-                  <p class="cabinet-eyebrow">Добавить или обновить</p>
-                  <h3>Ссылка или видеофайл</h3>
-                  <p>
-                    Вставьте публичную ссылку или загрузите готовое видео —
-                    перед отправкой проверим формат и доступ.
-                  </p>
-                </div>
-                <span class="video-submit__formats"
-                  >Rutube · VK Видео · Яндекс Диск · MP4 · WEBM · MOV</span
-                >
-              </div>
-              <div class="video-submit__controls">
-                <label class="video-url-field" for="videoUrl"
-                  ><span>Публичная ссылка</span
-                  ><input
-                    id="videoUrl"
-                    type="url"
-                    placeholder="https://…"
-                    aria-describedby="videoUrlHint videoFeedback"
-                    autocomplete="url" /></label
-                ><label class="video-file-field" for="videoFile"
-                  ><span>Или файл</span
-                  ><input
-                    id="videoFile"
-                    type="file"
-                    accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
-                    aria-describedby="videoUrlHint videoFeedback" /></label
-                ><button class="cabinet-action" type="submit">
-                  Проверить и отправить <span aria-hidden="true">↗</span>
-                </button>
-              </div>
-              <p class="video-submit__hint" id="videoUrlHint">
-                Ссылка должна открываться без входа в аккаунт. Видео — до 50 МБ.
-              </p>
-              <p
-                class="video-feedback"
-                id="videoFeedback"
-                role="status"
-                hidden
-              ></p>
-              <section
-                class="video-preview"
-                id="videoPreview"
-                aria-labelledby="videoPreviewTitle"
-                hidden
-              >
-                <div class="video-preview__frame" id="videoPreviewFrame"></div>
-                <div class="video-preview__meta">
-                  <p class="cabinet-eyebrow">Предпросмотр</p>
-                  <h3 id="videoPreviewTitle">Видеовизитка</h3>
-                  <p id="videoPreviewMeta">
-                    Проверьте, что видео открывается по публичной ссылке.
-                  </p>
-                  <a
-                    id="videoPreviewOpen"
-                    href="#"
-                    target="_blank"
-                    rel="noopener"
-                    >Открыть видео <span aria-hidden="true">↗</span></a
-                  >
-                </div>
-              </section>
-            </form>
           </section>
 
           <section
@@ -1252,8 +1081,8 @@
       </form>
     </dialog>
 
-    <script src="../scripts/features/account/store.js?v=20261008-2"></script>
-    <script type="module" src="../scripts/features/account/cabinet.js?v=20261008-4"></script>
-    <script src="../scripts/features/account/onboarding.js?v=20261008-2"></script>
+    <script src="../scripts/features/account/store.js?v=20261009-1"></script>
+    <script type="module" src="../scripts/features/account/cabinet.js?v=20261009-2"></script>
+    <script src="../scripts/features/account/onboarding.js?v=20261009-1"></script>
   </body>
 </html>

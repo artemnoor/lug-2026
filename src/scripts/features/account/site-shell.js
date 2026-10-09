@@ -28,6 +28,8 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
     const recoveryRequestStep = authDialog.querySelector('#siteRecoveryRequestStep');
     const recoveryResetStep = authDialog.querySelector('#siteRecoveryResetStep');
     const choicePanel = authDialog.querySelector('#siteAuthChoice');
+    const loginChoice = authDialog.querySelector('[data-auth-mode="login"]')?.closest('.site-auth-dialog__choice-action');
+    const registerChoice = authDialog.querySelector('[data-auth-mode="register"]')?.closest('.site-auth-dialog__choice-action');
     const introDuration = 720;
     let introTimer = null;
     let introRun = 0;
@@ -47,6 +49,39 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
     const messengerSelections = { captain: new Set(), participant: new Set() };
 
     const setError = (node, message = '') => { node.textContent = message; node.classList.toggle('is-visible', Boolean(message)); };
+    const syncAuthAvailability = (settings = window.lugPublicSettings || {}) => {
+      const profileAccessOpen = settings.isProfileAccessOpen === true;
+      const registrationOpen = profileAccessOpen
+        && settings.isRegistrationOpen === true
+        && document.body.dataset.registrationClosed !== 'true';
+      if (loginChoice) loginChoice.hidden = !profileAccessOpen;
+      if (registerChoice) registerChoice.hidden = !registrationOpen;
+      const choiceLead = choicePanel.querySelector('.site-auth-dialog__lead');
+      if (choiceLead) {
+        choiceLead.textContent = registrationOpen
+          ? 'Выберите: войти в кабинет или создать профиль участника.'
+          : profileAccessOpen
+            ? 'Регистрация новых участников закрыта. Войдите в свой кабинет.'
+            : 'Доступ к личным кабинетам ещё не открыт.';
+      }
+      if (accountLink.dataset.authenticated !== 'true') {
+        accountLink.hidden = !profileAccessOpen;
+        const label = accountLink.querySelector('.site-profile-link__label');
+        const text = registrationOpen ? 'Добавить профиль' : 'Профиль';
+        if (label) label.textContent = text;
+        accountLink.setAttribute('aria-label', registrationOpen ? 'Добавить профиль' : 'Войти в профиль');
+        accountLink.title = registrationOpen ? 'Добавить профиль' : 'Войти в профиль';
+        accountLink.href = registrationOpen ? '/?action=register' : '/?action=login';
+      }
+      if (menuAccountLink?.dataset.authenticated !== 'true') {
+        if (menuAccountLink) {
+          menuAccountLink.hidden = !profileAccessOpen;
+          menuAccountLink.href = registrationOpen ? '/?action=register' : '/?action=login';
+          menuAccountLink.setAttribute('aria-label', registrationOpen ? 'Добавить профиль' : 'Войти в профиль');
+        }
+      }
+    };
+    window.addEventListener('lug:config', (event) => syncAuthAvailability(event.detail || {}));
     const focusFirstField = panel => window.setTimeout(() => panel?.querySelector('[data-auth-field]:not(:disabled)')?.focus(), 0);
     const getFioForOwner = (owner) => getFio(authDialog, owner);
     const getMessengerContactsForOwner = (owner) => getMessengerContacts(authDialog, messengerSelections, owner);
@@ -338,7 +373,13 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
         if (run !== introRun || !authDialog.open) return;
         authDialog.classList.add('is-intro-complete');
         if (mode === 'login') focusFirstField(loginPanel);
-        else authDialog.querySelector('[data-auth-mode="login"]')?.focus();
+        else {
+          const choiceButton = [
+            authDialog.querySelector('[data-auth-mode="login"]'),
+            authDialog.querySelector('[data-auth-mode="register"]'),
+          ].find((button) => button && !button.closest('[hidden]'));
+          choiceButton?.focus();
+        }
       };
       const beginIntro = () => {
         if (run !== introRun || !authDialog.open) return;
@@ -619,6 +660,15 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
 
     const openAuth = (mode = 'choice', options = {}) => {
       nextPath = ['/account/admin.html', '/account/cabinet.html'].includes(options.next) ? options.next : '';
+      const adminLogin = nextPath === '/account/admin.html';
+      authDialog.querySelector('#site-auth-login-title').innerHTML = adminLogin ? 'Вход<br />для оргкомитета' : 'Войти<br />в кабинет';
+      loginPanel.querySelector('.site-auth-dialog__lead').textContent = adminLogin
+        ? 'Войдите под учётной записью администратора, чтобы открыть панель оргкомитета.'
+        : 'Введите почту и пароль. После входа откроется ваш конкурсный маршрут.';
+      authDialog.querySelector('#siteAuthLoginForm').setAttribute('aria-label', adminLogin ? 'Вход для организаторов' : 'Вход в личный кабинет');
+      if (mode === 'register' && document.body.dataset.registrationClosed === 'true') {
+        mode = window.lugPublicSettings?.isProfileAccessOpen === true ? 'login' : 'choice';
+      }
       if (!authDialog.open) {
         lastFocusedElement = document.activeElement;
         lockPage();
@@ -631,7 +681,7 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
         authDialog.classList.remove('is-intro-login');
         authDialog.classList.add('is-intro-complete');
       }
-      if (options.invite) {
+      if (options.invite && document.body.dataset.registrationClosed !== 'true') {
         setAuthMode('register'); setRegistrationMode('participant', false);
         registrationSteps.participant = 1;
         renderRegistrationStep();
@@ -681,7 +731,8 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
 
     accountLink.addEventListener('click', event => {
       if (accountLink.dataset.authenticated === 'true') return;
-      event.preventDefault(); openAuth('choice');
+      event.preventDefault();
+      openAuth(document.body.dataset.registrationClosed === 'true' ? 'login' : 'register');
     });
     document.addEventListener('click', event => {
       const link = event.target.closest?.('a[href]');
@@ -693,7 +744,7 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
       event.preventDefault();
       const params = url.searchParams;
       const opensRegistration = ['register', 'join'].includes(params.get('action')) || params.has('invite');
-      if (document.body.dataset.registrationClosed === 'true' && opensRegistration && !params.has('invite')) {
+      if (document.body.dataset.registrationClosed === 'true' && opensRegistration) {
         return;
       }
       openAuth(params.get('action') === 'register' || params.get('action') === 'join' || params.get('invite') ? 'register' : params.get('action') === 'login' ? 'login' : 'choice', { invite: params.get('invite') || '', next: params.get('next') || '' });
@@ -712,6 +763,11 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
       try {
         submit.disabled = true; submit.textContent = 'Проверяем…';
         const result = await authApi.login(authDialog.querySelector('#siteAuthEmail').value.trim(), authDialog.querySelector('#siteAuthPassword').value);
+        if (nextPath === '/account/admin.html' && result.user.role !== 'admin') {
+          await authApi.logout();
+          setError(authError, 'У этой учётной записи нет доступа к панели оргкомитета. Войдите под аккаунтом администратора.');
+          return;
+        }
         window.location.href = nextPath || (result.user.role === 'admin' ? '/account/admin.html' : '/account/cabinet.html');
       } catch (error) {
         setError(authError, error.message || 'Не удалось войти. Проверьте данные.');
@@ -724,10 +780,13 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
     authApi.session().then(({ user }) => {
       if (!user) return;
       accountLink.dataset.authenticated = 'true';
+      accountLink.hidden = false;
       accountLink.href = user.role === 'admin' ? '/account/admin.html' : '/account/cabinet.html';
-      accountLink.querySelector('.site-nav__account-title')?.replaceChildren(document.createTextNode('Личный кабинет'));
+      const accountLabel = accountLink.querySelector('.site-profile-link__label');
+      if (accountLabel) accountLabel.textContent = 'Личный кабинет';
       menuAccountLink?.setAttribute('data-authenticated', 'true');
       if (menuAccountLink) {
+        menuAccountLink.hidden = false;
         menuAccountLink.href = user.role === 'admin' ? '/account/admin.html' : '/account/cabinet.html';
         menuAccountLink.textContent = 'Личный кабинет';
       }
@@ -736,7 +795,20 @@ import { getFio, getMessengerContacts, isAllowedFile, isStrongPassword, messenge
     const params = new URLSearchParams(window.location.search);
     if (params.get('action') || params.get('invite') || params.get('next')) {
       const mode = params.get('invite') || params.get('action') === 'join' || params.get('action') === 'register' ? 'register' : params.get('action') === 'login' || params.get('next') ? 'login' : 'choice';
-      window.setTimeout(() => openAuth(mode, { invite: params.get('invite') || '', next: params.get('next') || '' }), 80);
+      const openFromPublicSettings = () => {
+        const settings = window.lugPublicSettings;
+        if (!settings) return;
+        if (mode === 'register' && document.body.dataset.registrationClosed === 'true') return;
+        if (mode === 'choice' && settings.isProfileAccessOpen !== true) return;
+        openAuth(mode, { invite: params.get('invite') || '', next: params.get('next') || '' });
+      };
+      if (mode === 'login') {
+        window.setTimeout(() => openAuth(mode, { next: params.get('next') || '' }), 80);
+      } else if (window.lugPublicSettings) {
+        window.setTimeout(openFromPublicSettings, 80);
+      } else {
+        window.addEventListener('lug:config', openFromPublicSettings, { once: true });
+      }
     }
   }
 

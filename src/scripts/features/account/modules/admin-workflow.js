@@ -22,8 +22,7 @@ export function teamMatches(team, query, status = 'all') {
 export function pendingForTeam(team) {
   const identity = (team.members || []).filter((member) => member.identityStatus === 'pending').length;
   const achievements = (team.achievements || []).filter((item) => item.status === 'pending').length;
-  const video = team.videoCard?.status === 'pending' ? 1 : 0;
-  return { identity, achievements, video, total: identity + achievements + video };
+  return { identity, achievements, total: identity + achievements };
 }
 
 export function phaseState(settings, startKey, endKey) {
@@ -39,6 +38,5 @@ export function phaseState(settings, startKey, endKey) {
 export const phaseKeys = [
   { key: 'registration', start: 'registrationStart', end: 'registrationDeadline', label: 'Регистрация' },
   { key: 'portfolio', start: 'portfolioStart', end: 'portfolioDeadline', label: 'Портфолио' },
-  { key: 'video', start: 'videoStart', end: 'videoDeadline', label: 'Видео' },
   { key: 'results', start: 'resultsStart', end: 'resultsDeadline', label: 'Результаты' },
 ];

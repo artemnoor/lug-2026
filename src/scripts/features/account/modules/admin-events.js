@@ -1,5 +1,5 @@
 export function bindAdminEvents({
-  $, adminApi, applyHash, closeSidebar, filters, goToView, initAdmin, loadMoreCollection, openSidebar, refreshAdmin, renderAchievements, renderTeams, renderTargetSuboptions, renderUsers, reviewAchievement, reviewVideo, run, saveSettings, selectAchievement, selectTeam, selectUser, selected, sendBroadcast, showToast, submitMemberReview, submitTeamProfileReview, submitUserDecision, switchAdminTab, syncReviewCommentVisibility, updateCounters,
+  $, adminApi, applyHash, closeSidebar, filters, goToView, initAdmin, loadMoreCollection, openSidebar, refreshAdmin, renderAchievements, renderTeams, renderTargetSuboptions, renderUsers, reviewAchievement, run, saveSettings, toggleRegistration, selectAchievement, selectTeam, selectUser, selected, sendBroadcast, showToast, submitMemberReview, submitTeamProfileReview, submitUserDecision, switchAdminTab, syncReviewCommentVisibility, updateCounters,
 }) {
   document.addEventListener('DOMContentLoaded', () => {
     updateCounters();
@@ -14,6 +14,7 @@ export function bindAdminEvents({
     $('adminSidebarClose')?.addEventListener('click', closeSidebar);
     $('adminSidebarOverlay')?.addEventListener('click', closeSidebar);
     $('adminRefreshBtn')?.addEventListener('click', () => run(refreshAdmin));
+    $('adminRegistrationToggle')?.addEventListener('click', toggleRegistration);
 
     document.addEventListener('click', (event) => {
       const loadMore = event.target.closest('[data-admin-load-more]');
@@ -131,10 +132,6 @@ export function bindAdminEvents({
       }
       const achievement = event.target.closest('[data-review-achievement]');
       if (achievement) { reviewAchievement(achievement.dataset.reviewAchievement); return; }
-      const saveVideo = event.target.closest('[data-save-video]');
-      if (saveVideo) { reviewVideo(saveVideo.dataset.saveVideo, 'approved'); return; }
-      const rejectVideo = event.target.closest('[data-reject-video]');
-      if (rejectVideo) { reviewVideo(rejectVideo.dataset.rejectVideo, 'rejected'); return; }
     });
 
     document.addEventListener('change', (event) => {

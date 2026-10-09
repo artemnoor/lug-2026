@@ -190,6 +190,35 @@
 .admin-topbar__refresh.is-loading svg { animation: adm-spin 0.9s linear infinite; }
 @keyframes adm-spin { to { transform: rotate(360deg); } }
 
+.admin-topbar__registration {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: 800 12px var(--font-body);
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.admin-topbar__registration:hover { background: rgba(255, 255, 255, 0.22); transform: translateY(-1px); }
+.admin-topbar__registration.is-open { background: #e4ffea; border-color: #e4ffea; color: var(--adm-blue-dark); }
+.admin-topbar__registration.is-open:hover { background: #fff; }
+.admin-topbar__registration svg {
+  fill: none;
+  height: 17px;
+  flex: 0 0 17px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 17px;
+}
+.admin-topbar__registration:disabled { cursor: wait; opacity: 0.65; }
+
 .admin-topbar__role {
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
@@ -1747,54 +1776,6 @@
 .admin-achievement-review[data-direction="sport"] { border-left-color: var(--adm-dir-sport); }
 .admin-achievement-review[data-direction="culture"] { border-left-color: var(--adm-dir-culture); }
 
-/* Видео */
-.admin-team-video__head {
-  align-items: flex-start;
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-.admin-team-video__head h3 {
-  font: 800 18px var(--font-display);
-  letter-spacing: -0.02em;
-  margin: 0 0 5px;
-}
-.admin-score-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 4px 0 12px;
-}
-.admin-score-field { display: grid; gap: 6px; }
-.admin-score-field span {
-  color: var(--adm-ink-2);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.admin-video-card__actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 12px;
-}
-.admin-video-card__score {
-  background: var(--adm-ok-bg);
-  border: 1px solid var(--adm-ok-border);
-  border-radius: 14px;
-  color: var(--adm-ok);
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 10px 14px;
-}
-.admin-video-card__score strong { font-size: 15px; }
-
 .admin-team-section { margin-bottom: 16px; }
 .admin-team-section:last-of-type { margin-bottom: 0; }
 .admin-team-quota { margin-top: 4px; }
@@ -2625,6 +2606,8 @@ textarea.admin-control--roomy { line-height: 1.55; }
   .admin-form-grid { grid-template-columns: 1fr; }
   .admin-hero { flex-direction: column; }
   .admin-hero__signal { max-width: none; width: 100%; }
+  .admin-topbar__registration { justify-content: center; padding: 0; width: 44px; }
+  .admin-topbar__registration span { display: none; }
 }
 
 @media (max-width: 620px) {
@@ -2634,7 +2617,6 @@ textarea.admin-control--roomy { line-height: 1.55; }
   .admin-kpi-grid { grid-template-columns: 1fr; }
   .admin-quick__grid { grid-template-columns: 1fr; }
   .admin-team-stats { grid-template-columns: 1fr 1fr; }
-  .admin-score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-phase-strip { grid-template-columns: 1fr; }
   .admin-audience__grid { grid-template-columns: 1fr; }
   .admin-audience__grid--six { grid-template-columns: 1fr; }

@@ -1,4 +1,4 @@
-export function createAdminActions({ $, adminApi, busy, run, showError, showToast, refreshAdmin, renderTargetSuboptions, updateCounters, syncReviewCommentVisibility, getSelectedTeamId }) {
+export function createAdminActions({ $, adminApi, busy, run, showError, showToast, refreshAdmin, renderTargetSuboptions, updateCounters, syncReviewCommentVisibility, getSelectedTeamId, getSettings }) {
   const reviewAchievement = async (achievementId) => run(async () => {
     const item = document.querySelector(`[data-achievement-review-item="${CSS.escape(achievementId)}"]`);
     const status = item?.dataset.achievementReviewChoice || '';
@@ -9,17 +9,6 @@ export function createAdminActions({ $, adminApi, busy, run, showError, showToas
     if (status === 'rejected' && !comment) { showError('Для отклонённого достижения укажите причину.'); document.querySelector(`[data-achievement-comment="${CSS.escape(achievementId)}"]`)?.focus(); return; }
     await adminApi.adminReviewAchievement(achievementId, { status, points, comment });
     showToast('Готово', 'Решение по достижению сохранено.', 'success');
-    await refreshAdmin();
-  });
-
-  const reviewVideo = async (teamId, status) => run(async () => {
-    const scores = {};
-    document.querySelectorAll(`[data-video-score][data-team-id="${CSS.escape(teamId)}"]`).forEach((input) => { scores[input.dataset.videoScore] = input.value; });
-    const commentField = document.querySelector(`[data-video-comment="${CSS.escape(teamId)}"]`);
-    const comment = commentField?.value.trim() || '';
-    if (status === 'rejected' && !comment) { showError('Для возврата видеовизитки укажите комментарий.'); commentField?.focus(); return; }
-    await adminApi.adminReviewVideo(teamId, { status, criteriaScores: scores, comment });
-    showToast('Готово', status === 'approved' ? 'Видео принято, оценка сохранена.' : 'Видео возвращено на уточнение.', 'success');
     await refreshAdmin();
   });
 
@@ -73,14 +62,30 @@ export function createAdminActions({ $, adminApi, busy, run, showError, showToas
     }));
   };
 
-  const saveSettings = async () => busy($('#saveAdminSettingsButton'), () => run(async () => {
-    const dateKeys = ['registrationStart', 'registrationDeadline', 'portfolioStart', 'portfolioDeadline', 'videoStart', 'videoDeadline', 'resultsStart', 'resultsDeadline'];
+  const saveSettings = async () => busy($('saveAdminSettingsButton'), () => run(async () => {
+    const dateKeys = ['registrationStart', 'registrationDeadline', 'portfolioStart', 'portfolioDeadline', 'resultsStart', 'resultsDeadline'];
     const payload = Object.fromEntries(dateKeys.map((key) => [key, isoDateValue($(`${key}Input`)?.value)]).filter(([, value]) => value));
-    payload.isRegistrationOpen = $('#regIsOpenCheckbox')?.checked;
+    payload.isRegistrationOpen = $('regIsOpenCheckbox')?.checked;
+    payload.isProfileAccessOpen = $('profileAccessOpenCheckbox')?.checked;
     await adminApi.adminUpdateSettings(payload);
     await refreshAdmin();
-    if ($('#adminSettingsNote')) $('#adminSettingsNote').textContent = 'Параметры сохранены';
+    if ($('adminSettingsNote')) $('adminSettingsNote').textContent = 'Параметры сохранены';
     showToast('Сохранено', 'Сроки конкурса обновлены.', 'success');
+  }));
+
+  const toggleRegistration = () => busy($('adminRegistrationToggle'), () => run(async () => {
+    const settings = getSettings();
+    const isOpen = settings.isRegistrationOpen === true && settings.isProfileAccessOpen === true;
+    const payload = isOpen
+      ? { isRegistrationOpen: false }
+      : { isRegistrationOpen: true, isProfileAccessOpen: true };
+    await adminApi.adminUpdateSettings(payload);
+    await refreshAdmin();
+    showToast(
+      isOpen ? 'Регистрация закрыта' : 'Регистрация открыта',
+      isOpen ? 'Участники сохранят доступ к своим кабинетам.' : 'На сайте появилась кнопка «Добавить профиль».',
+      'success'
+    );
   }));
 
   const sendBroadcast = async (event) => {
@@ -88,18 +93,18 @@ export function createAdminActions({ $, adminApi, busy, run, showError, showToas
     const form = event.currentTarget;
     await busy(form.querySelector('[type="submit"]'), () => run(async () => {
       const type = document.querySelector('input[name="notifTargetType"]:checked')?.value || 'all';
-      const result = await adminApi.adminBroadcast({ targetType: type, targetId: type === 'all' ? null : $('#notifTargetId')?.value, title: $('#notifTitleInput')?.value, message: $('#notifMessageInput')?.value });
+      const result = await adminApi.adminBroadcast({ targetType: type, targetId: type === 'all' ? null : $('notifTargetId')?.value, title: $('notifTitleInput')?.value, message: $('notifMessageInput')?.value });
       form.reset();
       renderTargetSuboptions();
       updateCounters(form);
-      if ($('#broadcastSuccess')) $('#broadcastSuccess').hidden = false;
+      if ($('broadcastSuccess')) $('broadcastSuccess').hidden = false;
       await refreshAdmin();
       const emailNotice = Number(result.emailRecipients || 0) > 0 ? result.emailMode === 'smtp' ? ` Письма отправлены участникам: ${Number(result.emailSent || 0)} из ${Number(result.emailRecipients || 0)}.` : ' В development письма записаны в лог.' : '';
       showToast('Отправлено', `Рассылка доставлена получателям.${emailNotice}`, 'success');
     }));
   };
 
-  return { reviewAchievement, reviewVideo, saveSettings, sendBroadcast, submitMemberReview, submitTeamProfileReview, submitUserDecision };
+  return { reviewAchievement, saveSettings, sendBroadcast, submitMemberReview, submitTeamProfileReview, submitUserDecision, toggleRegistration };
 }
 
 function isoDateValue(value) {

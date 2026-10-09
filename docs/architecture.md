@@ -26,7 +26,7 @@
 | `Dockerfile` | Сборка статического frontend и Node preview контейнера |
 | `docker-compose.yml` | Единый запуск сайта, API и всех локальных зависимостей |
 
-`backend/` — отдельный Git submodule. Его backend-слои и API контракт описаны в [backend/ARCHITECTURE.md](../backend/ARCHITECTURE.md) и [compatibility matrix](../backend/docs/compatibility-matrix.md). Compose запускается из корня и использует `backend/Dockerfile` для API.
+`backend/` — исходный код API в том же Git-репозитории, что и сайт. Backend-слои и API контракт описаны в [backend/ARCHITECTURE.md](../backend/ARCHITECTURE.md) и [compatibility matrix](../backend/docs/compatibility-matrix.md). Compose запускается из корня и использует `backend/Dockerfile` для API.
 
 Кабинет, админ-панель и формы регистрации сверены с [frontend репозитория `lug-2026`](https://github.com/artemnoor/lug-2026/tree/2f8a8dc/apps/web/public). В проект перенесены только эти экраны и нужные им ресурсы; публичная главная страница остаётся собственной. Сохранены локальные пути, палитра и мобильные исправления. Поток регистрации намеренно отличается от upstream: после создания аккаунта пользователь сразу входит, подтверждение email не требуется, пароль требует только минимум 8 символов.
 

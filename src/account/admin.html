@@ -16,8 +16,8 @@
       type="image/svg+xml"
     />
     <link rel="stylesheet" href="css/style.css" />
-    <link rel="stylesheet" href="css/platform.css?v=20260824-21" />
-    <link rel="stylesheet" href="css/admin.css?v=20260829-03" />
+    <link rel="stylesheet" href="css/platform.css?v=20261009-1" />
+    <link rel="stylesheet" href="css/admin.css?v=20261009-2" />
   </head>
   <body class="admin-page">
     <a class="skip-link" href="#admin-main">Перейти к содержанию</a>
@@ -57,6 +57,21 @@
         <span class="admin-topbar__crumb" id="adminTopbarCrumb">Обзор</span>
       </div>
       <div class="admin-topbar__right">
+        <button
+          class="admin-topbar__registration"
+          type="button"
+          id="adminRegistrationToggle"
+          aria-pressed="false"
+          aria-label="Открыть регистрацию"
+          title="Открыть регистрацию"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="9" cy="8" r="3"></circle>
+            <path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"></path>
+            <path d="M17 8h5M19.5 5.5v5"></path>
+          </svg>
+          <span id="adminRegistrationToggleLabel">Открыть регистрацию</span>
+        </button>
         <button
           class="admin-topbar__refresh"
           type="button"
@@ -328,7 +343,7 @@
               <h1 id="admin-teams-title">Команды</h1>
               <p>
                 Выберите команду слева — справа откроются её заявка, состав,
-                портфолио и видео. Список всегда под рукой.
+                портфолио и документы. Список всегда под рукой.
               </p>
             </div>
             <div class="admin-page-heading__stats">
@@ -630,8 +645,8 @@
               <p class="admin-eyebrow">Итоги конкурса</p>
               <h1 id="admin-rating-title">Рейтинг групп</h1>
               <p>
-                Сумма баллов принятых достижений участников и оценки
-                видеовизитки. Рейтинг обновляется сразу после каждого решения.
+                Сумма баллов принятых достижений участников. Рейтинг обновляется
+                сразу после каждого решения.
               </p>
             </div>
             <div class="admin-page-heading__stat">
@@ -742,44 +757,6 @@
 
             <section
               class="admin-surface admin-phase-card"
-              data-phase-card="video"
-            >
-              <header class="admin-phase-card__head">
-                <span class="admin-phase-card__icon" aria-hidden="true"
-                  ><svg viewBox="0 0 24 24">
-                    <rect x="3" y="5" width="18" height="14" rx="3" />
-                    <path d="m10 9 5 3-5 3V9Z" /></svg
-                ></span>
-                <div>
-                  <p class="admin-eyebrow">Окно 3</p>
-                  <h2>Видеовизитки</h2>
-                </div>
-                <span class="admin-phase-chip" data-phase-status>—</span>
-              </header>
-              <p class="admin-phase-card__note">
-                Капитаны отправляют ссылки на видео. Оценка — по четырём
-                критериям, итог до 23 баллов.
-              </p>
-              <div class="admin-form-grid">
-                <label class="admin-field"
-                  ><span>Начало приёма видео</span
-                  ><input
-                    type="datetime-local"
-                    id="videoStartInput"
-                    class="admin-control"
-                /></label>
-                <label class="admin-field"
-                  ><span>Окончание приёма видео</span
-                  ><input
-                    type="datetime-local"
-                    id="videoDeadlineInput"
-                    class="admin-control"
-                /></label>
-              </div>
-            </section>
-
-            <section
-              class="admin-surface admin-phase-card"
               data-phase-card="results"
             >
               <header class="admin-phase-card__head">
@@ -831,6 +808,15 @@
                 ><small
                   >Дополнительный рубильник поверх окна регистрации: если
                   выключить — формы закроются сразу.</small
+                ></span
+              ></label
+            >
+            <label class="admin-toggle"
+              ><input type="checkbox" id="profileAccessOpenCheckbox" /><span
+                ><strong>Доступ участников к профилям включён</strong
+                ><small
+                  >Пока выключено, участники не смогут войти в кабинет и
+                  зарегистрироваться. Доступ администратора сохранится.</small
                 ></span
               ></label
             >
@@ -978,7 +964,7 @@
                   type="text"
                   id="notifTitleInput"
                   class="admin-control admin-control--counted"
-                  placeholder="Например, напоминание о видео"
+                  placeholder="Например, напоминание о сроках"
                   maxlength="120"
                   data-counter
                   required /><small
@@ -1019,7 +1005,7 @@
       </main>
     </div>
 
-    <script src="../scripts/features/account/store.js"></script>
-    <script type="module" src="../scripts/features/account/admin.js"></script>
+    <script src="../scripts/features/account/store.js?v=20261009-1"></script>
+    <script type="module" src="../scripts/features/account/admin.js?v=20261009-2"></script>
   </body>
 </html>

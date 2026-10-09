@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -69,20 +69,32 @@ async function waitForBackend() {
 }
 
 async function routeToTemporaryBackend(page) {
-  await page.route('**/api/**', async (route) => {
+  await page.route('http://127.0.0.1:4173/api/**', async (route) => {
     const url = new URL(route.request().url());
     url.port = String(apiPort);
     await route.fulfill({ response: await route.fetch({ url: url.toString() }) });
   });
-  await page.route('**/uploads/**', async (route) => {
+  await page.route('http://127.0.0.1:4173/uploads/**', async (route) => {
     const url = new URL(route.request().url());
     url.port = String(apiPort);
     await route.fulfill({ response: await route.fetch({ url: url.toString() }) });
   });
 }
 
+async function openCabinetView(page, selector) {
+  await page.locator('#cabinetMobileNavToggle').click();
+  await page.locator(selector).click();
+}
+
 test.describe('browser to isolated FastAPI and SQLite', () => {
   test.beforeAll(async () => {
+    if (process.env.LUG_E2E_API_PORT) {
+      apiPort = Number(process.env.LUG_E2E_API_PORT);
+      if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
+        throw new Error('LUG_E2E_API_PORT must be a valid TCP port.');
+      }
+      return;
+    }
     dataRoot = await mkdtemp(path.join(os.tmpdir(), 'lug-browser-e2e-'));
     apiPort = await findFreePort();
     const env = localBackendEnvironment();
@@ -121,7 +133,8 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     }
   });
 
-  test('registers with consent and document, then shows a real admin rejection in the cabinet', async ({ browser }) => {
+  test('registers, joins, submits profile and materials, previews them in admin, and delivers organizer decisions', async ({ browser }) => {
+    test.setTimeout(90_000);
     const participantContext = await browser.newContext();
     const participantPage = await participantContext.newPage();
     await routeToTemporaryBackend(participantPage);
@@ -129,10 +142,12 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     const unique = Date.now();
     const email = `browser-${unique}@example.test`;
     const group = `E2E-${unique}`;
+    const teamName = `Команда ${group}`;
+    const previewImage = await readFile(path.resolve('src/assets/images/lug-logo-black.png'));
     await participantPage.goto('/?action=register');
     await participantPage.locator('#siteCapGroup').fill(group);
-    await participantPage.locator('#siteCapGroupSize').fill('1');
-    await participantPage.locator('#siteCapTeamName').fill(`Команда ${group}`);
+    await participantPage.locator('#siteCapGroupSize').fill('2');
+    await participantPage.locator('#siteCapTeamName').fill(teamName);
     await participantPage.locator('#siteAuthRegisterNext').click();
     await participantPage.locator('#siteCapSurname').fill('Иванова');
     await participantPage.locator('#siteCapName').fill('Александра');
@@ -156,6 +171,77 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     await expect(welcomeDialog).toContainText('КОМАНДА СОЗДАНА');
     await participantPage.locator('.guide-welcome__close').click();
 
+    await openCabinetView(participantPage, '#teamNavigation');
+    const inviteCode = (await participantPage.locator('#inviteCode').textContent()).trim();
+    expect(inviteCode).not.toBe('—');
+
+    const joinerContext = await browser.newContext();
+    const joinerPage = await joinerContext.newPage();
+    await routeToTemporaryBackend(joinerPage);
+    const joinerEmail = `joiner-${unique}@example.test`;
+    await joinerPage.goto(`/?invite=${encodeURIComponent(inviteCode)}`);
+    await expect(joinerPage.locator('#siteAuthRegister')).toBeVisible();
+    await expect(joinerPage.locator('#siteJoinInviteCode')).toHaveValue(inviteCode);
+    await joinerPage.locator('#siteAuthRegisterNext').click();
+    await joinerPage.locator('#siteJoinSurname').fill('Петрова');
+    await joinerPage.locator('#siteJoinName').fill('Анна');
+    await joinerPage.locator('#siteJoinPatronymic').fill('Сергеевна');
+    await joinerPage.locator('#siteJoinEmail').fill(joinerEmail);
+    await joinerPage.locator('[data-messenger="telegram"][data-messenger-owner="participant"]').click();
+    await joinerPage.locator('[data-messenger-contact="participant-telegram"]').fill('@browser_joiner');
+    await joinerPage.locator('#siteAuthRegisterNext').click();
+    await joinerPage.locator('#siteJoinStudentCardFile').setInputFiles({
+      name: 'student-card.png', mimeType: 'image/png', buffer: studentCardPng
+    });
+    await joinerPage.locator('#siteJoinPassword').fill('abcdefgh');
+    await joinerPage.locator('#siteJoinPasswordConfirm').fill('abcdefgh');
+    await joinerPage.locator('#siteJoinConsent').check();
+    const joinResponsePromise = joinerPage.waitForResponse((response) => (
+      response.url().includes('/api/auth/join-team') && response.request().method() === 'POST'
+    ));
+    await joinerPage.locator('#siteAuthRegisterSubmit').click();
+    const joinResponse = await joinResponsePromise;
+    expect(joinResponse.status()).toBe(201);
+    await expect(joinerPage).toHaveURL(/\/account\/cabinet\.html\?welcome=1$/);
+    await joinerPage.locator('.guide-welcome__close').click();
+
+    await openCabinetView(participantPage, '#profile-tab');
+    await participantPage.locator('#profilePhone').fill('+7 900 000-00-01');
+    await participantPage.locator('#profileContact').fill('@browser_captain_updated');
+    const profileResponsePromise = participantPage.waitForResponse((response) => (
+      response.url().endsWith('/api/me') && response.request().method() === 'PATCH'
+    ));
+    await participantPage.locator('#profileForm button[type="submit"]').click();
+    const profileResponse = await profileResponsePromise;
+    expect(profileResponse.status()).toBe(200);
+    await expect(participantPage.locator('#profileResult')).toContainText('Профиль сохранён');
+
+    await openCabinetView(participantPage, '#teamNavigation');
+    await participantPage.locator('#teamDescription').fill('Сквозной браузерный тест команды.');
+    const teamUpdatePromise = participantPage.waitForResponse((response) => (
+      response.url().endsWith('/api/team') && response.request().method() === 'PATCH'
+    ));
+    await participantPage.locator('#saveTeam').click();
+    expect((await teamUpdatePromise).status()).toBe(200);
+    const flagUploadPromise = participantPage.waitForResponse((response) => (
+      response.url().endsWith('/api/uploads/stream') && response.request().method() === 'POST'
+    ));
+    await participantPage.locator('#teamFlagInput').setInputFiles({
+      name: 'team-flag.png', mimeType: 'image/png', buffer: previewImage
+    });
+    const flagUpload = await flagUploadPromise;
+    expect(flagUpload.status()).toBe(201);
+    await expect(participantPage.locator('#teamFlagPreview')).toBeVisible();
+    await expect.poll(() => participantPage.locator('#teamFlagPreview').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+
+    participantPage.once('dialog', (dialog) => dialog.accept());
+    const inviteRotationPromise = participantPage.waitForResponse((response) => (
+      response.url().endsWith('/api/team/invite') && response.request().method() === 'POST'
+    ));
+    await participantPage.locator('#rotateInvite').click();
+    expect((await inviteRotationPromise).status()).toBe(200);
+    await expect(participantPage.locator('#inviteCode')).not.toHaveText(inviteCode);
+
     await participantPage.locator('#cabinetMobileNavToggle').click();
     await participantPage.locator('#portfolio-tab').click();
     await participantPage.locator('#openAchievement').click();
@@ -164,12 +250,17 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     await participantPage.locator('#achievementTitle').fill('Браузерный end-to-end материал');
     await participantPage.locator('#achievementDetails').fill('Сценарий с реальной загрузкой и проверкой оргкомитетом.');
     await participantPage.locator('#achievementFile').setInputFiles({
-      name: 'proof.png', mimeType: 'image/png', buffer: studentCardPng
+      name: 'proof.png', mimeType: 'image/png', buffer: previewImage
     });
+    await expect(participantPage.locator('#achievementFileName')).toContainText('proof.png');
+    const proofUploadPromise = participantPage.waitForResponse((response) => (
+      response.url().endsWith('/api/uploads/stream') && response.request().method() === 'POST'
+    ));
     const createdResponse = participantPage.waitForResponse((response) => (
       response.url().includes('/api/achievements') && response.request().method() === 'POST'
     ));
     await participantPage.locator('#saveAchievement').click();
+    expect((await proofUploadPromise).status()).toBe(201);
     const achievementResponse = await createdResponse;
     expect(achievementResponse.status()).toBe(201);
     const achievementId = (await achievementResponse.json()).achievement.id;
@@ -193,6 +284,9 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     await adminPage.goto('/account/admin.html');
     await adminPage.locator('[data-admin-view="achievements"]').click();
     await adminPage.locator(`[data-select-achievement="${achievementId}"]`).click();
+    const evidencePreview = adminPage.locator('#adminAchievementDetail .admin-user-document__preview img');
+    await expect(evidencePreview).toBeVisible();
+    await expect.poll(() => evidencePreview.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
     await adminPage.locator(`[data-achievement-review-action="${achievementId}"][data-achievement-review-value="rejected"]`).click();
     const comment = 'Прикрепите документ с читаемым подтверждением.';
     await adminPage.locator(`[data-achievement-comment="${achievementId}"]`).fill(comment);
@@ -204,6 +298,56 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     const reviewBody = await reviewResult.text();
     expect(reviewResult.status(), reviewBody).toBe(200);
 
+    const teamData = await participantPage.evaluate(async () => {
+      const response = await fetch('/api/dashboard');
+      const dashboard = await response.json();
+      return { id: dashboard.team.id };
+    });
+    await adminPage.locator('[data-admin-view="teams"]').click();
+    await adminPage.locator(`#adminTeamsList [data-select-team="${teamData.id}"]`).click();
+    const teamReviewForm = adminPage.locator(`[data-team-profile-review="${teamData.id}"]`);
+    await expect(teamReviewForm).toBeVisible();
+    await expect(teamReviewForm.locator('a[href*="/uploads/"]')).toHaveCount(1);
+    const teamFields = ['name', 'group', 'flag', 'description'];
+    const teamReviewPromises = teamFields.map((field) => adminPage.waitForResponse((response) => {
+      if (!response.url().endsWith(`/api/admin/teams/${teamData.id}/review`) || response.request().method() !== 'PATCH') return false;
+      return response.request().postDataJSON().field === field;
+    }));
+    for (const field of teamFields) {
+      await teamReviewForm.locator(`[data-team-review-action="${field}"][data-team-review-value="approved"]`).click();
+    }
+    await teamReviewForm.locator('button[type="submit"]').click();
+    const teamReviewResponses = await Promise.all(teamReviewPromises);
+    expect(teamReviewResponses.map((response) => response.status())).toEqual([200, 200, 200, 200]);
+
+    const membersForm = adminPage.locator(`[data-team-members-review="${teamData.id}"]`);
+    await expect(membersForm.locator('[data-member-review-item]')).toHaveCount(2);
+    for (const member of await membersForm.locator('[data-member-review-item]').all()) {
+      await member.locator('[data-member-review-value="approved"]').click();
+    }
+    const identityReviewPromises = [email, joinerEmail].map((memberEmail) => adminPage.waitForResponse((response) => (
+      response.url().includes('/api/admin/users/') && response.url().endsWith('/identity')
+      && response.request().method() === 'PATCH'
+      && response.request().postDataJSON().status === 'approved'
+    )));
+    await membersForm.locator('button[type="submit"]').click();
+    const identityReviewResponses = await Promise.all(identityReviewPromises);
+    expect(identityReviewResponses.map((response) => response.status())).toEqual([200, 200]);
+
+    await adminPage.locator('[data-admin-view="broadcast"]').click();
+    await adminPage.locator('label.admin-audience__card:has(input[name="notifTargetType"][value="team"])').click();
+    await adminPage.locator('#notifTargetId').selectOption({ value: teamData.id });
+    await adminPage.locator('#notifTitleInput').fill('Проверка уведомлений');
+    await adminPage.locator('#notifMessageInput').fill('Сообщение доставлено из реальной панели организатора.');
+    const broadcastPromise = adminPage.waitForResponse((response) => (
+      response.url().endsWith('/api/admin/notifications/broadcast') && response.request().method() === 'POST'
+    ));
+    await adminPage.locator('#broadcastForm button[type="submit"]').click();
+    const broadcastResponse = await broadcastPromise;
+    const broadcastBody = await broadcastResponse.text();
+    expect(broadcastResponse.status(), broadcastBody).toBe(201);
+    await expect(adminPage.locator('#broadcastSuccess')).toBeVisible();
+
     await participantPage.reload();
     await participantPage.locator('#cabinetMobileNavToggle').click();
     await participantPage.locator('#portfolio-tab').click();
@@ -212,7 +356,22 @@ test.describe('browser to isolated FastAPI and SQLite', () => {
     await material.click();
     await expect(participantPage.locator('#portfolioSummary')).toContainText(comment);
 
+    await openCabinetView(participantPage, '#notifications-tab');
+    const notification = participantPage.locator('#notificationList article').filter({ hasText: 'Проверка уведомлений' });
+    await expect(notification).toContainText('Сообщение доставлено из реальной панели организатора.');
+    const readResponsePromise = participantPage.waitForResponse((response) => (
+      response.url().includes('/api/notifications/') && response.url().endsWith('/read')
+      && response.request().method() === 'PATCH'
+    ));
+    await notification.locator('[data-read-notification]').click();
+    expect((await readResponsePromise).status()).toBe(200);
+    await expect(notification).toContainText('Прочитано');
+
+    await joinerPage.reload();
+    await expect(joinerPage.locator('#dashboard-lead')).toContainText('Участник');
+
     await adminContext.close();
+    await joinerContext.close();
     await participantContext.close();
   });
 });

@@ -36,7 +36,20 @@ async function expandIncludes(filePath, includeStack = []) {
 
 async function copySourceDirectory(name) {
   const sourcePath = path.join(sourceRoot, name);
-  await fs.cp(sourcePath, path.join(outputRoot, name), { recursive: true, force: true });
+  await fs.cp(sourcePath, path.join(outputRoot, name), {
+    recursive: true,
+    force: true,
+    filter: async (entryPath) => {
+      if (name !== 'assets' || !['.png', '.jpg', '.jpeg'].includes(path.extname(entryPath).toLowerCase())) return true;
+      try {
+        await fs.access(path.format({ ...path.parse(entryPath), base: undefined, ext: '.webp' }));
+        return false;
+      } catch (error) {
+        if (error?.code === 'ENOENT') return true;
+        throw error;
+      }
+    },
+  });
 }
 
 async function cleanOutputDirectory() {

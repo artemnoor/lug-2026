@@ -4,6 +4,7 @@ const store = () => window.lugStore;
 export const authApi = {
   invite: (...args) => store().invite(...args),
   login: (...args) => store().login(...args),
+  logout: (...args) => store().logout(...args),
   registerCaptain: (...args) => store().registerCaptain(...args),
   registerParticipant: (...args) => store().registerParticipant(...args),
   request: (...args) => store().request(...args),

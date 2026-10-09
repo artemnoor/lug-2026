@@ -85,8 +85,20 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
   function renderOverview() {
     const summary = state?.summary || {};
     const settings = state?.settings || {};
-    const pendingTotal = Number(summary.pendingIdentity || 0) + Number(summary.pendingAchievements || 0) + Number(summary.pendingVideos || 0);
-    const registrationOpen = settings.isRegistrationOpen !== false && phaseState(settings, 'registrationStart', 'registrationDeadline') === 'active';
+    const pendingTotal = Number(summary.pendingIdentity || 0) + Number(summary.pendingAchievements || 0);
+    const registrationOpen = settings.isProfileAccessOpen === true
+      && settings.isRegistrationOpen === true
+      && phaseState(settings, 'registrationStart', 'registrationDeadline') === 'active';
+    const registrationToggle = $('adminRegistrationToggle');
+    const registrationToggleLabel = $('adminRegistrationToggleLabel');
+    const registrationEnabled = settings.isProfileAccessOpen === true && settings.isRegistrationOpen === true;
+    if (registrationToggle) {
+      registrationToggle.setAttribute('aria-pressed', String(registrationEnabled));
+      registrationToggle.title = registrationEnabled ? 'Закрыть регистрацию' : 'Открыть регистрацию';
+      registrationToggle.setAttribute('aria-label', registrationToggle.title);
+      registrationToggle.classList.toggle('is-open', registrationEnabled);
+    }
+    if (registrationToggleLabel) registrationToggleLabel.textContent = registrationEnabled ? 'Закрыть регистрацию' : 'Открыть регистрацию';
 
     if ($('adminOverviewStatus')) {
       $('adminOverviewStatus').textContent = registrationOpen ? 'Открыт' : 'Закрыт';
@@ -109,13 +121,11 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
     const metricsNode = $('adminOverviewMetrics');
     if (metricsNode) metricsNode.innerHTML = metrics.map((metric) => `<button class="admin-kpi${metric.accent ? ' admin-kpi--accent' : ''}" type="button" data-admin-view-target="${metric.view}"><span class="admin-kpi__label">${metric.label}</span><strong class="admin-kpi__value">${metric.value}</strong><span class="admin-kpi__icon" aria-hidden="true">${metric.icon}</span><small class="admin-kpi__note">${esc(metric.note)}</small></button>`).join('');
 
-    const pendingVideoTeam = state.teams.find((team) => pendingForTeam(team).video > 0);
     const attentionTeams = state.teams.filter((team) => workflow(team).key !== 'ready');
     const attentionTeam = attentionTeams[0];
     const queue = [
       { value: summary.pendingIdentity, title: `${summary.pendingIdentity || 0} ${plural(summary.pendingIdentity || 0, 'участник ждёт', 'участника ждут', 'участников ждут')} проверки личности`, note: 'Откройте карточку участника и подтвердите документ.', view: 'users', team: null, tone: 'danger', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M4 20v-1.5a8 8 0 0 1 16 0V20"/></svg>' },
       { value: summary.pendingAchievements, title: `${summary.pendingAchievements || 0} ${plural(summary.pendingAchievements || 0, 'документ', 'документа', 'документов')} в учёте достижений ждут решения`, note: 'Принять или отклонить можно в разделе «Достижения».', view: 'achievements', team: null, tone: 'warning', icon: '<svg viewBox="0 0 24 24"><path d="m12 3 2.4 5.4 5.6.6-4.2 3.9 1.2 5.6L12 15.6l-5 2.9 1.2-5.6L4 9l5.6-.6L12 3Z"/></svg>' },
-      { value: summary.pendingVideos, title: `${summary.pendingVideos || 0} ${plural(summary.pendingVideos || 0, 'видео ждёт', 'видео ждут', 'видео ждут')} оценки`, note: 'Выставьте баллы и отправьте комментарий.', view: 'teams', team: pendingVideoTeam, tone: 'info', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3V9Z"/></svg>' },
       { value: attentionTeams.length, title: `${attentionTeams.length} ${plural(attentionTeams.length, 'команда требует', 'команды требуют', 'команд требуют')} внимания`, note: 'Откройте карточку для полной проверки.', view: 'teams', team: attentionTeam, tone: 'warning', icon: '<svg viewBox="0 0 24 24"><path d="M5 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/><path d="M12 4v4M9 21h6"/></svg>' }
     ].filter((item) => item.value > 0);
     if ($('adminQueueCount')) $('adminQueueCount').textContent = queue.length;
@@ -236,13 +246,10 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
   }
 
   function renderTeamDetail(team) {
-    if (!team) return '<div class="admin-detail__placeholder"><span class="admin-empty-state__mark" aria-hidden="true">✦</span><h2>Выберите команду</h2><p>Здесь появятся заявка, состав, портфолио и видео команды.</p></div>';
+    if (!team) return '<div class="admin-detail__placeholder"><span class="admin-empty-state__mark" aria-hidden="true">✦</span><h2>Выберите команду</h2><p>Здесь появятся заявка, состав и портфолио команды.</p></div>';
     const current = workflowPresentation(team, workflowMeta);
     const pending = pendingForTeam(team);
     const approvedAchievements = (team.achievements || []).filter((item) => item.status === 'approved').length;
-    const video = team.videoCard || { url: '', status: 'none', criteriaScores: {} };
-    const scores = video.criteriaScores || {};
-    const videoScore = Object.values(scores).reduce((total, value) => total + Number(value || 0), 0);
 
     const memberReviewsContent = team.members?.length ? [...team.members].sort((a, b) => Number(b.id === team.captainId) - Number(a.id === team.captainId)).map((member) => {
       const identityStatus = member.identityStatus || 'pending';
@@ -277,17 +284,6 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       </article>`;
     }).join('') : '<p class="admin-empty">Команда ещё не добавила достижений.</p>';
 
-    const videoBlock = video.url ? `<div class="admin-team-video__head"><div><p class="admin-card-kicker">Видеовизитка</p><h3>Материал команды</h3><a class="admin-inline-link" href="${esc(video.url)}" target="_blank" rel="noopener">Открыть ссылку на видео ↗</a></div><span class="admin-status ${video.status === 'approved' ? 'admin-status--ready' : video.status === 'rejected' ? 'admin-status--danger' : 'admin-status--pending'}">${esc(statusLabel[video.status] || 'На проверке')}</span></div>
-      <div class="admin-score-grid">
-        <label class="admin-score-field"><span>Содержание · 8</span><input class="admin-control" data-video-score="topic" data-team-id="${esc(team.id)}" type="number" min="0" max="8" value="${scores.topic ?? 0}"></label>
-        <label class="admin-score-field"><span>Креативность · 8</span><input class="admin-control" data-video-score="creativity" data-team-id="${esc(team.id)}" type="number" min="0" max="8" value="${scores.creativity ?? 0}"></label>
-        <label class="admin-score-field"><span>Качество · 5</span><input class="admin-control" data-video-score="quality" data-team-id="${esc(team.id)}" type="number" min="0" max="5" value="${scores.quality ?? 0}"></label>
-        <label class="admin-score-field"><span>Эффекты · 2</span><input class="admin-control" data-video-score="vfx" data-team-id="${esc(team.id)}" type="number" min="0" max="2" value="${scores.vfx ?? 0}"></label>
-      </div>
-      <label class="admin-field admin-video-card__comment"><span>Комментарий команде</span><textarea class="admin-control admin-control--roomy" data-video-comment="${esc(team.id)}" rows="3" placeholder="Что нужно учесть при доработке">${esc(video.reviewComment || '')}</textarea></label>
-      <div class="admin-video-card__actions"><button class="admin-button admin-button--primary" type="button" data-save-video="${esc(team.id)}">Принять и сохранить · ${videoScore} / 23</button><button class="admin-button admin-button--secondary" type="button" data-reject-video="${esc(team.id)}">Вернуть на уточнение</button></div>
-      ${video.score != null ? `<div class="admin-video-card__score"><strong>${video.score} / 23</strong><span>Итоговая оценка сохранена</span></div>` : ''}` : '<p class="admin-empty">Видеовизитка ещё не отправлена капитаном.</p>';
-
     return `<div class="admin-detail__topbar"><button class="admin-team-back" type="button" data-team-back>← Все команды</button><span>Управление командой</span></div>
     <section class="admin-surface admin-team-head-card">
       <header class="admin-team-head">
@@ -297,7 +293,6 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       <div class="admin-team-stats">
         <div class="admin-team-stat"><span>Состав</span><strong class="is-accent">${team.quota?.members || 0} / ${team.quota?.total || 0}</strong><small>${team.quota?.eligible ? 'Минимум набран' : `Нужно ещё ${Math.max(0, (team.quota?.required || 0) - (team.quota?.members || 0))}`}</small></div>
         <div class="admin-team-stat"><span>Достижения</span><strong class="is-accent">${approvedAchievements} / ${team.achievements?.length || 0}</strong><small>${pending.achievements} на проверке</small></div>
-        <div class="admin-team-stat"><span>Видео</span><strong class="is-accent">${video.status === 'approved' ? `${video.score || 0} / 23` : (statusLabel[video.status] || 'Не отправлено')}</strong><small>${pending.video ? 'Ожидает решения' : 'Статус материала'}</small></div>
         <div class="admin-team-stat"><span>Капитан</span><strong class="is-accent">${esc(team.captain?.fio || 'не назначен')}</strong><small>${esc(team.captain?.phone || 'телефон не указан')}</small></div>
       </div>
     </section>
@@ -305,7 +300,6 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
     ${renderTeamProfileReview(team)}
     <section class="admin-surface admin-team-section" aria-labelledby="team-members-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Состав и документы</p><h3 id="team-members-title">Участники команды</h3></div><span class="admin-section-heading__count">${team.members?.length || 0}</span></div>${memberReviewForm}</section>
     <section class="admin-surface admin-team-section" aria-labelledby="team-achievements-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Портфолио команды</p><h3 id="team-achievements-title">Достижения</h3></div><span class="admin-section-heading__actions"><span class="admin-section-heading__count">${team.achievements?.length || 0}</span><button class="admin-text-button" type="button" data-open-achievements-team="${esc(team.id)}">Учёт достижений →</button></span></div><div class="admin-team-achievements-review">${achievementReviews}</div></section>
-    <section class="admin-surface admin-team-section" aria-labelledby="team-video-title"><div class="admin-section-heading"><div><p class="admin-eyebrow">Материал команды</p><h3 id="team-video-title">Видеовизитка</h3></div><span class="admin-section-heading__count">${video.status === 'pending' ? '1' : '0'}</span></div><div class="admin-team-video">${videoBlock}</div></section>
     <label class="admin-toggle admin-team-quota"><input type="checkbox" data-team-quota="${esc(team.id)}"${team.isQuotaConfirmed ? ' checked' : ''}><span><strong>Квота состава проверена вручную</strong><small>Отметка оргкомитета для этой заявки.</small></span></label>`;
   }
 
@@ -440,11 +434,12 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
   /* ---------- Настройки и контент ---------- */
   function renderSettings() {
     const settings = state?.settings || {};
-    ['registrationStart', 'registrationDeadline', 'portfolioStart', 'portfolioDeadline', 'videoStart', 'videoDeadline', 'resultsStart', 'resultsDeadline'].forEach((key) => {
+    ['registrationStart', 'registrationDeadline', 'portfolioStart', 'portfolioDeadline', 'resultsStart', 'resultsDeadline'].forEach((key) => {
       const input = $(`${key}Input`);
       if (input) input.value = localDateValue(settings[key]);
     });
-    if ($('regIsOpenCheckbox')) $('regIsOpenCheckbox').checked = settings.isRegistrationOpen !== false;
+    if ($('regIsOpenCheckbox')) $('regIsOpenCheckbox').checked = settings.isRegistrationOpen === true;
+    if ($('profileAccessOpenCheckbox')) $('profileAccessOpenCheckbox').checked = settings.isProfileAccessOpen === true;
     updateCounters();
 
     document.querySelectorAll('[data-phase-card]').forEach((card) => {
@@ -452,7 +447,7 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       const chip = card.querySelector('[data-phase-status]');
       if (!phase || !chip) return;
       let phaseKey = phaseState(settings, phase.start, phase.end);
-      if (phase.key === 'registration' && phaseKey === 'active' && settings.isRegistrationOpen === false) phaseKey = 'closed';
+      if (phase.key === 'registration' && phaseKey === 'active' && (settings.isRegistrationOpen !== true || settings.isProfileAccessOpen !== true)) phaseKey = 'closed';
       const meta = { active: ['active', 'Идёт'], done: ['done', 'Завершён'], upcoming: ['upcoming', 'Скоро'], none: ['none', 'Не задан'], closed: ['upcoming', 'Закрыт вручную'] }[phaseKey];
       chip.className = `admin-phase-chip admin-phase-chip--${meta[0]}`;
       chip.textContent = meta[1];
@@ -521,7 +516,7 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
       const summary = state.summary || {};
       if ($('navTeamsCount')) $('navTeamsCount').textContent = summary.teams || 0;
       if ($('navUsersCount')) $('navUsersCount').textContent = summary.users || 0;
-      const queueTotal = Number(summary.pendingIdentity || 0) + Number(summary.pendingAchievements || 0) + Number(summary.pendingVideos || 0);
+      const queueTotal = Number(summary.pendingIdentity || 0) + Number(summary.pendingAchievements || 0);
       if ($('navQueueCount')) {
         $('navQueueCount').textContent = queueTotal;
         $('navQueueCount').hidden = queueTotal === 0;
@@ -573,13 +568,14 @@ import { renderAchievementDetail as renderAchievementDetailCard, renderTeamProfi
     $, adminApi, busy, run, showError, showToast, refreshAdmin,
     renderTargetSuboptions, updateCounters, syncReviewCommentVisibility,
     getSelectedTeamId: () => selectedTeamId,
+    getSettings: () => state?.settings || {},
   });
 
   bindAdminEvents({
     $, adminApi, applyHash, closeSidebar, filters, goToView, initAdmin,
     loadMoreCollection, openSidebar, refreshAdmin, renderAchievements,
     renderTeams, renderTargetSuboptions, renderUsers, reviewAchievement: actions.reviewAchievement,
-    reviewVideo: actions.reviewVideo, run, saveSettings: actions.saveSettings, selectAchievement, selectTeam, selectUser,
+    run, saveSettings: actions.saveSettings, toggleRegistration: actions.toggleRegistration, selectAchievement, selectTeam, selectUser,
     selected: {
       get team() { return selectedTeamId; },
       set team(value) { selectedTeamId = value; },

@@ -11,6 +11,5 @@ export const cabinetApi = {
   session: (...args) => store().session(...args),
   updateProfile: (...args) => store().updateProfile(...args),
   updateTeam: (...args) => store().updateTeam(...args),
-  updateVideo: (...args) => store().updateVideo(...args),
   upload: (...args) => store().upload(...args)
 };

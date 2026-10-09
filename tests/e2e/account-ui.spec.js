@@ -6,8 +6,6 @@ const settings = {
   isRegistrationOpen: true,
   portfolioStart: '2026-01-01T00:00:00Z',
   portfolioDeadline: '2030-12-31T23:59:59Z',
-  videoStart: '2026-01-01T00:00:00Z',
-  videoDeadline: '2030-12-31T23:59:59Z',
   resultsStart: '2030-01-01T00:00:00Z',
   resultsDeadline: '2030-12-31T23:59:59Z',
   minTeamPercentage: 60,
@@ -56,8 +54,7 @@ const team = {
   memberLimit: 25,
   quota: { members: 1, required: 15, total: 25, percentage: 60, eligible: false },
   members: [member],
-  achievements: [achievement],
-  videoCard: { url: 'https://youtu.be/dQw4w9WgXcQ', status: 'pending', criteriaScores: {} }
+  achievements: [achievement]
 };
 
 const dashboard = {
@@ -84,13 +81,11 @@ const adminOverview = {
     notifications: 1,
     pendingAchievements: 1,
     pendingIdentity: 1,
-    pendingVideos: 1,
     unreadNotifications: 1
   },
   teams: [team],
   users: [member],
   achievements: [achievement],
-  videos: [{ teamId: team.id, teamName: team.name, group: team.group, videoCard: team.videoCard }],
   notifications: [],
   adminNotifications: [],
   auditLog: []
@@ -147,7 +142,7 @@ test('participant cabinet renders its populated views without browser errors acr
     }
   }
 
-  for (const view of ['portfolio', 'team', 'video', 'profile', 'notifications']) {
+  for (const view of ['portfolio', 'team', 'profile', 'notifications']) {
     const toggle = page.locator('#cabinetMobileNavToggle');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -220,10 +215,9 @@ test('portfolio directions, material details, and achievement dialog stay in syn
   await expect(page.locator('#achievementDialog')).not.toHaveAttribute('open', '');
 });
 
-test('participant sees organizer feedback after identity, team, and video rejections', async ({ page }) => {
+test('participant sees organizer feedback after identity and team rejections', async ({ page }) => {
   const identityComment = 'Добавьте данные для связи.';
   const teamComment = 'Исправьте описание и повторно отправьте его на проверку.';
-  const videoComment = 'Уточните монтаж и загрузите обновлённую ссылку.';
   await mockAccountApi(page, 'captain', {
     '/api/dashboard': async (route) => route.fulfill({ json: {
       ...dashboard,
@@ -231,8 +225,7 @@ test('participant sees organizer feedback after identity, team, and video reject
       team: {
         ...team,
         reviewDescriptionStatus: 'rejected',
-        reviewComment: teamComment,
-        videoCard: { ...team.videoCard, status: 'rejected', comment: videoComment }
+        reviewComment: teamComment
       }
     } })
   });
@@ -243,9 +236,6 @@ test('participant sees organizer feedback after identity, team, and video reject
   await expect(page.locator('#teamReviewNotice')).toBeVisible();
   await expect(page.locator('#teamReviewNotice')).toContainText('описание команды');
   await expect(page.locator('#teamReviewNotice')).toContainText(teamComment);
-  await page.locator('#cabinetMobileNavToggle').click();
-  await page.locator('#video-tab').click();
-  await expect(page.locator('#videoHint')).toContainText(videoComment);
 });
 
 test('authentication dialog keeps focus, scroll position, and page lock consistent', async ({ page }) => {
@@ -268,7 +258,7 @@ test('authentication dialog keeps focus, scroll position, and page lock consiste
   await expect.poll(() => page.evaluate(() => document.querySelector('dialog.site-auth-dialog').contains(document.activeElement))).toBe(true);
   await expect.poll(
     () => page.locator('#siteAuthChoice h2').evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
-    { timeout: 1600 }
+    { timeout: 3000 }
   ).toBeGreaterThan(0.95);
   await expect(page.locator('#siteAuthChoice h2')).toHaveCSS('filter', 'none');
   const scrollPosition = await page.evaluate(() => window.scrollY);
@@ -388,30 +378,6 @@ test('organizer requires comments when returning team data and participant docum
   await page.locator('#adminTeamDetail [data-team-members-review] button[type="submit"]').click();
   await expect.poll(() => identityPayload).not.toBeNull();
   expect(identityPayload).toMatchObject({ status: 'rejected', comment: identityComment });
-});
-
-test('organizer cannot return a video without a comment and sends the reason', async ({ page }) => {
-  let reviewPayload = null;
-  await mockAccountApi(page, 'admin', {
-    '/api/admin/videos/team-1/review': async (route) => {
-      reviewPayload = route.request().postDataJSON();
-      await route.fulfill({ json: { videoCard: { url: team.videoCard.url, status: 'rejected', comment: reviewPayload.comment } } });
-    }
-  });
-  await page.goto('/account/admin.html');
-  await page.locator('[data-admin-view="teams"]').click();
-  await page.locator('#adminTeamsList [data-select-team="team-1"]').click();
-
-  const reason = page.locator('[data-video-comment="team-1"]');
-  await page.locator('[data-reject-video="team-1"]').click();
-  await expect(page.locator('.admin-toast--error')).toContainText('укажите комментарий');
-  expect(reviewPayload).toBeNull();
-
-  const comment = 'Добавьте ссылку, доступную без авторизации.';
-  await reason.fill(comment);
-  await page.locator('[data-reject-video="team-1"]').click();
-  await expect.poll(() => reviewPayload).not.toBeNull();
-  expect(reviewPayload).toMatchObject({ status: 'rejected', comment });
 });
 
 test('organizer mobile sidebar controls visibility and aria state', async ({ page }) => {

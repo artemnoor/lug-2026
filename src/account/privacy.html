@@ -20,7 +20,7 @@
       type="image/svg+xml"
     />
     <link rel="stylesheet" href="css/style.css?v=20260824-07" />
-    <link rel="stylesheet" href="css/platform.css?v=20260824-21" />
+    <link rel="stylesheet" href="css/platform.css?v=20261009-2" />
     <link rel="stylesheet" href="css/privacy.css?v=20260824-01" />
   </head>
   <body class="privacy-page">
@@ -41,7 +41,7 @@
         <a href="/#history">История</a>
         <a href="/#cta">Участие</a>
       </nav>
-      <a class="site-nav__account" href="/?action=choice">Личный кабинет</a>
+      <a class="site-nav__account" id="privacyAccountLink" href="/?action=choice" hidden>Личный кабинет</a>
     </header>
 
     <main id="main-content" class="privacy-shell">
@@ -134,7 +134,7 @@
                   проверить принадлежность к учебной группе и допуск к конкурсу;
                 </li>
                 <li>
-                  сформировать команду, принять достижения и видеовизитку;
+                  сформировать команду и принять достижения;
                 </li>
                 <li>
                   провести проверку материалов и сообщить решения оргкомитета;
@@ -180,7 +180,7 @@
                       файлы;
                     </li>
                     <li>
-                      описания достижений, ссылки на видео и материалы команды;
+                      описания достижений и материалы команды;
                     </li>
                     <li>
                       комментарии, статусы и результаты проверки оргкомитета;
@@ -219,8 +219,8 @@
               </p>
               <p class="privacy-callout privacy-callout--small">
                 <strong>Важно:</strong> эта отметка не является согласием на
-                распространение данных. Публикация ФИО, фотографий, видео или
-                иных сведений для неограниченного круга лиц потребует отдельного
+                распространение данных. Публикация ФИО, фотографий или иных
+                сведений для неограниченного круга лиц потребует отдельного
                 согласия.
               </p>
             </div>
@@ -324,5 +324,20 @@
         </article>
       </div>
     </main>
+    <script>
+      fetch('/api/config', { credentials: 'same-origin' })
+        .then((response) => response.ok ? response.json() : Promise.reject())
+        .then(({ settings = {} }) => {
+          const link = document.getElementById('privacyAccountLink');
+          if (!link || settings.isProfileAccessOpen !== true) return;
+          const registrationActive = settings.isRegistrationOpen === true
+            && Date.now() >= new Date(settings.registrationStart).getTime()
+            && Date.now() <= new Date(settings.registrationDeadline).getTime();
+          link.href = registrationActive ? '/?action=register' : '/?action=login';
+          link.textContent = registrationActive ? 'Добавить профиль' : 'Личный кабинет';
+          link.hidden = false;
+        })
+        .catch(() => {});
+    </script>
   </body>
 </html>

@@ -65,7 +65,10 @@ body.is-auth-dialog-open{ inset: 0; position: fixed; width: 100%; }
 .site-auth-dialog h2{ color: #fff; font-size: clamp(31px,4.5vw,46px); letter-spacing: -.055em; line-height: .92; margin: 13px 0 14px; max-width: none; text-transform: uppercase; }
 .site-auth-dialog__lead{ color: rgba(242,255,246,.8); font-size: 15px; line-height: 1.45; margin: 0; max-width: 43ch; }
 .site-auth-dialog__choice-actions{ display: grid; gap: 0; grid-template-columns: 1fr 1fr; margin: 32px 0 23px; width: min(100%,500px); }
+.site-auth-dialog__choice-actions:has(.site-auth-dialog__choice-action[hidden]){ grid-template-columns: 1fr; }
+.site-auth-dialog__choice-actions:has(.site-auth-dialog__choice-action[hidden]) .site-auth-dialog__choice-action:not([hidden]){ justify-self: center; width: min(100%,350px); }
 .site-auth-dialog__choice-action{ display: grid; gap: 10px; padding: 0 24px; }
+.site-auth-dialog__choice-action[hidden]{ display: none !important; }
 .site-auth-dialog__choice-action + .site-auth-dialog__choice-action{ border-left: 1px solid rgba(221,244,246,.3); }
 .site-auth-dialog__choice-action p{ color: #fff; font-size: 15px; font-weight: 700; margin: 0; }
 .site-auth-dialog__choice-action button,.site-auth-dialog__choice-action a{ align-items: center; background: #347A4A; border: 1px solid #347A4A; border-radius: 10px; color: var(--ink-black); cursor: pointer; display: flex; font: 800 14px var(--font-body); justify-content: center; min-height: 46px; padding: 10px 12px; text-decoration: none; transition: background .16s ease,border-color .16s ease,transform .16s ease; }

@@ -1,10 +1,37 @@
 export function bindCabinetEvents({
   $, $$, getState, getDirection, setDirection, clearSelection,
   setMobileNavOpen, getCompactNavToggle, updateMobileNavLabel, switchView,
-  renderPortfolioSummary, saveAchievement, refresh, setVideoFeedback,
-  setVideoUrlState, cabinetApi,
+  renderPortfolioSummary, saveAchievement, refresh, cabinetApi,
 }) {
   const state = () => getState();
+  let teamFlagPreviewUrl = null;
+  const revokeTeamFlagPreview = () => {
+    if (teamFlagPreviewUrl) URL.revokeObjectURL(teamFlagPreviewUrl);
+    teamFlagPreviewUrl = null;
+  };
+  const setTeamFlagStatus = (message, status = 'info') => {
+    const element = $('#teamFlagStatus');
+    if (!element) return;
+    element.textContent = message;
+    element.hidden = !message;
+    element.dataset.state = status;
+  };
+  const restoreTeamFlagPreview = () => {
+    const team = state()?.team;
+    const preview = $('#teamFlagPreview');
+    const empty = $('#teamFlagEmpty');
+    if (team?.flagUrl) {
+      preview.src = team.flagUrl;
+      preview.hidden = false;
+      empty.hidden = true;
+    } else {
+      preview.removeAttribute('src');
+      preview.hidden = true;
+      empty.hidden = false;
+    }
+    const chooseLabel = $('#teamFlagChooseLabel');
+    if (chooseLabel) chooseLabel.textContent = team?.flagUrl ? 'Выбрать другое изображение' : 'Выбрать изображение';
+  };
 
   const mobileNavToggles = $$('.cabinet-mobile-nav-toggle');
   const mobileNavPanel = $('#cabinetMobileNavPanel');
@@ -161,42 +188,60 @@ export function bindCabinetEvents({
   $('#saveTeam').addEventListener('click', async () => {
     try { await cabinetApi.updateTeam({ description: $('#teamDescription').value }); await refresh(); } catch (error) { alert(error.message); }
   });
-  $('#teamFlagInput').addEventListener('change', async () => {
-    const file = $('#teamFlagInput').files?.[0];
-    if (!file) return;
+  $('#teamFlagInput').addEventListener('change', () => {
+    const input = $('#teamFlagInput');
+    const file = input.files?.[0];
+    const saveButton = $('#saveTeamFlag');
+    revokeTeamFlagPreview();
+    if (!file) {
+      if (saveButton) saveButton.disabled = true;
+      restoreTeamFlagPreview();
+      setTeamFlagStatus('');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      input.value = '';
+      if (saveButton) saveButton.disabled = true;
+      restoreTeamFlagPreview();
+      setTeamFlagStatus('Выберите файл изображения.', 'error');
+      return;
+    }
+    teamFlagPreviewUrl = URL.createObjectURL(file);
+    const preview = $('#teamFlagPreview');
+    preview.src = teamFlagPreviewUrl;
+    preview.hidden = false;
+    $('#teamFlagEmpty').hidden = true;
+    $('#teamFlagChooseLabel').textContent = 'Выбрать другое изображение';
+    if (saveButton) saveButton.disabled = input.disabled;
+    setTeamFlagStatus('Предпросмотр готов. Нажмите «Сохранить флаг», чтобы применить его к команде.');
+  });
+  $('#saveTeamFlag').addEventListener('click', async () => {
+    const input = $('#teamFlagInput');
+    const file = input.files?.[0];
+    const button = $('#saveTeamFlag');
+    if (!file || input.disabled) return;
+    let persisted = false;
+    button.disabled = true;
+    button.textContent = 'Сохраняем…';
+    setTeamFlagStatus('Загружаем изображение и сохраняем изменения…');
     try {
       const uploaded = await cabinetApi.upload(file);
       await cabinetApi.updateTeam({ flagUrl: uploaded.url });
+      persisted = true;
+      input.value = '';
+      revokeTeamFlagPreview();
       await refresh();
-    } catch (error) { alert(error.message); }
-  });
-  $('#videoUrl').addEventListener('input', () => setVideoUrlState($('#videoUrl').value));
-  $('#videoUrl').addEventListener('blur', () => setVideoUrlState($('#videoUrl').value, { showInvalid: true }));
-  $('#videoFile').addEventListener('change', () => {
-    const file = $('#videoFile').files?.[0];
-    if (file && file.size > 50 * 1024 * 1024) {
-      $('#videoFile').value = '';
-      setVideoFeedback('Видео не должно превышать 50 МБ.', 'error');
-    } else if (file) setVideoFeedback(`Выбран файл: ${file.name}`, 'success');
-  });
-  $('#videoForm').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const input = $('#videoUrl');
-    const file = $('#videoFile').files?.[0];
-    const parsed = setVideoUrlState(input.value, { showInvalid: true });
-    if (!parsed.valid && !file) return;
-    if (file && file.size > 50 * 1024 * 1024) { setVideoFeedback('Видео не должно превышать 50 МБ.', 'error'); return; }
-    const button = $('#videoForm button[type="submit"]');
-    button.disabled = true;
-    button.classList.add('is-loading');
-    try {
-      await cabinetApi.updateVideo({ url: file ? '' : parsed.url, file });
-      await refresh();
+      setTeamFlagStatus('Флаг сохранён и отправлен на проверку оргкомитету.', 'saved');
     } catch (error) {
-      setVideoFeedback(error.message, 'error');
+      setTeamFlagStatus(
+        persisted
+          ? 'Флаг сохранён. Не удалось обновить кабинет; перезагрузите страницу, чтобы увидеть результат.'
+          : error.message,
+        persisted ? 'saved' : 'error'
+      );
     } finally {
-      button.disabled = state().user.role !== 'captain';
-      button.classList.remove('is-loading');
+      button.textContent = 'Сохранить флаг';
+      button.disabled = !input.files?.[0] || input.disabled;
     }
   });
   $('#profileForm').addEventListener('submit', async (event) => {

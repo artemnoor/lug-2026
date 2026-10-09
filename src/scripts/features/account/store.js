@@ -6,7 +6,6 @@
     CAPTAIN_REQUIRED: 'Это действие доступно только капитану команды.',
     REGISTRATION_CLOSED: 'Редактирование команды сейчас закрыто.',
     PORTFOLIO_CLOSED: 'Период подачи достижений сейчас закрыт.',
-    VIDEO_CLOSED: 'Период подачи видео сейчас закрыт.',
     UPLOAD_NOT_OWNED: 'Сначала загрузите файл через форму.',
     ACHIEVEMENT_FIELDS_INVALID: 'Заполните обязательные поля достижения и прикрепите документ.',
     TEAM_DESCRIPTION_TOO_LONG: 'Описание команды слишком длинное.',
@@ -71,11 +70,13 @@
   function normalizeTeam(team) {
     if (!team) return team;
     const members = (team.members || []).map((member) => normalizeUser(member, team.group));
-    return {
+    const normalized = {
       ...team,
       members,
       captain: members.find((member) => member.id === team.captainId) || null
     };
+    delete normalized.videoCard;
+    return normalized;
   }
 
   function normalizeDashboard(payload) {
@@ -98,19 +99,17 @@
     const teamsById = new Map(teams.map((team) => [team.id, team]));
     const users = (payload.users || []).map((user) => normalizeUser(user, teamsById.get(user.teamId)?.group || ''));
     const usersById = new Map(users.map((user) => [user.id, user]));
-    return {
+    const normalized = {
       ...payload,
       teams,
       users,
       achievements: (payload.achievements || []).map((item) => ({
         ...item,
         user: item.user ? (usersById.get(item.user.id) || normalizeUser(item.user, teamsById.get(item.user.teamId)?.group || '')) : item.user
-      })),
-      videos: (payload.videos || []).map((item) => ({
-        ...item,
-        videoCard: item.videoCard ? { ...item.videoCard, reviewComment: item.videoCard.reviewComment || item.videoCard.comment || '' } : item.videoCard
       }))
     };
+    delete normalized.videos;
+    return normalized;
   }
 
   async function uploadMultipart(file, kind = 'attachment') {
@@ -208,13 +207,6 @@
     deleteAchievement: (id) => request(`/api/achievements/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     updateTeam: (data) => request('/api/team', { method: 'PATCH', body: JSON.stringify(data) }),
     rotateInvite: () => request('/api/team/invite', { method: 'POST', body: '{}' }),
-    updateVideo: async ({ url = '', file } = {}) => {
-      if (file) {
-        const uploaded = await window.lugStore.upload(file, 'video');
-        url = uploaded.url;
-      }
-      return request('/api/team/video', { method: 'PATCH', body: JSON.stringify({ url }) });
-    },
     readNotification: (id) => request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH', body: '{}' }),
     adminOverview: async () => normalizeAdminOverview(await request('/api/admin/overview')),
     adminCollection: (resource, { limit = 100, offset = 0, query = '', status = 'all' } = {}) => {
@@ -227,7 +219,6 @@
     adminRemoveMember: (teamId, userId) => request(`/api/admin/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
     adminReviewIdentity: (userId, status, comment = '') => request(`/api/admin/users/${encodeURIComponent(userId)}/identity`, { method: 'PATCH', body: JSON.stringify({ status, comment }) }),
     adminReviewAchievement: (achievementId, data) => request(`/api/admin/achievements/${encodeURIComponent(achievementId)}/review`, { method: 'PATCH', body: JSON.stringify(data) }),
-    adminReviewVideo: (teamId, data) => request(`/api/admin/videos/${encodeURIComponent(teamId)}/review`, { method: 'PATCH', body: JSON.stringify(data) }),
     adminUpdateSettings: (data) => request('/api/admin/settings', { method: 'PATCH', body: JSON.stringify(data) }),
     adminBroadcast: (data) => request('/api/admin/notifications/broadcast', { method: 'POST', body: JSON.stringify(data) })
   };
